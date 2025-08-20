@@ -1,0 +1,48 @@
+{
+  "schemaVersion": "2.0.0",
+  "info": {
+    "title": "Splunk_App_for_Anomaly_Detection",
+    "id": {
+      "group": null,
+      "name": "Splunk_App_for_Anomaly_Detection",
+      "version": "1.1.2"
+    },
+    "author": [
+      {
+        "name": "Splunk, Inc.",
+        "email": "mlsupport@splunk.com",
+        "company": null
+      }
+    ],
+    "releaseDate": null,
+    "description": "Given a time series, the Splunk App for Anomaly Detection automatically tunes and generates the optimal SPL query for anomaly detection.",
+    "classification": {
+      "intendedAudience": null,
+      "categories": ["Security, Fraud & Compliance", "DevOps"],
+      "developmentStatus": null
+    },
+    "commonInformationModels": null,
+    "license": {
+      "name": "Splunk Software License Agreement",
+      "text": null,
+      "uri": "https://www.splunk.com/en_us/legal/splunk-software-license-agreement.html"
+    },
+    "privacyPolicy": {
+      "name": null,
+      "text": null,
+      "uri": null
+    },
+    "releaseNotes": {
+      "name": null,
+      "text": null,
+      "uri": null
+    }
+  },
+  "tasks": null,
+  "supportedDeployments": [
+    "_standalone"
+  ],
+  "targetWorkloads": [
+    "_search_heads"
+  ]
+}

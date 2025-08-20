@@ -1,0 +1,31 @@
+services:
+  splunk:
+    build:
+      context: ../splunk
+      dockerfile: Dockerfile
+      args:
+        SPLUNK_VERSION: ${SPLUNK_VERSION:-9.2.1}
+    container_name: splunk-dev
+    environment:
+      - SPLUNK_START_ARGS=--accept-license
+      - SPLUNK_PASSWORD=${SPLUNK_PASSWORD:-admin123}
+      - SPLUNKBASE_USERNAME=${SPLUNKBASE_USERNAME:-}
+      - SPLUNKBASE_PASSWORD=${SPLUNKBASE_PASSWORD:-}
+      - SPLUNK_APPS_URL=${SPLUNK_APPS_URL:-}
+      # Reduce noisy Ansible warnings in logs
+      - ANSIBLE_DEPRECATION_WARNINGS=false
+      - ANSIBLE_SYSTEM_WARNINGS=false
+      - ANSIBLE_ACTION_WARNINGS=false
+      - ANSIBLE_PIPELINING=true
+    ports:
+      - "8000:8000"
+      - "8089:8089"
+    volumes:
+      - ${LOCAL_WORKSPACE_FOLDER:-./}/splunk/stage:/tmp/apps
+      - splunk-etc:/opt/splunk/etc
+      - splunk-var:/opt/splunk/var
+    restart: unless-stopped
+
+volumes:
+  splunk-etc:
+  splunk-var:

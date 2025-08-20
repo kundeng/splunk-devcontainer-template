@@ -1,0 +1,31 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "pwa-chrome",
+            "request": "launch",
+            "name": "Debug Splunk App in Chrome",
+            "url": "http://localhost:8000/en-US/app/${input:appName}/",
+            "webRoot": "${workspaceFolder}/workspace/${input:appName}",
+            "runtimeArgs": [
+                "--disable-web-security",
+                "--disable-features=VizDisplayCompositor"
+            ]
+        },
+        {
+            "type": "pwa-chrome", 
+            "request": "launch",
+            "name": "Debug React Dev Server",
+            "url": "http://localhost:3000",
+            "webRoot": "${workspaceFolder}/workspace/${input:appName}/src"
+        }
+    ],
+    "inputs": [
+        {
+            "id": "appName",
+            "description": "Enter the name of your Splunk app",
+            "default": "MyDefaultSplunkApp",
+            "type": "promptString"
+        }
+    ]
+}

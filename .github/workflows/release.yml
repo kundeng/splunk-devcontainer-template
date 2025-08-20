@@ -1,0 +1,78 @@
+name: Release Splunk App
+
+on:
+  push:
+    branches: [main, master]
+    tags:
+      - 'v*'
+  release:
+    types: [published]
+
+jobs:
+  build_and_validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install splunk-appinspect
+          pip install pytest pytest-splunk-addon
+
+      - name: Determine app name and version
+        id: app_info
+        run: |
+          APP_NAME=$(grep -oP 'name\s*=\s*\K[^\s]+' ${{ github.workspace }}/**/default/app.conf | head -1 || echo "unknown")
+          APP_VERSION=$(grep -oP 'version\s*=\s*\K[0-9.]+' ${{ github.workspace }}/**/default/app.conf | head -1 || echo "1.0.0")
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          echo "APP_VERSION=$APP_VERSION" >> $GITHUB_ENV
+          echo "::set-output name=app_name::$APP_NAME"
+          echo "::set-output name=app_version::$APP_VERSION"
+
+      - name: Package app
+        run: |
+          cd ${{ github.workspace }}
+          mkdir -p build
+          tar -czf build/${{ env.APP_NAME }}-${{ env.APP_VERSION }}.tar.gz --exclude=".git" --exclude=".github" --exclude="build" --exclude=".devcontainer" --exclude="tests" --exclude="node_modules" ${{ env.APP_NAME }}
+
+      - name: Validate App with AppInspect
+        run: |
+          splunk-appinspect inspect build/${{ env.APP_NAME }}-${{ env.APP_VERSION }}.tar.gz \
+            --mode precert \
+            --included-tags cloud \
+            --excluded-tags deprecated
+
+      - name: Upload app package as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ env.APP_NAME }}-${{ env.APP_VERSION }}
+          path: build/${{ env.APP_NAME }}-${{ env.APP_VERSION }}.tar.gz
+          retention-days: 7
+
+  publish_to_splunkbase:
+    needs: build_and_validate
+    if: startsWith(github.ref, 'refs/tags/v') || github.event_name == 'release'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download app package
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{ needs.build_and_validate.outputs.app_name }}-${{ needs.build_and_validate.outputs.app_version }}
+          path: build
+
+      - name: Publish to Splunkbase
+        if: ${{ env.SPLUNKBASE_USERNAME != '' && env.SPLUNKBASE_PASSWORD != '' }}
+        run: |
+          echo "Publishing to Splunkbase is configured but requires manual implementation."
+          echo "This would typically involve using the Splunkbase API to upload the app package."
+          # Implementation would go here, using secrets for authentication
+        env:
+          splunkbase_username: ${{ secrets.SPLUNKBASE_USERNAME }}
+          splunkbase_password: ${{ secrets.SPLUNKBASE_PASSWORD }}

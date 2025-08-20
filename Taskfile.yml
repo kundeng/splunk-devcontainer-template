@@ -1,0 +1,348 @@
+version: '3'
+
+vars:
+  PACKAGES_DIR: '/workspace/splunk/packages'
+  ENV_FILE: '.env'
+  COMPOSE_FILE: '.devcontainer/docker-compose.yml'
+  SPLUNK_SERVICE: 'splunk'
+  CONFIG_APPS_DIR: 'splunk/config/apps'
+  STAGE_DIR: 'splunk/stage'
+  SPLUNK_BIN: '/opt/splunk/bin/splunk'
+  REACT_PACKAGES_DIR: 'packages'
+
+tasks:
+  default:
+    cmds:
+      - task help
+    desc: Show help with common actions
+
+  # Splunk Management Tasks (Docker Compose)
+  splunk:build:
+    cmds:
+      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} build {{.SPLUNK_SERVICE}}
+    desc: Build the Splunk image
+  splunk:up:
+    cmds:
+      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} up -d
+    desc: Start Splunk via docker-compose
+    
+  splunk:down:
+    cmds:
+      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} down
+    desc: Stop Splunk and remove containers
+  
+  splunk:clean:
+    cmds:
+      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} down -v
+    desc: Stop Splunk and remove containers and volumes (clean slate)
+    
+  splunk:restart:
+    cmds:
+      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} restart {{.SPLUNK_SERVICE}}
+    desc: Restart Splunk service
+    
+  splunk:status:
+    cmds:
+      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} ps {{.SPLUNK_SERVICE}}
+    desc: Check Splunk container status
+    
+  splunk:logs:
+    cmds:
+      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} logs -f {{.SPLUNK_SERVICE}}
+    desc: Follow Splunk container logs
+    
+  # Legacy commands for backwards compatibility  
+  splunk:start:
+    cmds:
+      - task splunk:up
+    desc: Alias for splunk:up
+
+  splunk:stop:
+    cmds:
+      - task splunk:down
+    desc: Alias for splunk:down
+
+  # App Development Tasks
+  help:
+    cmds:
+      - |
+        echo "\nAvailable tasks (with descriptions):\n";
+        task --list;
+        echo "\nCommon flows:";
+        echo "  Splunk runtime:";
+        echo "    task splunk:build   # build image";
+        echo "    task splunk:up      # start stack";
+        echo "    task splunk:logs    # follow logs";
+        echo "    task splunk:down    # stop";
+        echo "    task splunk:clean   # stop and remove volumes (full reset)";
+        echo "\n  App (local):";
+        echo "    task app:create APP_NAME=<app>                   # scaffold a minimal Splunk app";
+        echo "    task app:package APP_NAME=<app>                  # create splunk/stage/<app>.tgz";
+        echo "    task app:provision APP_NAME=<app>                # stage+install local app(s) after 'up'";
+        echo "\n  React:";
+        echo "    task react:start REACT_PATH=<path>                # run dev server (port 3000)";
+        echo "    task react:build-install REACT_PATH=<path> APP_NAME=<app> [STATIC_SUBDIR=sub]";
+    desc: List available tasks and common flows
+  
+
+  # React Development Tasks
+  react:create:
+    cmds:
+      - |
+        echo "Creating new React app with official Splunk CLI..."
+        cd {{.PACKAGES_DIR}}
+        npx @splunk/create
+        echo "React app created! Next steps:"
+        echo "1. task splunk:up     # Start Splunk runtime"
+        echo "2. task react:start REACT_PATH=<path>     # Start React dev server"
+    desc: Create new React app using official @splunk/create CLI
+
+  
+
+  # Python Development Tasks
+  python:lint:
+    cmds:
+      - |
+        echo "Linting Python code..."
+        cd {{.PACKAGES_DIR}}
+        find . -name "*.py" -not -path "./.*" | head -1 > /dev/null
+        if [ $? -eq 0 ]; then
+          echo "Running flake8..."
+          flake8 . || echo "Install flake8: pip install --user flake8"
+        else
+          echo "No Python files found"
+        fi
+    desc: Lint Python code with flake8
+
+  python:format:
+    cmds:
+      - |
+        echo "Formatting Python code..."
+        cd {{.PACKAGES_DIR}}
+        find . -name "*.py" -not -path "./.*" | head -1 > /dev/null
+        if [ $? -eq 0 ]; then
+          echo "Running isort and black..."
+          isort . || echo "Install isort: pip install --user isort"
+          black . || echo "Install black: pip install --user black"
+        else
+          echo "No Python files found"
+        fi
+    desc: Format Python code with isort and black
+
+  python:test:
+    cmds:
+      - |
+        echo "Running Python tests..."
+        cd {{.PACKAGES_DIR}}
+        if find . -name "test_*.py" -o -name "*_test.py" | head -1 > /dev/null; then
+          pytest || echo "Install pytest: pip install --user pytest"
+        else
+          echo "No Python test files found"
+        fi
+    desc: Run Python tests with pytest
+
+  # Utility Tasks
+  env:setup:
+    cmds:
+      - |
+        if [ ! -f "/workspace/{{.ENV_FILE}}" ]; then
+          if [ -f "/workspace/splunk.env.example" ]; then
+            cp /workspace/splunk.env.example "/workspace/{{.ENV_FILE}}"
+            echo ".env file created from splunk.env.example"
+          else
+            cat > "/workspace/{{.ENV_FILE}}" << EOF
+            SPLUNK_PASSWORD=admin123
+            SPLUNKBASE_USERNAME=
+            SPLUNKBASE_PASSWORD=
+            SPLUNK_APPS_URL=
+            EOF
+            echo ".env file created with default values"
+          fi
+        else
+          echo ".env file already exists"
+        fi
+    desc: Create .env file from splunk.env.example or with default values
+
+  
+
+  # Restart only the Splunk service inside the container (faster than container restart)
+  splunk:restartd:
+    cmds:
+      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} exec {{.SPLUNK_SERVICE}} bash -lc \
+        "{{.SPLUNK_BIN}} restart -auth admin:${SPLUNK_PASSWORD}"
+    desc: Restart splunkd inside the running container
+
+  # One-shot: stage and install local apps after container is up (keeps .env clean)
+  # Usage:
+  #   task app:provision APP_NAME=MyApp                # stages splunk-config-dev and MyApp, installs both
+  #   task app:provision APPS="splunk-config-dev,MyApp,AnotherApp"  # explicit list
+  app:provision:
+    cmds:
+      - |
+        # Load APP_NAME from .env if not provided
+        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
+          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
+        fi
+        APPS="${APPS}"
+        if [ -z "$APPS" ]; then
+          APPS="splunk-config-dev"
+          if [ -n "${APP_NAME}" ]; then
+            APPS="${APPS},${APP_NAME}"
+          fi
+        fi
+        echo "Provisioning local apps: $APPS"
+        IFS=',' read -r -a ARR <<< "$APPS"
+        mkdir -p {{.STAGE_DIR}}
+        # Stage tarballs
+        for APP in "${ARR[@]}"; do
+          SRC_DIR="{{.CONFIG_APPS_DIR}}/${APP}"
+          TAR_PATH="{{.STAGE_DIR}}/${APP}.tgz"
+          if [ ! -d "$SRC_DIR" ]; then
+            echo "WARN: $SRC_DIR not found, skipping"; continue;
+          fi
+          echo "Staging $SRC_DIR -> $TAR_PATH"
+          tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "$APP"
+        done
+        # Install tarballs via CLI on running container
+        for APP in "${ARR[@]}"; do
+          PKG="{{.STAGE_DIR}}/${APP}.tgz"
+          if [ -f "$PKG" ]; then
+            echo "Installing $APP from /tmp/apps/${APP}.tgz"
+            docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} exec {{.SPLUNK_SERVICE}} bash -lc \
+              "{{.SPLUNK_BIN}} install app /tmp/apps/${APP}.tgz -update 1 -auth admin:${SPLUNK_PASSWORD}" || true
+          fi
+        done
+        echo "If Splunk requests a restart, run: task splunk:restartd"
+    desc: Stage and install local app(s) (no need to list them in SPLUNK_APPS_URL)
+
+  # Scaffold a minimal traditional Splunk app under splunk/config/apps/<APP_NAME>
+  app:create:
+    cmds:
+      - |
+        # Load APP_NAME from .env if not provided
+        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
+          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
+        fi
+        if [ -z "${APP_NAME}" ]; then echo "APP_NAME is required"; exit 1; fi
+        APP_DIR="{{.CONFIG_APPS_DIR}}/${APP_NAME}"
+        if [ -d "$APP_DIR" ]; then echo "App already exists: $APP_DIR"; exit 1; fi
+        echo "Creating app skeleton at $APP_DIR ..."
+        mkdir -p "$APP_DIR/default" "$APP_DIR/metadata" "$APP_DIR/appserver/static" "$APP_DIR/bin" "$APP_DIR/README"
+        cat > "$APP_DIR/default/app.conf" << 'EOF'
+        [install]
+        state = enabled
+        is_configured = 0
+
+        [ui]
+        is_visible = 1
+        label = Sample App
+
+        [launcher]
+        author = Your Name
+        version = 1.0.0
+        description = Minimal Splunk app skeleton
+
+        [package]
+        id = sample_app
+        EOF
+        cat > "$APP_DIR/metadata/default.meta" << 'EOF'
+        []
+        access = read : [ * ], write : [ admin, power ]
+        export = system
+        EOF
+        echo "App skeleton created: $APP_DIR"
+    desc: Create a minimal Splunk app at splunk/config/apps/<APP_NAME>
+
+  # Package a local app directory into splunk/stage/<APP_NAME>.tgz
+  app:package:
+    cmds:
+      - |
+        # Load APP_NAME from .env if not provided
+        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
+          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
+        fi
+        if [ -z "${APP_NAME}" ]; then echo "APP_NAME is required"; exit 1; fi
+        SRC_DIR="{{.CONFIG_APPS_DIR}}/${APP_NAME}"
+        DEST_DIR="{{.STAGE_DIR}}"
+        if [ ! -d "$SRC_DIR" ]; then echo "App directory not found: $SRC_DIR"; exit 1; fi
+        mkdir -p "$DEST_DIR"
+        TAR_PATH="$DEST_DIR/${APP_NAME}.tgz"
+        echo "Packaging $SRC_DIR -> $TAR_PATH"
+        tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "${APP_NAME}"
+        echo "Created $TAR_PATH"
+    desc: Package splunk/config/apps/<APP_NAME> into splunk/stage/<APP_NAME>.tgz
+
+  # Internal: warn if REACT_PATH is missing expected scripts
+  __react:ensure-scripts:
+    internal: true
+    cmds:
+      - |
+        if [ -z "${REACT_PATH}" ]; then echo "REACT_PATH is required"; exit 1; fi
+        PKG_JSON="${REACT_PATH}/package.json"
+        if [ ! -f "$PKG_JSON" ]; then
+          echo "WARN: No package.json at $PKG_JSON"; exit 0;
+        fi
+        HAS_START=$(grep -E '"start"\s*:' "$PKG_JSON" || true)
+        HAS_BUILD=$(grep -E '"build"\s*:' "$PKG_JSON" || true)
+        if [ -z "$HAS_START" ]; then echo "WARN: package.json has no 'start' script"; fi
+        if [ -z "$HAS_BUILD" ]; then echo "WARN: package.json has no 'build' script"; fi
+    desc: "[internal] Validate presence of start/build scripts in REACT_PATH/package.json"
+
+  # React: Build assets into a Splunk app, then stage+install the app
+  # Usage examples:
+  #   task react:build-install REACT_PATH=packages/my-react SPA=1 APP_NAME=my_splunk_app
+  #   task react:build-install REACT_PATH=packages/dashboards APP_NAME=my_splunk_app STATIC_SUBDIR=dash
+  react:build-install:
+    cmds:
+      - |
+        # Default APP_NAME from .env if not provided
+        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
+          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
+        fi
+        # Default REACT_PATH from APP_NAME if not provided
+        if [ -z "${REACT_PATH}" ] && [ -n "${APP_NAME}" ]; then
+          if [ -d "{{.REACT_PACKAGES_DIR}}/${APP_NAME}" ]; then
+            REACT_PATH="{{.REACT_PACKAGES_DIR}}/${APP_NAME}"
+          fi
+        fi
+        if [ -z "${REACT_PATH}" ] || [ -z "${APP_NAME}" ]; then
+          echo "REACT_PATH and APP_NAME are required"; exit 1;
+        fi
+        SRC_DIR="${REACT_PATH}"
+        # Sanity check scripts
+        task __react:ensure-scripts REACT_PATH="${SRC_DIR}"
+        APP_DIR="{{.CONFIG_APPS_DIR}}/${APP_NAME}"
+        DEST_ROOT="${APP_DIR}/appserver/static"
+        DEST_DIR="${DEST_ROOT}"
+        if [ -n "${STATIC_SUBDIR}" ]; then
+          DEST_DIR="${DEST_ROOT}/${STATIC_SUBDIR}"
+        fi
+        if [ ! -d "$APP_DIR" ]; then
+          echo "App directory not found: $APP_DIR"; exit 1;
+        fi
+        if [ ! -f "$SRC_DIR/package.json" ]; then
+          echo "No package.json in $SRC_DIR"; exit 1;
+        fi
+        echo "Building React app in $SRC_DIR ..."
+        (cd "$SRC_DIR" && if command -v yarn &> /dev/null && [ -f "yarn.lock" ]; then yarn install && yarn build; else npm install && npm run build; fi)
+        # Determine build output
+        BUILD_DIR="${SRC_DIR}/build"
+        if [ ! -d "$BUILD_DIR" ]; then
+          # Next.js or custom dist
+          if [ -d "${SRC_DIR}/.next" ]; then BUILD_DIR="${SRC_DIR}/.next"; elif [ -d "${SRC_DIR}/dist" ]; then BUILD_DIR="${SRC_DIR}/dist"; fi
+        fi
+        if [ ! -d "$BUILD_DIR" ]; then
+          echo "Could not find build output directory (tried build/, .next/, dist/)"; exit 1;
+        fi
+        echo "Copying build output to $DEST_DIR ..."
+        mkdir -p "$DEST_DIR"
+        rsync -a --delete "$BUILD_DIR"/ "$DEST_DIR"/
+        echo "Packaging ${APP_NAME} ..."
+        TAR_PATH="{{.STAGE_DIR}}/${APP_NAME}.tgz"
+        mkdir -p {{.STAGE_DIR}}
+        tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "${APP_NAME}"
+        echo "Installing ${APP_NAME} into running Splunk ..."
+        docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} exec {{.SPLUNK_SERVICE}} bash -lc \
+          "{{.SPLUNK_BIN}} install app /tmp/apps/${APP_NAME}.tgz -update 1 -auth admin:${SPLUNK_PASSWORD}" || true
+        echo "If Splunk requests a restart, run: task splunk:restartd"
+    desc: Build React app into APP_NAME/appserver/static[/STATIC_SUBDIR], package, and install into running Splunk

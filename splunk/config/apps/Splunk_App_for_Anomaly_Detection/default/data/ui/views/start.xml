@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<view template="Splunk_App_for_Anomaly_Detection:/templates/start.html" type="html">
+	<label>Splunk App for Anomaly Detection</label>
+</view>
