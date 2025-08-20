@@ -96,15 +96,15 @@ dsx_splunk_devtemplate/
 │   ├── docker-compose.yml   # Splunk runtime definition
 │   └── post-create.sh       # Setup script
 ├── .github/workflows/       # CI/CD pipelines
-│   └── release.yml          # AppInspect + release automation
-├── splunk/                  # Splunk development workspace  
-│   ├── packages/            # Single app development (volume mounted)
-│   ├── config/              # Splunk configuration apps (splunk-config-dev, splunk-config)
-│   └── deps/                # Downloaded dependencies
+│   └── release.yml          # Release automation (adjust as needed)
+├── splunk/                  # Splunk development workspace
+│   ├── config/              # Splunk configuration apps (e.g., splunk-config-dev)
+│   │   └── apps/<APP_NAME>/ # Your Splunk app
+│   └── stage/               # Packaged app tarballs (.tgz) staged for install
 ├── .env                     # Environment variables (created from template)
-├── splunk.env.example      # Environment template
-├── Taskfile.yml           # Go Task definitions
-└── README.md              # This file
+├── splunk.env.example       # Environment template
+├── Taskfile.yml             # Go Task definitions
+└── README.md                # This file
 ```
 
 ## Environment Configuration
@@ -144,17 +144,17 @@ APP_NAME=your_app
    - Build and install into Splunk: `task react:build-install`
 
 ### For Traditional Splunk Apps
-1. `task app:create` - Scaffold new app with Yeoman
-2. Develop in `splunk/packages/` (live-mounted, single project)
+1. `task app:create` - Create a minimal Splunk app under `splunk/config/apps/<APP_NAME>`
+2. Develop under `splunk/config/apps/<APP_NAME>`
 3. `task app:package` - Package to `splunk/stage/<APP_NAME>.tgz`
-4. `task app:provision` - Stage+install into running Splunk
+4. `task app:provision` - Stage + install into running Splunk
 
 ## App Installation, Persistence, and Data
 
 - **Local App Tarballs**: Place `.tgz` files under `splunk/stage/` (host). These are mounted to `/tmp/apps` inside the container for install.
 - **Prefer Provisioning**: Use `task app:provision` after `splunk:up` instead of baking apps into the image.
 - **Persistence**: Installed apps and Splunk configuration/data persist in named volumes (`splunk-etc`, `splunk-var`).
-- **Your Project**: Lives in `splunk/packages/` locally; package to `.tgz` in `stage/` when mounting at runtime.
+- **Your Project**: Lives in `splunk/config/apps/<APP_NAME>/` locally; package to `.tgz` into `splunk/stage/`.
 
 ## CI/CD Integration
 
@@ -262,12 +262,7 @@ Build Workflow: Source → Build Process → stage/ → Splunk sees changes
 
 ### Official Splunk CLI Tools: @splunk/create Deep Dive
 
-**What `task react:create` Actually Does**:
-
-```bash
-cd /workspace/splunk/workspace
-npx @splunk/create  # Downloads and runs Splunk's React scaffolding tool
-```
+**What `task react:create` actually does**: Runs the official `@splunk/create` CLI to scaffold a Splunk React app, placing it at your configured `REACT_PATH` (defaults from `APP_NAME`).
 
 **Behind `@splunk/create`**:
 1. **Interactive Setup**:
@@ -299,11 +294,11 @@ npx @splunk/create  # Downloads and runs Splunk's React scaffolding tool
 
 ### Development Server Magic: How Hot Reload Works
 
-**When you run `task js:start`**:
+**When you run `task react:start`**:
 
 ```bash
-# In the generated React app directory:
-npm start  # or yarn start
+# In the generated React app directory (handled by the task):
+npm start  # or: yarn start
 ```
 
 **What Actually Happens**:
@@ -424,7 +419,7 @@ Host .env → docker-compose (`--env-file .env`) → Splunk container env (used 
 - **React Development**: Use official @splunk/create CLI for best experience
 - **Hot Reload**: Splunk's dev server provides instant updates with proper API integration
 - **Official Components**: Use @splunk/react-ui for consistent Splunk look and feel
-- **Production Build**: Always run `task js:build` before packaging for deployment
+- **Production Build**: Use `task react:build-install` to build, copy assets into your Splunk app, and package/install
 - **First Setup**: Container build takes several minutes initially
 - **Splunk Access**: Always available at http://localhost:8000 when running
 - **Local Tarballs**: Put `.tgz` in `splunk/stage/` and reference via `/tmp/apps/foo.tgz` in `SPLUNK_APPS_URL`
@@ -449,7 +444,7 @@ Sometimes you may want to target only one app directory when running packaging/v
 - Speed up validation cycles when multiple components/subdirs exist
 - Align with CI where the app name may be known ahead of time
 
-If `APP_NAME` is not set, tasks operate on all app-like directories under `splunk/packages/` (in this template, that resolves to your single app).
+If `APP_NAME` is not set, tasks use the default from `.env` or infer from the current app directory name.
 **Dev container issues**: Rebuild container via Command Palette
 
 ## License
