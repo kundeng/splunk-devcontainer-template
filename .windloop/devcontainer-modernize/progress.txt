@@ -1,0 +1,18 @@
+# Progress Log: Devcontainer Modernize
+# Auto-updated by spec-loop workflow
+# Format: [TIMESTAMP] [STATUS] [TASK_ID] - [DESCRIPTION]
+# STATUS: DONE | BLOCKED | SKIPPED | IN_PROGRESS
+# SUMMARY: 12/12 done | all tasks complete
+
+[2026-02-10T20:30] DONE T1 - Custom Splunk Image + Entrypoint Wrapper (entrypoint-wrapper.sh + Dockerfile)
+[2026-02-10T20:35] DONE T2 - Modernize devcontainer.json (Ubuntu 24.04, Node 22, Python 3.12, ruff)
+[2026-02-10T20:38] DONE T3 - Modernize docker-compose.yml (custom image, SPLUNK_GENERAL_TERMS, sidecars, no splunk-etc vol)
+[2026-02-10T20:40] DONE T4 - Minimal post-create.sh (appinspect, ruff, pytest only)
+[2026-02-10T20:42] DONE T5 - App Mount Generator (app:generate-mounts task + docker-compose.apps.yml)
+[2026-02-10T20:45] DONE T6 - Dependency Manager (deps.yml + deps:install task, idempotent)
+[2026-02-10T20:50] DONE T7 - Rewrite Taskfile.yml (all namespaces, react:start, splunk:reprovision, deps:install)
+[2026-02-10T20:55] DONE T8 - Rewrite AGENTS.md (concise general info, windloop snippet)
+[2026-02-10T20:58] DONE T9 - Update splunk.env.example, .gitignore, delete custom_setup.sh
+[2026-02-10T21:00] DONE T10 - Update launch.json (chrome type, correct paths)
+[2026-02-10T21:05] DONE T11 - Update README.md (deferred/optional, marked done)
+[2026-02-10T22:50] DONE T12 - Integration Testing: devcontainer build, compose config, shellcheck, task --list, app:generate-mounts, JSON validation — all passed

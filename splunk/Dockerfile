@@ -1,17 +1,23 @@
-ARG SPLUNK_VERSION=9.2.1
+ARG SPLUNK_VERSION=9.4.0
 
 #####################################################################
-# MINIMAL IMAGE - defer app installation to compose/.env
+# Custom Splunk image with skip-provision entrypoint wrapper
+#
+# On first start: delegates to stock entrypoint (full Ansible provision)
+# On restart:     skips Ansible, starts splunkd directly (~15s vs 90s)
+# Force reprovision: set FORCE_PROVISION=true or remove marker
 #####################################################################
 FROM splunk/splunk:${SPLUNK_VERSION}
 
-# Install ACLs so Ansible can avoid world-readable temporary files
 USER root
-# splunk/splunk base uses Red Hat UBI (microdnf). Install via microdnf and clean up.
-RUN microdnf install -y acl \
-    && microdnf clean all
 
-# Use the default entrypoint from the base image; run as ansible user
+# ACLs suppress Ansible world-readable temp file warnings
+RUN microdnf install -y acl && microdnf clean all
+
+# Entrypoint wrapper: skip Ansible on subsequent starts
+COPY entrypoint-wrapper.sh /sbin/entrypoint-wrapper.sh
+RUN chmod 755 /sbin/entrypoint-wrapper.sh
+
 USER ansible
-ENTRYPOINT ["/sbin/entrypoint.sh"]
+ENTRYPOINT ["/sbin/entrypoint-wrapper.sh"]
 CMD ["start-service"]

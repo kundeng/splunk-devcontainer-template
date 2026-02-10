@@ -1,0 +1,20 @@
+# Splunkbase app dependencies — installed idempotently via: task deps:install
+#
+# Supported formats:
+#   splunkbase_id + version  → downloads from Splunkbase API (requires creds in .env)
+#   url                      → downloads directly from URL
+#
+# Dependencies are installed into the running Splunk container.
+# They persist in the splunk-var volume across restarts.
+
+dependencies:
+  # - name: python_for_scientific_computing
+  #   splunkbase_id: 2882
+  #   version: "4.2.3"
+
+  # - name: Splunk_ML_Toolkit
+  #   splunkbase_id: 2890
+  #   version: "5.6.1"
+
+  # - name: custom_app_from_url
+  #   url: "https://example.com/my-app-1.0.tgz"
