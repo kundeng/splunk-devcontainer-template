@@ -1,0 +1,47 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read APP_NAME from .env
+        id: env
+        run: |
+          APP_NAME=$(grep -E '^APP_NAME=' .env 2>/dev/null | head -1 | cut -d= -f2- || echo "")
+          if [ -z "$APP_NAME" ]; then
+            echo "::error::APP_NAME not set in .env — cannot build release"
+            exit 1
+          fi
+          APP_DIR="splunk/config/apps/$APP_NAME"
+          if [ ! -d "$APP_DIR" ]; then
+            echo "::error::App directory not found: $APP_DIR"
+            exit 1
+          fi
+          # Read version from app.conf if available
+          APP_VERSION=$(grep -E '^\s*version\s*=' "$APP_DIR/default/app.conf" 2>/dev/null | head -1 | sed 's/.*=\s*//' || echo "0.0.0")
+          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
+          echo "app_dir=$APP_DIR" >> "$GITHUB_OUTPUT"
+          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and inspect app (Splunkbase API)
+        uses: VatsalJagani/splunk-app-action@v5
+        with:
+          app_dir: ${{ steps.env.outputs.app_dir }}
+          splunkbase_username: ${{ secrets.SPLUNKBASE_USERNAME }}
+          splunkbase_password: ${{ secrets.SPLUNKBASE_PASSWORD }}
+
+      - name: Upload release artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.env.outputs.app_name }}-${{ steps.env.outputs.tag }}
+          path: "**/${{ steps.env.outputs.app_name }}*.tgz"
+          retention-days: 90

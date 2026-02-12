@@ -5,8 +5,10 @@ echo "=== Splunk Dev: post-create setup ==="
 
 # ── PATH setup ───────────────────────────────────────────────────────
 mkdir -p "$HOME/.local/bin"
-grep -q '.local/bin' "$HOME/.bashrc" 2>/dev/null || \
+if ! grep -q '.local/bin' "$HOME/.bashrc" 2>/dev/null; then
+  # shellcheck disable=SC2016
   echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.bashrc"
+fi
 export PATH="$HOME/.local/bin:$PATH"
 
 # ── Python dev tools ─────────────────────────────────────────────────
@@ -24,4 +26,8 @@ mkdir -p /workspace/splunk/config/apps
 mkdir -p /workspace/splunk/stage
 mkdir -p /workspace/packages
 
-echo "=== Setup complete. Run 'task' to see available commands. ==="
+# ── Build Splunk image ────────────────────────────────────────────────
+echo "Building Splunk dev image (first time only)..."
+task splunk:build 2>&1 | tail -5 || true
+
+echo "=== Setup complete. Run 'task splunk:up' to start Splunk. ==="

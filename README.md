@@ -20,7 +20,7 @@ A Docker-out-of-Docker development environment for building Splunk applications.
 
 4. **Start Splunk**:
    ```bash
-   task splunk:up     # builds image, generates app mounts, starts stack
+   task splunk:up     # starts Splunk + syncs app symlinks (image already built by post-create)
    ```
 
 5. **Access Splunk Web**: http://localhost:8000 (admin / your password)
@@ -37,94 +37,70 @@ A Docker-out-of-Docker development environment for building Splunk applications.
 │  AppInspect      │     └──────────────────────────┘
 └──────────────────┘               ▲
         │                          │
-        └── splunk/config/apps/ ───┘  (bind-mounted live)
+        └── splunk/config/apps/ ───┘  (bind-mounted + symlinked)
 ```
 
-A custom entrypoint wrapper detects whether Splunk has already been provisioned. On restart it skips Ansible and starts splunkd directly (~15 s vs ~90 s).
+A custom entrypoint wrapper detects whether Splunk has already been provisioned. On restart it skips Ansible and starts splunkd directly (~30s vs ~90s).
 
 ## Project Structure
 
 ```
 .devcontainer/
   devcontainer.json            # Tools-only dev container
-  docker-compose.yml           # Splunk + optional sidecars
-  docker-compose.apps.yml      # Auto-generated app bind mounts (gitignored)
-  post-create.sh               # Minimal tool installation
+  docker-compose.yml           # Dev Splunk (target: dev, bind mounts, port 8000)
+  docker-compose.staging.yml   # Staging Splunk (target: staging, baked apps, port 18000)
+  post-create.sh               # Tool install + Splunk image build
 splunk/
-  Dockerfile                   # Custom Splunk image (stock + entrypoint wrapper)
-  entrypoint-wrapper.sh        # Skip-provision logic for fast restarts
+  Dockerfile                   # Multi-stage: base → dev / staging
+  entrypoint-wrapper.sh        # Skip-provision + auto-discover /tmp/apps/*.tgz for SPLUNK_APPS_URL
   config/
-    apps/                      # Splunk app source directories (multi-app)
-      splunk-config-dev/       # Dev-mode Splunk settings
+    apps/                      # Splunk app source directories (symlinked into Splunk)
+      splunk-config-dev/       # Dev-mode Splunk settings (js_no_cache, enableWebDebug)
     deps.yml                   # Declarative Splunkbase dependency list
   stage/                       # Built tarballs (.tgz) — gitignored
 packages/                      # React/JS source (monorepo-friendly)
 Taskfile.yml                   # All automation
+tests/e2e/                     # E2E test scripts (devcontainer + lifecycle)
 .env                           # Secrets/config — gitignored
 splunk.env.example             # Template for .env
 ```
 
-## Commands
+## Developer Workflow
 
-### Splunk Lifecycle
+### First-Time Setup
 
-```bash
-task splunk:up              # generate mounts + build image + start
-task splunk:down            # stop containers
-task splunk:clean           # stop + remove volumes (full reset)
-task splunk:restartd        # restart splunkd inside container (~10 s)
-task splunk:restart         # restart container (wrapper skips Ansible)
-task splunk:reprovision     # force full Ansible re-provisioning
-task splunk:logs            # follow container logs
-task splunk:status          # check container status
-```
+1. Open repo in VS Code → "Reopen in Container"
+2. `post-create.sh` installs tools and builds the Splunk image
+3. `task splunk:up` → starts Splunk, syncs app symlinks (full Ansible provisioning on first boot, ~50s)
+4. `task deps:install` → install Splunkbase dependencies (SA-VSCode, MLTK, etc.)
 
-### App Development (multi-app)
+### Creating a New App
 
-```bash
-task app:create APP_NAME=x  # scaffold new app at splunk/config/apps/x
-task app:package APP_NAME=x # package to splunk/stage/x.tgz
-task app:provision          # package + install all local apps
-task app:generate-mounts    # regenerate docker-compose.apps.yml
-```
+1. `task app:create APP_NAME=my_app` → scaffolds app, creates symlink, refreshes Splunk (~2-10s, no container recreation)
+2. App is immediately visible in Splunk
+3. Edit `.conf` files → `task splunk:refresh` to reload (~2s, no restart)
 
-### Dependencies (Splunkbase)
+### Creating a React App
 
-```bash
-task deps:install           # install deps from splunk/config/deps.yml (idempotent)
-```
+1. `APP_NAME=my_app task react:create` → scaffolds React app + Splunk app skeleton, syncs symlinks, refreshes Splunk (~2-10s, no container recreation)
+2. `task react:start` → webpack dev server with HMR on :3000
+3. `task react:build-install` → build, copy to `appserver/static/`, install into Splunk
 
-### React UI
+### Daily Dev Loop (fastest → slowest)
 
-```bash
-task react:create           # scaffold with npx @splunk/create
-task react:start            # dev server with HMR (port 3000)
-task react:build-install    # build + copy to app + package + install
-```
+| Change | Command | Time |
+|--------|---------|------|
+| Edit `.conf` / dashboard | `task splunk:refresh` | ~2s |
+| Edit Python code | `task splunk:restartd` | ~10s |
+| New app | `task app:create` (symlink + refresh) | ~2-10s |
+| Dockerfile change | `task splunk:build` then `task splunk:up` | varies |
+| Full reset | `task splunk:clean` then `task splunk:up` | ~90s |
 
-### Python
+### Staging Verification
 
-```bash
-task python:lint            # ruff check
-task python:format          # ruff format
-task python:test            # pytest
-```
-
-## Development Workflows
-
-### Traditional Splunk App
-
-1. `task app:create APP_NAME=my_app` — scaffold under `splunk/config/apps/`
-2. Edit `.conf` files, add scripts, etc.
-3. `task splunk:restartd` — pick up conf changes (~10 s)
-4. `task app:package APP_NAME=my_app` — create tarball for distribution
-
-### React Splunk App
-
-1. `task react:create` — scaffold via `@splunk/create` into `packages/`
-2. `task splunk:up` — start Splunk (port 8000)
-3. `task react:start` — webpack dev server on port 3000 with HMR, proxying to Splunk REST API on :8089
-4. `task react:build-install` — build → copy to `appserver/static/` → package → install
+1. `task app:package APP_NAME=my_app` → package apps into `splunk/stage/`
+2. `task splunk:build-staging` → build staging image with apps baked in
+3. `task splunk:up-staging` → start staging on ports 18000/18089/18088
 
 ### Installing Splunkbase Dependencies
 
@@ -132,7 +108,7 @@ Declare dependencies in `splunk/config/deps.yml`:
 
 ```yaml
 dependencies:
-  - name: python_for_scientific_computing
+  - name: Splunk_SA_Scientific_Python_linux_x86_64
     splunkbase_id: 2882
     version: "4.2.3"
   - name: Splunk_ML_Toolkit
@@ -142,6 +118,60 @@ dependencies:
 
 Then run `task deps:install`. It downloads and installs only what's missing or outdated.
 
+## Commands
+
+### Dev Splunk Lifecycle
+
+```bash
+task splunk:build           # build dev Splunk image (first time / Dockerfile change)
+task splunk:up              # start + sync app symlinks (no rebuild)
+task splunk:refresh         # reload configs + static assets via REST API (~2s)
+task splunk:restartd        # restart splunkd process (~10s)
+task splunk:restart         # restart container (skip-provision ~30s)
+task splunk:reprovision     # force full Ansible re-provisioning
+task splunk:down            # stop container
+task splunk:clean           # stop + remove volumes (full reset)
+task splunk:logs            # follow container logs
+task splunk:status          # check container status
+```
+
+### Staging Splunk
+
+```bash
+task splunk:build-staging   # build staging image (apps baked in from splunk/stage/)
+task splunk:up-staging      # start staging (port 18000)
+task splunk:down-staging    # stop staging container
+task splunk:clean-staging   # stop staging + remove volumes
+task splunk:logs-staging    # follow staging container logs
+```
+
+### App Development
+
+```bash
+task app:create APP_NAME=x  # scaffold + symlink + refresh Splunk (no recreate)
+task app:package APP_NAME=x # package to splunk/stage/x.tgz
+task app:provision          # package + install all local apps
+task app:sync-links         # create/update symlinks in Splunk container
+```
+
+### React UI
+
+```bash
+task react:create           # scaffold with npx @splunk/create + symlink
+task react:start            # dev server with HMR (port 3000)
+task react:build-install    # build + copy to app + package + install
+```
+
+### Python & Testing
+
+```bash
+task python:lint            # ruff check
+task python:format          # ruff format
+task python:test            # pytest
+task test:e2e               # full E2E test (devcontainer + Splunk lifecycle)
+task test:all               # lint + E2E
+```
+
 ## How It Works
 
 ### Skip-Provision Entrypoint
@@ -149,21 +179,46 @@ Then run `task deps:install`. It downloads and installs only what's missing or o
 The custom Splunk image wraps the stock entrypoint:
 
 1. **First start** — no marker → full Ansible provisioning → writes `/opt/splunk/var/.provisioned`
-2. **Subsequent starts** — marker exists → starts splunkd directly, skipping Ansible
+2. **Subsequent starts** — marker exists → starts splunkd directly (~30s vs ~90s)
 3. **Force reprovision** — `task splunk:reprovision` removes marker and restarts
 4. **Clean reset** — `task splunk:clean` removes volumes (including marker)
 
-### App Bind Mounts
+The wrapper also writes the Docker healthcheck state file so `checkstate.sh` passes in skip-provision mode.
 
-`task splunk:up` auto-generates `docker-compose.apps.yml` with a bind mount for every directory in `splunk/config/apps/`. Conf changes require `task splunk:restartd`; static asset changes appear on browser refresh.
+### App Symlink Mounts
+
+The entire `splunk/config/apps/` directory is bind-mounted to `/opt/splunk/dev-apps/` inside the container. Symlinks in `/opt/splunk/etc/apps/` point to each app under `/opt/splunk/dev-apps/`. This means:
+
+- **No container recreation** when adding a new app — just `docker exec ln -s` + refresh
+- **Live editing** — file changes on the host are immediately visible through the symlink
+- `task app:sync-links` manages symlinks (creates missing, removes stale)
+- This pattern is validated by Splunk's own `@splunk/create` tooling (`yarn run link:app`)
 
 ### Persistence
 
 - **`splunk-var` volume** — indexed data, KV store, search artifacts, provisioning marker
-- **Bind-mounted apps** — live source from `splunk/config/apps/`
+- **`splunk-etc` volume** — Splunk config, installed apps, and app symlinks; persists across container recreation
+- **`/opt/splunk/dev-apps/`** — bind mount of `splunk/config/apps/` (live source)
 - **`splunk/stage/`** — built tarballs mounted to `/tmp/apps` in the container
 
-`task splunk:clean` removes volumes for a full reset.
+`task splunk:clean` removes all volumes for a full reset.
+
+### Build / Up Separation
+
+The Splunk image is built once during `post-create.sh` (or explicitly via `task splunk:build`). `task splunk:up` only starts the container — it does not rebuild. This avoids unnecessary rebuilds during daily development.
+
+## Ports
+
+| Port | Service |
+|------|---------|
+| 8000 | Splunk Web (dev) |
+| 8089 | splunkd REST API (dev) |
+| 8088 | HTTP Event Collector (dev) |
+| 18000 | Splunk Web (staging) |
+| 18089 | splunkd REST API (staging) |
+| 18088 | HTTP Event Collector (staging) |
+| 5678 | Python debugpy (SA-VSCode) |
+| 3000 | React dev server (webpack HMR) |
 
 ## Environment Variables
 
@@ -176,15 +231,6 @@ The custom Splunk image wraps the stock entrypoint:
 | `SPLUNK_APPS_URL` | No | Comma-separated URLs for first-run Ansible install |
 | `SPLUNK_VERSION` | No | Splunk image version (default: 9.4.0) |
 
-## Ports
-
-| Port | Service |
-|------|---------|
-| 8000 | Splunk Web |
-| 8089 | splunkd REST API |
-| 8088 | HTTP Event Collector |
-| 3000 | React dev server |
-
 ## CI/CD
 
 `.github/workflows/release.yml` is a starting point for packaging and AppInspect validation. Set repository secrets `SPLUNKBASE_USERNAME` and `SPLUNKBASE_PASSWORD` for Splunkbase publishing.
@@ -192,10 +238,12 @@ The custom Splunk image wraps the stock entrypoint:
 ## Troubleshooting
 
 - **Splunk won't start** — `task splunk:logs` → check for errors
-- **App changes not visible** — `task splunk:restartd` (conf changes need restart)
+- **App changes not visible** — `task splunk:refresh` (reloads configs without restart); if that doesn't work, `task splunk:restartd`
+- **New app not visible** — `task app:sync-links` creates missing symlinks; `task splunk:refresh` reloads configs
+- **Python debugger won't connect** — ensure SA-VSCode is installed (`task deps:install`), code has `dbg.enable_debugging()`, and port 5678 is exposed
 - **Corrupt state after restart** — `task splunk:reprovision` (forces full Ansible)
 - **Full reset** — `task splunk:clean && task splunk:up`
-- **Port conflicts** — edit ports in `.devcontainer/docker-compose.yml`
+- **Port conflicts** — edit ports in `.devcontainer/docker-compose.yml` or `docker-compose.staging.yml`
 - **Dev container issues** — rebuild via Command Palette → *Dev Containers: Rebuild Container*
 
 ## License

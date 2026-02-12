@@ -2,18 +2,41 @@
     "version": "0.2.0",
     "configurations": [
         {
+            "name": "Python: Attach to Splunk (debugpy)",
+            "type": "debugpy",
+            "request": "attach",
+            "connect": {
+                "host": "localhost",
+                "port": 5678
+            },
+            "pathMappings": [
+                {
+                    "localRoot": "${workspaceFolder}/splunk/config/apps",
+                    "remoteRoot": "/opt/splunk/etc/apps"
+                }
+            ],
+            "justMyCode": true
+        },
+        {
+            "name": "Chrome: Splunk Web App",
             "type": "chrome",
             "request": "launch",
-            "name": "Debug Splunk App in Chrome",
             "url": "http://localhost:8000/en-US/app/${input:appName}/",
             "webRoot": "${workspaceFolder}/splunk/config/apps/${input:appName}"
         },
         {
+            "name": "Chrome: React Dev Server",
             "type": "chrome",
             "request": "launch",
-            "name": "Debug React Dev Server",
             "url": "http://localhost:3000",
             "webRoot": "${workspaceFolder}/packages/${input:appName}/src"
+        },
+        {
+            "name": "Chrome: Staging Splunk Web",
+            "type": "chrome",
+            "request": "launch",
+            "url": "http://localhost:18000/en-US/app/${input:appName}/",
+            "webRoot": "${workspaceFolder}/splunk/config/apps/${input:appName}"
         }
     ],
     "inputs": [

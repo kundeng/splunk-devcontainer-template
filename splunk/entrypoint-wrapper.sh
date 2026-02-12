@@ -17,13 +17,37 @@ SPLUNK_USER="${SPLUNK_USER:-splunk}"
 teardown() {
     echo "entrypoint-wrapper: caught signal, stopping splunkd..."
     if [ "$(whoami)" != "${SPLUNK_USER}" ]; then
-        sudo -u "${SPLUNK_USER}" "${SPLUNK_HOME}/bin/splunk" stop 2>/dev/null || true
+        sudo -u "${SPLUNK_USER}" bash -c "export SPLUNK_HOME=${SPLUNK_HOME}; ${SPLUNK_HOME}/bin/splunk stop" 2>/dev/null || true
     else
         "${SPLUNK_HOME}/bin/splunk" stop 2>/dev/null || true
     fi
     exit 0
 }
 trap teardown SIGINT SIGTERM
+
+# ── Auto-discover baked-in apps (/tmp/apps/*.tgz) ──────────────────
+# Appends any .tgz files to SPLUNK_APPS_URL so Ansible installs them
+# on first provision. Works for both dev (stage/ bind-mount) and
+# staging (COPY'd into image). No-op if /tmp/apps/ is empty.
+discover_apps() {
+    local apps_dir="/tmp/apps"
+    [ -d "${apps_dir}" ] || return
+    local apps_list=""
+    for tgz in "${apps_dir}"/*.tgz; do
+        [ -f "$tgz" ] || continue
+        if [ -n "$apps_list" ]; then
+            apps_list="${apps_list},${tgz}"
+        else
+            apps_list="${tgz}"
+        fi
+    done
+    if [ -n "$apps_list" ]; then
+        export SPLUNK_APPS_URL="${SPLUNK_APPS_URL:+${SPLUNK_APPS_URL},}${apps_list}"
+        echo "entrypoint-wrapper: SPLUNK_APPS_URL=${SPLUNK_APPS_URL}"
+    fi
+}
+
+discover_apps
 
 # ── Decide: provision or skip ────────────────────────────────────────
 should_skip_provision() {
@@ -39,9 +63,17 @@ should_skip_provision() {
         return 1
     fi
 
-    # Skip only if marker exists
-    if [ -f "${MARKER_FILE}" ]; then
+    # Skip only if marker exists AND Splunk was actually provisioned
+    # (splunk-launch.conf is created by Ansible; if missing, container was
+    # recreated with a fresh filesystem but the volume retained the marker)
+    if [ -f "${MARKER_FILE}" ] && [ -f "${SPLUNK_HOME}/etc/splunk-launch.conf" ]; then
         return 0
+    fi
+
+    # Stale marker — remove it so we don't keep checking
+    if [ -f "${MARKER_FILE}" ] && [ ! -f "${SPLUNK_HOME}/etc/splunk-launch.conf" ]; then
+        echo "entrypoint-wrapper: stale marker (container recreated) — will re-provision"
+        rm -f "${MARKER_FILE}" 2>/dev/null || true
     fi
 
     return 1
@@ -53,11 +85,18 @@ start_without_provision() {
     echo "entrypoint-wrapper: starting splunkd directly..."
 
     # Start splunkd (run as splunk user if we're not already)
+    # Note: sudo env_reset strips env vars and su is not available in the
+    # minimal Splunk image, so we pass SPLUNK_HOME inline via bash -c.
     if [ "$(whoami)" != "${SPLUNK_USER}" ]; then
-        sudo -u "${SPLUNK_USER}" "${SPLUNK_HOME}/bin/splunk" start --accept-license --answer-yes --no-prompt
+        sudo -u "${SPLUNK_USER}" bash -c "export SPLUNK_HOME=${SPLUNK_HOME}; ${SPLUNK_HOME}/bin/splunk start --accept-license --answer-yes --no-prompt"
     else
         "${SPLUNK_HOME}/bin/splunk" start --accept-license --answer-yes --no-prompt
     fi
+
+    # Write container state so Docker healthcheck (/sbin/checkstate.sh) passes
+    STATE_DIR="${CONTAINER_ARTIFACT_DIR:-/opt/container_artifact}"
+    mkdir -p "${STATE_DIR}" 2>/dev/null || true
+    echo "started" > "${STATE_DIR}/splunk-container.state" 2>/dev/null || true
 
     echo "entrypoint-wrapper: splunkd started, tailing stderr log"
 
@@ -89,7 +128,11 @@ start_with_provision() {
             STATE=$(cat "${STATE_FILE}" 2>/dev/null || echo "")
             if [ "${STATE}" = "started" ]; then
                 echo "entrypoint-wrapper: provisioning complete — writing marker"
-                touch "${MARKER_FILE}"
+                if [ "$(whoami)" != "${SPLUNK_USER}" ]; then
+                    sudo -u "${SPLUNK_USER}" touch "${MARKER_FILE}"
+                else
+                    touch "${MARKER_FILE}"
+                fi
                 break
             fi
         fi

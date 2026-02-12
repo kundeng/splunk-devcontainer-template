@@ -1,0 +1,160 @@
+#!/bin/bash
+# E2E test for the devcontainer — validates build, tools, and automation.
+# Uses @devcontainers/cli (installed via npx if not available).
+#
+# Usage: bash tests/e2e/devcontainer-test.sh
+# Or:    task test:e2e
+
+set -euo pipefail
+
+WORKSPACE_FOLDER="${1:-.}"
+PASS=0
+FAIL=0
+DEVCONTAINER=""
+
+# ── Helpers ───────────────────────────────────────────────────────────
+
+log()  { echo "=== $1"; }
+pass() { echo "  ✓ $1"; PASS=$((PASS + 1)); }
+fail() { echo "  ✗ $1"; FAIL=$((FAIL + 1)); }
+
+cleanup() {
+    log "Cleanup"
+    if [ -n "$DEVCONTAINER" ]; then
+        $DEVCONTAINER down --workspace-folder "$WORKSPACE_FOLDER" 2>/dev/null || true
+    fi
+}
+trap cleanup EXIT
+
+# Resolve devcontainer CLI
+if command -v devcontainer &>/dev/null; then
+    DEVCONTAINER="devcontainer"
+else
+    DEVCONTAINER="npx --yes @devcontainers/cli"
+fi
+
+dc_exec() {
+    $DEVCONTAINER exec --workspace-folder "$WORKSPACE_FOLDER" "$@"
+}
+
+# ── Build ─────────────────────────────────────────────────────────────
+
+log "Build devcontainer"
+if $DEVCONTAINER build --workspace-folder "$WORKSPACE_FOLDER" 2>&1 | tail -5; then
+    pass "devcontainer build"
+else
+    fail "devcontainer build"
+    echo "FATAL: build failed, cannot continue"
+    exit 1
+fi
+
+# ── Up ────────────────────────────────────────────────────────────────
+
+log "Start devcontainer"
+if $DEVCONTAINER up --workspace-folder "$WORKSPACE_FOLDER" 2>&1 | tail -5; then
+    pass "devcontainer up"
+else
+    fail "devcontainer up"
+    echo "FATAL: up failed, cannot continue"
+    exit 1
+fi
+
+# ── Tool checks ───────────────────────────────────────────────────────
+
+log "Verify tools on PATH"
+
+for tool in node python3 docker task ruff; do
+    if dc_exec which "$tool" &>/dev/null; then
+        VERSION=$(dc_exec "$tool" --version 2>/dev/null | head -1 || echo "ok")
+        pass "$tool ($VERSION)"
+    else
+        fail "$tool not found"
+    fi
+done
+
+# splunk-appinspect is a pip package — check via pip show (module name != package name)
+if dc_exec pip show splunk-appinspect &>/dev/null; then
+    pass "splunk-appinspect"
+else
+    fail "splunk-appinspect not found"
+fi
+
+# ── Taskfile ──────────────────────────────────────────────────────────
+
+log "Verify Taskfile"
+
+TASK_LIST=$(dc_exec task --list 2>&1) || true
+if echo "$TASK_LIST" | grep -q "Available tasks"; then
+    pass "task --list"
+else
+    fail "task --list"
+fi
+
+# Check expected namespaces exist
+for ns in splunk:up app:create react:start deps:install python:lint; do
+    if echo "$TASK_LIST" | grep -qF "$ns"; then
+        pass "task $ns exists"
+    else
+        fail "task $ns missing"
+    fi
+done
+
+# ── App symlink task exists ───────────────────────────────────────────
+
+log "Verify app:sync-links task"
+
+if echo "$TASK_LIST" | grep -qF "app:sync-links"; then
+    pass "task app:sync-links exists"
+else
+    fail "task app:sync-links missing"
+fi
+
+# ── Compose config validation ─────────────────────────────────────────
+
+log "Verify docker compose config"
+
+if dc_exec docker compose -f .devcontainer/docker-compose.yml config &>/dev/null; then
+    pass "docker compose config (dev)"
+else
+    fail "docker compose config (dev)"
+fi
+
+if dc_exec docker compose -f .devcontainer/docker-compose.staging.yml config &>/dev/null; then
+    pass "docker compose config (staging)"
+else
+    fail "docker compose config (staging)"
+fi
+
+# ── Static check summary ──────────────────────────────────────────────
+
+log "Static Results: $PASS passed, $FAIL failed"
+
+if [ "$FAIL" -gt 0 ]; then
+    echo "Static checks failed — skipping lifecycle tests"
+    exit 1
+fi
+
+# ── Lifecycle tests (Splunk up, app create, provision, staging) ───────
+
+log "Running lifecycle tests (this takes several minutes)..."
+
+LIFECYCLE_SCRIPT="tests/e2e/run-lifecycle.sh"
+if [ -f "$LIFECYCLE_SCRIPT" ]; then
+    if dc_exec bash "$LIFECYCLE_SCRIPT" 2>&1; then
+        pass "lifecycle tests"
+    else
+        fail "lifecycle tests"
+    fi
+else
+    echo "  (skipped — $LIFECYCLE_SCRIPT not found)"
+fi
+
+# ── Final summary ─────────────────────────────────────────────────────
+
+log "Total Results: $PASS passed, $FAIL failed"
+
+if [ "$FAIL" -gt 0 ]; then
+    exit 1
+fi
+
+echo "All E2E tests passed."

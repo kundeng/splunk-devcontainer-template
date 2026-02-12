@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Shellcheck
+        run: |
+          sudo apt-get install -y shellcheck
+          find splunk/ tests/ -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning || true
+
+  build-and-inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Read APP_NAME from .env
+        id: env
+        run: |
+          APP_NAME=$(grep -E '^APP_NAME=' .env 2>/dev/null | head -1 | cut -d= -f2- || echo "")
+          if [ -z "$APP_NAME" ]; then
+            echo "APP_NAME not set in .env — skipping app build"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
+            echo "app_dir=splunk/config/apps/$APP_NAME" >> "$GITHUB_OUTPUT"
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build and inspect app
+        if: steps.env.outputs.skip != 'true'
+        uses: VatsalJagani/splunk-app-action@v5
+        with:
+          app_dir: ${{ steps.env.outputs.app_dir }}
+          local_app_inspect: true

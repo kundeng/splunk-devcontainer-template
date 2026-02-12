@@ -8,13 +8,20 @@
 # They persist in the splunk-var volume across restarts.
 
 dependencies:
-  # - name: python_for_scientific_computing
-  #   splunkbase_id: 2882
-  #   version: "4.2.3"
+  - name: Splunk_SA_Scientific_Python_linux_x86_64
+    splunkbase_id: 2882
+    version: "4.2.3"
 
-  # - name: Splunk_ML_Toolkit
-  #   splunkbase_id: 2890
-  #   version: "5.6.1"
+  - name: Splunk_ML_Toolkit
+    splunkbase_id: 2890
+    version: "5.6.1"
+
+  # - name: SA-VSCode
+  #   splunkbase_id: 4801
+  #   version: "0.1.3"
+  #   # Splunk Add-on for Microsoft Visual Studio Code
+  #   # Enables Python debugging (debugpy) from VSCode into Splunk Enterprise.
+  #   # Uncomment after verifying the installed folder name matches the name above.
 
   # - name: custom_app_from_url
   #   url: "https://example.com/my-app-1.0.tgz"

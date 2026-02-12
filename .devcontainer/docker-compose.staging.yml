@@ -1,0 +1,36 @@
+# Staging Splunk — self-contained image with all apps baked in.
+# Runs on different ports so dev and staging can coexist.
+# Start with: task splunk:up-staging
+# Stop with:  task splunk:down-staging
+
+services:
+  splunk-staging:
+    platform: linux/amd64
+    build:
+      context: ../splunk
+      dockerfile: Dockerfile
+      target: staging
+      args:
+        SPLUNK_VERSION: ${SPLUNK_VERSION:-9.4.0}
+    container_name: splunk-staging
+    hostname: splunk-staging
+    environment:
+      SPLUNK_START_ARGS: --accept-license
+      SPLUNK_GENERAL_TERMS: --accept-sgt-current-at-splunk-com
+      SPLUNK_PASSWORD: ${SPLUNK_PASSWORD:-admin123}
+      ANSIBLE_DEPRECATION_WARNINGS: "false"
+      ANSIBLE_SYSTEM_WARNINGS: "false"
+      ANSIBLE_ACTION_WARNINGS: "false"
+      ANSIBLE_PIPELINING: "true"
+    ports:
+      - "18000:8000"   # Splunk Web (staging)
+      - "18089:8089"   # splunkd REST API (staging)
+      - "18088:8088"   # HTTP Event Collector (staging)
+    volumes:
+      - splunk-staging-var:/opt/splunk/var
+      - splunk-staging-etc:/opt/splunk/etc
+    restart: unless-stopped
+
+volumes:
+  splunk-staging-var:
+  splunk-staging-etc:

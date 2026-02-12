@@ -1,12 +1,15 @@
 # Runtime services — managed independently from the devcontainer.
 # Start with: task splunk:up
-# App bind mounts are generated into docker-compose.apps.yml by: task app:generate-mounts
+# Apps in splunk/config/apps/ are bind-mounted to /opt/splunk/dev-apps/ and
+# symlinked into /opt/splunk/etc/apps/ by: task app:sync-links
 
 services:
   splunk:
+    platform: linux/amd64
     build:
       context: ../splunk
       dockerfile: Dockerfile
+      target: dev
       args:
         SPLUNK_VERSION: ${SPLUNK_VERSION:-9.4.0}
     container_name: splunk-dev
@@ -27,14 +30,15 @@ services:
       - "8000:8000"   # Splunk Web
       - "8089:8089"   # splunkd REST API
       - "8088:8088"   # HTTP Event Collector
+      - "5678:5678"   # Python debugpy (SA-VSCode remote debugging)
     volumes:
       # Staging area for tarballs (app:provision installs from here)
-      - ${LOCAL_WORKSPACE_FOLDER:-.}/splunk/stage:/tmp/apps
-      # Persistence — indexes, search artifacts, provisioning marker
+      - ${LOCAL_WORKSPACE_FOLDER:-..}/splunk/stage:/tmp/apps
+      # Persistence — survives container recreation so skip-provision works
       - splunk-var:/opt/splunk/var
-      # NOTE: app bind mounts are in docker-compose.apps.yml (auto-generated)
-      # NOTE: splunk-etc is NOT a named volume — app bind mounts go directly
-      #       into /opt/splunk/etc/apps/<name> via the apps override file
+      - splunk-etc:/opt/splunk/etc
+      # App source directories — symlinked into /opt/splunk/etc/apps/ by app:sync-links
+      - ${LOCAL_WORKSPACE_FOLDER:-..}/splunk/config/apps:/opt/splunk/dev-apps
     restart: unless-stopped
 
   ## ── Optional sidecars (uncomment as needed) ──────────────────────
@@ -73,4 +77,5 @@ services:
 
 volumes:
   splunk-var:
+  splunk-etc:
   # pgdata:
