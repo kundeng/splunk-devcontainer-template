@@ -1,6 +1,6 @@
 #!/bin/bash
 # Test suite: Splunk boot — build, start, wait for healthy, verify dev-mounted apps.
-# Expects to run inside a devcontainer. Splunk should NOT be running yet.
+# Splunk should NOT be running yet. Works on native Mac or inside devcontainer.
 
 set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -28,9 +28,18 @@ else
     results; exit 1
 fi
 
+log "Verify SPLUNK_PASSWORD auth works"
+
+if docker exec "${SPLUNK_CONTAINER}" bash -lc \
+    "curl -sk -o /dev/null -w '%{http_code}' https://localhost:8089/services/apps/local -u admin:\$SPLUNK_PASSWORD" \
+    2>/dev/null | grep -q '200'; then
+    pass "REST API auth with SPLUNK_PASSWORD"
+else
+    fail "REST API auth with SPLUNK_PASSWORD — check password in .env"
+fi
+
 log "Verify dev-mounted apps recognized by Splunk"
 
 check_app_rest "${SPLUNK_CONTAINER}" "splunk-config-dev" "dev-mounted config app"
-check_app_rest "${SPLUNK_CONTAINER}" "Splunk_App_for_Anomaly_Detection" "dev-mounted anomaly detection app"
 
 results

@@ -373,6 +373,39 @@ This app is always bind-mounted in dev. Do not include it in staging builds.
 | 5678 | Python debugpy (SA-VSCode) |
 | 3000 | React dev server (webpack HMR) |
 
+## Testing
+
+### Native Mac (fastest — no devcontainer needed)
+
+Requires: Docker Desktop running, `.env` configured, `task` installed on Mac.
+
+```bash
+task test:native          # Splunk lifecycle tests (boot, app, deps, react, staging, skip-provision)
+task python:lint          # ruff lint
+```
+
+`test:native` runs `tests/e2e/run-lifecycle.sh` directly — starts Splunk, runs all lifecycle suites, cleans up.
+
+### Inside devcontainer (full E2E including devcontainer build)
+
+```bash
+task test:e2e             # devcontainer build + up + static checks + lifecycle tests
+task test:all             # python:lint + test:e2e
+```
+
+`test:e2e` uses `@devcontainers/cli` to build and start the devcontainer, then runs all checks including `LOCAL_WORKSPACE_FOLDER` injection, tool availability, and compose config validation.
+
+### Test suites (in `tests/e2e/`)
+
+| Suite | Script | What it tests |
+|---|---|---|
+| boot | `test-boot.sh` | `splunk:up`, health, `SPLUNK_PASSWORD` auth, `splunk-config-dev` symlink |
+| app-lifecycle | `test-app-lifecycle.sh` | `app:create`, symlinks, `app:package`, `app:provision`, REST verify |
+| deps-install | `test-deps-install.sh` | `deps:install` idempotency |
+| react-build | `test-react-build.sh` | `react:build-install`, static deploy, REST verify |
+| staging | `test-staging.sh` | staging image build, `splunk:up-staging` |
+| skip-provision | `test-skip-provision.sh` | container restart skips Ansible |
+
 ## Troubleshooting
 
 - **Splunk won't start**: `task splunk:logs` → check for errors

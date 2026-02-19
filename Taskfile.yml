@@ -460,11 +460,18 @@ tasks:
         bash tests/e2e/devcontainer-test.sh
     desc: Run E2E devcontainer tests (build, up, tool checks, compose validation)
 
+  test:native:
+    cmds:
+      - |
+        echo "Running lifecycle tests natively (no devcontainer)..."
+        bash tests/e2e/run-lifecycle.sh
+    desc: Run Splunk lifecycle tests directly on Mac host (no devcontainer needed)
+
   test:all:
     cmds:
       - task: python:lint
       - task: test:e2e
-    desc: Run all tests (lint + E2E)
+    desc: Run all tests (lint + E2E devcontainer)
 
   # ── Utility ──────────────────────────────────────────────────────────
 

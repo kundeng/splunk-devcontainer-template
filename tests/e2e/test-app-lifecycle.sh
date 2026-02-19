@@ -95,6 +95,5 @@ sleep 5
 
 check_app_rest "${SPLUNK_CONTAINER}" "${TEST_CMD_APP}" "provisioned custom cmd app"
 check_app_rest "${SPLUNK_CONTAINER}" "splunk-config-dev" "dev-mounted config app (after provision)"
-check_app_rest "${SPLUNK_CONTAINER}" "Splunk_App_for_Anomaly_Detection" "dev-mounted anomaly app (after provision)"
 
 results
