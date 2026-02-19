@@ -1,5 +1,7 @@
 version: '3'
 
+dotenv: ['.env']
+
 vars:
   ENV_FILE: '.env'
   COMPOSE_FILE: '.devcontainer/docker-compose.yml'
