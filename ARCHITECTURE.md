@@ -66,6 +66,24 @@ tests/e2e/                       # E2E test scripts (devcontainer + Splunk lifec
 .ref/                            # Reference repos (docker-splunk, kveditor) — gitignored
 ```
 
+## Environment Setup
+
+Copy `splunk.env.example` to `.env` and fill in your values. `.env` is gitignored.
+
+```bash
+cp splunk.env.example .env
+```
+
+### Devcontainer (recommended)
+
+`LOCAL_WORKSPACE_FOLDER` is injected automatically via `runArgs` in `devcontainer.json` — no manual setup needed. It resolves to the Mac host path of this repo, which is required so `docker compose` bind mounts point to the correct location on the Docker host.
+
+### Native Mac (without devcontainer)
+
+`docker compose` resolves relative paths in `docker-compose.yml` relative to the compose file location on the Mac host — so bind mounts work correctly without any extra configuration. Just run `task` commands directly from the repo root.
+
+---
+
 ### Example: App created via `task app:create`
 
 ```
@@ -129,10 +147,23 @@ task splunk:logs-staging    # follow staging container logs
 
 ```bash
 task app:create APP_NAME=x  # scaffold + symlink + refresh Splunk (no recreate)
-task app:package APP_NAME=x # package to splunk/stage/x.tgz
-task app:provision          # package + install all local apps
 task app:sync-links         # create/update symlinks in Splunk container
+task app:provision          # package + install app(s) via splunk CLI
+task app:package APP_NAME=x # package to splunk/stage/x.tgz (for staging only)
 ```
+
+**Which one do I need?**
+
+| Situation | Command |
+|---|---|
+| New app just created, want it visible in Splunk | `app:create` (calls sync-links automatically) |
+| Symlinks got out of sync (e.g. after `splunk:clean`) | `app:sync-links` |
+| App needs full install (Python deps, restmap, etc.) | `app:provision` |
+| Preparing a release build for staging | `app:package` → `splunk:build-staging` |
+
+- **`sync-links`** — fastest (~1s). Makes the app *visible* via symlink. Enough for `.conf` edits, dashboards, and Python scripts (no packaging needed). Called automatically by `splunk:up` and `app:create`.
+- **`provision`** — packages the app into a `.tgz` then runs `splunk install app` inside the container. Use this when Splunk needs to fully register the app (e.g. first install of a custom search command, REST handler, or alert action). Does **not** build React — use `react:build-install` for that.
+- **`package`** — only produces a `.tgz` in `splunk/stage/`. Used as input for staging image builds (`splunk:build-staging`). Not needed for day-to-day dev.
 
 ### React UI
 

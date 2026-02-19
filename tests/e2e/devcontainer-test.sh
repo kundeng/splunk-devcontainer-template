@@ -109,6 +109,17 @@ else
     fail "task app:sync-links missing"
 fi
 
+# ── Environment variable checks ──────────────────────────────────────
+
+log "Verify environment variables"
+
+LWF=$(dc_exec bash -c 'echo $LOCAL_WORKSPACE_FOLDER' 2>/dev/null || true)
+if [ -n "$LWF" ]; then
+    pass "LOCAL_WORKSPACE_FOLDER set ($LWF)"
+else
+    fail "LOCAL_WORKSPACE_FOLDER not set — runArgs injection may have failed"
+fi
+
 # ── Compose config validation ─────────────────────────────────────────
 
 log "Verify docker compose config"

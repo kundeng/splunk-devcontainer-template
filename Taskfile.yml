@@ -315,7 +315,7 @@ tasks:
           if [ -f "$PKG" ]; then
             echo "Installing $APP ..."
             docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} \
-              exec {{.SPLUNK_SERVICE}} bash -lc \
+              exec --user splunk {{.SPLUNK_SERVICE}} bash -lc \
               "{{.SPLUNK_BIN}} install app /tmp/apps/${APP}.tgz -update 1 -auth admin:${SPLUNK_PASSWORD}" || true
           fi
         done
@@ -415,7 +415,7 @@ tasks:
         tar -czf "{{.STAGE_DIR}}/${APP_NAME}.tgz" -C "{{.CONFIG_APPS_DIR}}" "${APP_NAME}"
 
         docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} \
-          exec {{.SPLUNK_SERVICE}} bash -lc \
+          exec --user splunk {{.SPLUNK_SERVICE}} bash -lc \
           "{{.SPLUNK_BIN}} install app /tmp/apps/${APP_NAME}.tgz -update 1 -auth admin:${SPLUNK_PASSWORD}" || true
         echo "Done. If Splunk requests a restart: task splunk:restartd"
     desc: Build React app, copy to appserver/static, package, and install

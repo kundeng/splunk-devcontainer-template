@@ -47,10 +47,9 @@
 
   "remoteUser": "vscode",
 
+  "runArgs": ["--env", "LOCAL_WORKSPACE_FOLDER=${localWorkspaceFolder}"],
+
   "remoteEnv": {
-    "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}",
-    "SPLUNK_PASSWORD": "${localEnv:SPLUNK_PASSWORD:admin123}",
-    "SPLUNKBASE_USERNAME": "${localEnv:SPLUNKBASE_USERNAME:}",
-    "SPLUNKBASE_PASSWORD": "${localEnv:SPLUNKBASE_PASSWORD:}"
+    "LOCAL_WORKSPACE_FOLDER": "${localWorkspaceFolder}"
   }
 }
