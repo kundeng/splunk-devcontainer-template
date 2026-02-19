@@ -100,7 +100,7 @@ tasks:
   splunk:restartd:
     cmds:
       - task: __dev-compose
-        vars: { COMPOSE_ARGS: 'exec {{.SPLUNK_SERVICE}} bash -lc "{{.SPLUNK_BIN}} restart -auth admin:${SPLUNK_PASSWORD}"' }
+        vars: { COMPOSE_ARGS: 'exec {{.SPLUNK_SERVICE}} bash -lc "{{.SPLUNK_BIN}} restart -auth admin:\$SPLUNK_PASSWORD"' }
     desc: Restart splunkd process inside running container (~10s)
 
   splunk:refresh:
@@ -316,7 +316,7 @@ tasks:
             echo "Installing $APP ..."
             docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} \
               exec --user splunk {{.SPLUNK_SERVICE}} bash -lc \
-              "{{.SPLUNK_BIN}} install app /tmp/apps/${APP}.tgz -update 1 -auth admin:${SPLUNK_PASSWORD}" || true
+              "{{.SPLUNK_BIN}} install app /tmp/apps/${APP}.tgz -update 1 -auth admin:\$SPLUNK_PASSWORD" || true
           fi
         done
         IFS="$OLD_IFS"
@@ -416,7 +416,7 @@ tasks:
 
         docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} \
           exec --user splunk {{.SPLUNK_SERVICE}} bash -lc \
-          "{{.SPLUNK_BIN}} install app /tmp/apps/${APP_NAME}.tgz -update 1 -auth admin:${SPLUNK_PASSWORD}" || true
+          "{{.SPLUNK_BIN}} install app /tmp/apps/${APP_NAME}.tgz -update 1 -auth admin:\$SPLUNK_PASSWORD" || true
         echo "Done. If Splunk requests a restart: task splunk:restartd"
     desc: Build React app, copy to appserver/static, package, and install
 
