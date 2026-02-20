@@ -341,22 +341,52 @@ tasks:
         mkdir -p {{.REACT_PACKAGES_DIR}}
         cd {{.REACT_PACKAGES_DIR}} && npx @splunk/create
         echo ""
-        echo "React app scaffolded. Checking for corresponding Splunk app skeleton..."
+        echo "React app scaffolded."
       - |
-        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
-          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
+        # Detect the package name @splunk/create used and derive APP_NAME from it.
+        # @splunk/create names the package after what the user typed (e.g. "MyApp" → "my-app").
+        # We use that as APP_NAME so Splunk folder and React package always match.
+        REACT_PKG=""
+        # @splunk/create monorepo layout: packages/packages/<pkg>/package.json
+        for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
+          if [ -f "${d}package.json" ]; then
+            REACT_PKG=$(node -e "process.stdout.write(require('$(pwd)/${d}package.json').name.replace(/^@[^/]+\//,''))" 2>/dev/null || true)
+            break
+          fi
+        done
+        # Flat layout: packages/<pkg>/package.json
+        if [ -z "$REACT_PKG" ]; then
+          for d in "{{.REACT_PACKAGES_DIR}}"/*/; do
+            if [ -f "${d}package.json" ]; then
+              REACT_PKG=$(node -e "process.stdout.write(require('$(pwd)/${d}package.json').name.replace(/^@[^/]+\//,''))" 2>/dev/null || true)
+              break
+            fi
+          done
         fi
-        if [ -n "${APP_NAME}" ] && [ ! -d "{{.CONFIG_APPS_DIR}}/${APP_NAME}" ]; then
-          echo "Creating Splunk app skeleton for ${APP_NAME}..."
-          APP_NAME="${APP_NAME}" task app:create
-        elif [ -n "${APP_NAME}" ]; then
-          echo "Splunk app ${APP_NAME} already exists — syncing symlinks"
+        if [ -z "$REACT_PKG" ]; then
+          echo "Could not detect package name from @splunk/create output. Set APP_NAME manually in .env."
+          exit 0
+        fi
+        echo "Detected @splunk/create package name: $REACT_PKG"
+        # Update APP_NAME in .env to match — this is the source of truth going forward
+        if [ -f "{{.ENV_FILE}}" ]; then
+          if grep -q '^APP_NAME=' "{{.ENV_FILE}}"; then
+            sed -i.bak "s|^APP_NAME=.*|APP_NAME=${REACT_PKG}|" "{{.ENV_FILE}}" && rm -f "{{.ENV_FILE}}.bak"
+          else
+            echo "APP_NAME=${REACT_PKG}" >> "{{.ENV_FILE}}"
+          fi
+          echo "Updated .env: APP_NAME=${REACT_PKG}"
+        fi
+        # Create the Splunk app skeleton with the same name
+        if [ ! -d "{{.CONFIG_APPS_DIR}}/${REACT_PKG}" ]; then
+          echo "Creating Splunk app skeleton for ${REACT_PKG}..."
+          APP_NAME="${REACT_PKG}" task app:create
+        else
+          echo "Splunk app ${REACT_PKG} already exists — syncing symlinks"
           task app:sync-links
           task splunk:refresh 2>/dev/null || true
-        else
-          echo "Tip: set APP_NAME to auto-create the Splunk app skeleton"
         fi
-    desc: Scaffold a React Splunk app, create Splunk app skeleton if needed, and sync symlinks
+    desc: Scaffold a React Splunk app, sync APP_NAME in .env to match, create Splunk app skeleton
 
   react:start:
     cmds:
@@ -424,16 +454,6 @@ tasks:
           # @splunk/create: stage/ contains full Splunk app structure — merge into app dir
           echo "Copying @splunk/create stage/ output to $APP_DIR ..."
           rsync -a "${REACT_PATH}/stage"/ "$APP_DIR"/
-          # Patch hardcoded @splunk/create package name to match actual APP_NAME folder.
-          # @splunk/create uses kebab-case package name in template paths and static URLs;
-          # Splunk routes by folder name so these must match APP_NAME.
-          PKG_NAME=$(node -e "process.stdout.write(require('$(pwd)/${REACT_PATH}/package.json').name.replace(/^@[^/]+\//,''))" 2>/dev/null || true)
-          if [ -n "$PKG_NAME" ] && [ "$PKG_NAME" != "$APP_NAME" ]; then
-            echo "Patching @splunk/create package name '$PKG_NAME' → '$APP_NAME' in app files..."
-            find "$APP_DIR" -type f \( -name "*.xml" -o -name "*.html" -o -name "*.conf" \) \
-              -exec sed -i.bak "s|${PKG_NAME}|${APP_NAME}|g" {} \; \
-              -exec rm -f {}.bak \;
-          fi
         else
           echo "No build output found (tried build/, dist/, stage/)"; exit 1
         fi
