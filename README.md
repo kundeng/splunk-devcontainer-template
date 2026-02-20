@@ -82,9 +82,11 @@ splunk.env.example             # Template for .env
 
 ### Creating a React App
 
-1. `APP_NAME=my_app task react:create` → scaffolds React app + Splunk app skeleton, syncs symlinks, refreshes Splunk (~2-10s, no container recreation)
-2. `task react:start` → webpack dev server with HMR on :3000
-3. `task react:build-install` → build, copy to `appserver/static/`, install into Splunk
+1. `task react:create` → scaffolds React app via `@splunk/create`, detects app name, updates `.env`, runs initial build
+2. `task react:link` → symlinks `stage/` directly into Splunk `etc/apps/` (run once, or after `splunk:clean`)
+3. `task react:start` → webpack watch; `stage/` updates live through the symlink — no copy needed
+4. `task react:add-page` → add more pages/components interactively via `@splunk/create`
+5. `task react:build-install` → production build + package `stage/` as tgz + install into Splunk
 
 ### Daily Dev Loop (fastest → slowest)
 
@@ -157,9 +159,11 @@ task app:sync-links         # create/update symlinks in Splunk container
 ### React UI
 
 ```bash
-task react:create           # scaffold with npx @splunk/create + symlink
-task react:start            # dev server with HMR (port 3000)
-task react:build-install    # build + copy to app + package + install
+task react:create           # scaffold + initial build, syncs APP_NAME in .env
+task react:add-page         # add a page/component to existing app via @splunk/create
+task react:link             # symlink stage/ into Splunk etc/apps/ (dev loop setup)
+task react:start            # webpack watch — stage/ updates live via symlink
+task react:build-install    # production build + package stage/ as tgz + install into Splunk
 ```
 
 ### Python & Testing
