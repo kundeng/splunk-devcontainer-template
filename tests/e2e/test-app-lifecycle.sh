@@ -9,7 +9,7 @@ source "${SCRIPT_DIR}/helpers.sh"
 
 log "Create test custom search command app"
 
-if APP_NAME="${TEST_CMD_APP}" task app:create 2>&1 | tail -3; then
+if task app:create APP_NAME="${TEST_CMD_APP}" 2>&1 | tail -3; then
     pass "task app:create APP_NAME=${TEST_CMD_APP}"
 else
     fail "task app:create APP_NAME=${TEST_CMD_APP}"
@@ -59,7 +59,7 @@ fi
 
 log "Idempotency: app:create again (should skip)"
 
-OUTPUT=$(APP_NAME="${TEST_CMD_APP}" task app:create 2>&1)
+OUTPUT=$(task app:create APP_NAME="${TEST_CMD_APP}" 2>&1)
 if echo "$OUTPUT" | grep -qi "skipping"; then
     pass "app:create idempotent — second run skipped"
 else
@@ -93,7 +93,7 @@ fi
 
 log "Package and provision test app"
 
-if APP_NAME="${TEST_CMD_APP}" task app:package 2>&1 | tail -3; then
+if task app:package APP_NAME="${TEST_CMD_APP}" 2>&1 | tail -3; then
     if [ -f "splunk/stage/${TEST_CMD_APP}.tgz" ]; then
         pass "task app:package created tarball"
     else
@@ -103,7 +103,7 @@ else
     fail "task app:package"
 fi
 
-if APP_NAME="${TEST_CMD_APP}" task app:provision 2>&1 | tail -5; then
+if task app:provision APP_NAME="${TEST_CMD_APP}" 2>&1 | tail -5; then
     pass "task app:provision"
 else
     fail "task app:provision"
