@@ -248,7 +248,7 @@ def main():
     # Find container
     container = find_container(args.compose_file, args.env_file, args.service)
     if not container:
-        print("ERROR: Splunk container not running. Start with: task splunk:up")
+        print("ERROR: Splunk container not running. Start with: task dev:up")
         return 1
 
     os.makedirs(args.stage_dir, exist_ok=True)
@@ -320,7 +320,7 @@ def main():
 
     print(f"\nDependency install complete: {installed} installed, {skipped} skipped, {errors} errors")
     if errors:
-        print("If Splunk requests a restart: task splunk:restartd")
+        print("If Splunk requests a restart: task dev:restartd")
     return 1 if errors else 0
 
 
