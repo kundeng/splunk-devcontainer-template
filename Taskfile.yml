@@ -1,5 +1,6 @@
 version: '3'
 
+silent: true
 dotenv: ['.env']
 
 vars:
@@ -237,7 +238,7 @@ tasks:
         fi
         if [ -z "${APP_NAME}" ]; then echo "APP_NAME is required"; exit 1; fi
         APP_DIR="{{.CONFIG_APPS_DIR}}/${APP_NAME}"
-        if [ -d "$APP_DIR" ]; then echo "App already exists: $APP_DIR"; exit 1; fi
+        if [ -d "$APP_DIR" ]; then echo "App already exists: $APP_DIR (skipping)"; exit 0; fi
         APP_LABEL=$(echo "${APP_NAME}" | tr '_-' '  ')
         echo "Creating app skeleton at $APP_DIR ..."
         mkdir -p "$APP_DIR/default" "$APP_DIR/metadata" "$APP_DIR/appserver/static" "$APP_DIR/bin"
@@ -471,18 +472,32 @@ tasks:
           echo "Cannot resolve REACT_PATH — set APP_NAME in .env"; exit 1
         fi
         echo "Building ${APP_NAME} for production..."
-        (cd "{{.REACT_PACKAGES_DIR}}" && yarn install)
+        (cd "{{.REACT_PACKAGES_DIR}}" && yarn install --silent)
         (cd "${REACT_PATH}" && yarn build)
         STAGE_PATH="${REACT_PATH}/stage"
         if [ ! -d "$STAGE_PATH" ]; then echo "Build failed — stage/ not found"; exit 1; fi
-        echo "Packaging ${STAGE_PATH} → {{.STAGE_DIR}}/${APP_NAME}.tgz ..."
-        mkdir -p {{.STAGE_DIR}}
-        tar -czf "{{.STAGE_DIR}}/${APP_NAME}.tgz" -C "${REACT_PATH}" stage --transform "s|^stage|${APP_NAME}|"
-        echo "Installing into Splunk..."
-        docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} \
-          exec --user splunk {{.SPLUNK_SERVICE}} bash -lc \
-          "{{.SPLUNK_BIN}} install app /tmp/apps/${APP_NAME}.tgz -update 1 -auth admin:\$SPLUNK_PASSWORD" || true
-        echo "Done. If Splunk requests a restart: task splunk:restartd"
+
+        # Package stage/ as <APP_NAME>.tgz (macOS-compatible: temp symlink instead of --transform)
+        mkdir -p "{{.STAGE_DIR}}"
+        TGZ="{{.STAGE_DIR}}/${APP_NAME}.tgz"
+        TMPDIR=$(mktemp -d)
+        ln -s "$(cd "${STAGE_PATH}" && pwd)" "${TMPDIR}/${APP_NAME}"
+        tar -czf "${TGZ}" -C "${TMPDIR}" "${APP_NAME}"
+        rm -rf "${TMPDIR}"
+        echo "Packaged → ${TGZ}"
+
+        # Install into Splunk (idempotent: try fresh install, fall back to update)
+        DC="docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}}"
+        INSTALL_CMD="{{.SPLUNK_BIN}} install app /tmp/apps/${APP_NAME}.tgz -auth admin:\$SPLUNK_PASSWORD"
+        OUTPUT=$($DC exec --user splunk {{.SPLUNK_SERVICE}} bash -lc "${INSTALL_CMD}" 2>&1) && echo "$OUTPUT" || {
+          if echo "$OUTPUT" | grep -q "already exists"; then
+            echo "App exists, updating..."
+            $DC exec --user splunk {{.SPLUNK_SERVICE}} bash -lc "${INSTALL_CMD} -update 1" 2>&1
+          else
+            echo "$OUTPUT" >&2; exit 1
+          fi
+        }
+        echo "Installed. Restart if prompted: task splunk:restartd"
     desc: Production build — yarn build, package stage/ as tgz, install into Splunk
 
   # ── Python Tooling ───────────────────────────────────────────────────
