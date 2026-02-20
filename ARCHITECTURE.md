@@ -123,26 +123,26 @@ Helper apps (like `splunk-config-dev`) are always present and don't need `APP_NA
 ### Dev Splunk Lifecycle
 
 ```bash
-task splunk:build           # build dev Splunk image (first time / Dockerfile change)
-task splunk:up              # start + sync app symlinks (no rebuild)
-task splunk:refresh         # reload configs + static assets via REST API (~2s)
-task splunk:restartd        # restart splunkd process (~10s)
-task splunk:restart         # restart container (skip-provision ~30s)
-task splunk:reprovision     # force full Ansible re-provisioning
-task splunk:down            # stop container
-task splunk:clean           # stop + remove volumes (full reset)
-task splunk:logs            # follow container logs
-task splunk:status          # check container status
+task dev:build              # build dev Splunk image (first time / Dockerfile change)
+task dev:up                 # start + sync app symlinks (no rebuild)
+task dev:refresh            # reload configs + static assets via REST API (~2s)
+task dev:restartd           # restart splunkd process (~10s)
+task dev:restart            # restart container (skip-provision ~30s)
+task dev:reprovision        # force full Ansible re-provisioning
+task dev:down               # stop container
+task dev:clean              # stop + remove volumes (full reset)
+task dev:logs               # follow container logs
+task dev:status             # check container status
 ```
 
 ### Staging Splunk (port 18000) — runs alongside dev
 
 ```bash
-task splunk:build-staging   # build staging image (reuses dev image)
-task splunk:up-staging      # start staging (port 18000)
-task splunk:down-staging    # stop staging container
-task splunk:clean-staging   # stop staging + remove volumes
-task splunk:logs-staging    # follow staging container logs
+task stage:build            # build staging image (reuses dev image)
+task stage:up               # start staging (port 18000)
+task stage:down             # stop staging container
+task stage:clean            # stop staging + remove volumes
+task stage:logs             # follow staging container logs
 ```
 
 ### App Development
@@ -150,8 +150,7 @@ task splunk:logs-staging    # follow staging container logs
 ```bash
 task app:create APP_NAME=x  # scaffold + symlink + refresh Splunk (no recreate)
 task app:sync-links         # create/update symlinks in Splunk container
-task app:provision          # package + install app(s) via splunk CLI
-task app:package APP_NAME=x # package to splunk/stage/x.tgz (for staging only)
+task app:package APP_NAME=x # package to splunk/stage/x.tgz (for staging)
 ```
 
 **Which one do I need?**
@@ -159,13 +158,11 @@ task app:package APP_NAME=x # package to splunk/stage/x.tgz (for staging only)
 | Situation | Command |
 |---|---|
 | New app just created, want it visible in Splunk | `app:create` (calls sync-links automatically) |
-| Symlinks got out of sync (e.g. after `splunk:clean`) | `app:sync-links` |
-| App needs full install (Python deps, restmap, etc.) | `app:provision` |
-| Preparing a release build for staging | `app:package` → `splunk:build-staging` |
+| Symlinks got out of sync (e.g. after `dev:clean`) | `app:sync-links` |
+| Preparing a release build for staging | `app:package` → `stage:up` |
 
-- **`sync-links`** — fastest (~1s). Makes the app *visible* via symlink. Enough for `.conf` edits, dashboards, and Python scripts (no packaging needed). Called automatically by `splunk:up` and `app:create`.
-- **`provision`** — packages the app into a `.tgz` then runs `splunk install app` inside the container. Use this when Splunk needs to fully register the app (e.g. first install of a custom search command, REST handler, or alert action). Does **not** build React — use `react:package` for that.
-- **`package`** — only produces a `.tgz` in `splunk/stage/`. Used as input for staging image builds (`splunk:build-staging`). Not needed for day-to-day dev.
+- **`sync-links`** — fastest (~1s). Makes the app *visible* via symlink. Enough for `.conf` edits, dashboards, and Python scripts (no packaging needed). Called automatically by `dev:up` and `app:create`.
+- **`package`** — produces a `.tgz` in `splunk/stage/`. Used as input for staging (`stage:up` auto-installs from there). Not needed for day-to-day dev.
 
 ### React UI
 
@@ -195,19 +192,19 @@ task test:all               # lint + E2E
 
 1. Open repo in VS Code → "Reopen in Container"
 2. `post-create.sh` installs tools and builds the Splunk image
-3. `task splunk:up` → starts Splunk, syncs app symlinks (full Ansible provisioning on first boot, ~50s)
+3. `task dev:up` → starts Splunk, syncs app symlinks (full Ansible provisioning on first boot, ~50s)
 4. `task deps:install` → install Splunkbase dependencies (SA-VSCode, MLTK, etc.)
 
 ### Creating a New App
 
 1. `task app:create APP_NAME=my_app` → scaffolds app, creates symlink, refreshes Splunk (~2-10s, no container recreation)
 2. App is immediately visible in Splunk
-3. Edit `.conf` files → `task splunk:refresh` to reload (~2s, no restart)
+3. Edit `.conf` files → `task dev:refresh` to reload (~2s, no restart)
 
 ### Creating a React App
 
 1. `task react:create` → scaffolds via `@splunk/create`, detects app name, updates `.env`, runs initial build
-2. `task react:link` → symlinks `stage/` into Splunk `etc/apps/` (run once, or after `splunk:clean`)
+2. `task react:link` → symlinks `stage/` into Splunk `etc/apps/` (run once, or after `dev:clean`)
 3. `task react:start` → webpack watch; `stage/` updates live through the symlink
 4. `task react:add-page` → add more pages interactively via `@splunk/create`
 5. `task react:package` → build + package `stage/` as tgz for staging
@@ -216,17 +213,17 @@ task test:all               # lint + E2E
 
 | Change | Command | Time |
 |--------|---------|------|
-| Edit `.conf` / dashboard | `task splunk:refresh` | ~2s |
-| Edit Python code | `task splunk:restartd` | ~10s |
+| Edit `.conf` / dashboard | `task dev:refresh` | ~2s |
+| Edit Python code | `task dev:restartd` | ~10s |
 | New app | `task app:create` (symlink + refresh) | ~2-10s |
-| Dockerfile change | `task splunk:build` then `task splunk:up` | varies |
-| Full reset | `task splunk:clean` then `task splunk:up` | ~90s |
+| Dockerfile change | `task dev:build` then `task dev:up` | varies |
+| Full reset | `task dev:clean` then `task dev:up` | ~90s |
 
 ### Staging Verification
 
 1. `task app:package APP_NAME=my_app` → package Python apps into `splunk/stage/`
 1. `task react:package` → build + package React app into `splunk/stage/`
-2. `task splunk:up-staging` → start staging on ports 18000/18089/18088 (auto-installs tgz on first start)
+2. `task stage:up` → start staging on ports 18000/18089/18088 (auto-installs tgz on first start)
 
 ## How It Works
 
@@ -257,14 +254,14 @@ Dev and staging run as separate compose projects with different ports:
 
 1. **First start**: No marker → full Ansible → writes `/opt/splunk/var/.provisioned`
 2. **Subsequent starts**: Marker exists → starts splunkd directly (~30s vs ~90s)
-3. **Force reprovision**: `task splunk:reprovision` removes marker and restarts
-4. **Clean reset**: `task splunk:clean` removes volumes (including marker)
+3. **Force reprovision**: `task dev:reprovision` removes marker and restarts
+4. **Clean reset**: `task dev:clean` removes volumes (including marker)
 
 The wrapper also writes the Docker healthcheck state file so `checkstate.sh` passes in skip-provision mode.
 
 ### Build / Up Separation
 
-The Splunk image is built once during `post-create.sh` (or explicitly via `task splunk:build`). `task splunk:up` only starts the container — it does not rebuild. This avoids unnecessary rebuilds during daily development.
+The Splunk image is built once during `post-create.sh` (or explicitly via `task dev:build`). `task dev:up` only starts the container — it does not rebuild. This avoids unnecessary rebuilds during daily development.
 
 ### App Symlink Mounts
 
@@ -277,9 +274,9 @@ The entire `splunk/config/apps/` directory is bind-mounted to `/opt/splunk/dev-a
 
 | Change type | Action needed |
 |---|---|
-| `.conf` files, dashboards | `task splunk:refresh` (~2s, no restart) |
+| `.conf` files, dashboards | `task dev:refresh` (~2s, no restart) |
 | Python code in `bin/` | Re-run the search command (no restart) |
-| Python code needing restart | `task splunk:restartd` (~10s) |
+| Python code needing restart | `task dev:restartd` (~10s) |
 | React source (`src/`) | `task react:start` (webpack watch → `stage/` live via symlink) |
 | React production build | `task react:package` (build + package tgz for staging) |
 | Dashboard Studio JSON | Edit `definition.json` → HMR picks it up |
@@ -292,7 +289,7 @@ The entire `splunk/config/apps/` directory is bind-mounted to `/opt/splunk/dev-a
 - **`/opt/splunk/dev-apps/`** — bind mount of `splunk/config/apps/` (live source)
 - **`splunk/stage/`** — built tarballs mounted to `/tmp/apps` in the container
 
-`task splunk:clean` removes all volumes for a full reset.
+`task dev:clean` removes all volumes for a full reset.
 
 ### React + Dashboard Studio Dev Loop
 
@@ -341,11 +338,11 @@ Path mapping: `splunk/config/apps/<app>/bin/` ↔ `/opt/splunk/etc/apps/<app>/bi
 
 **Production build** (for staging verification):
 1. `task react:package` → builds and packages `stage/` as tgz
-2. `task splunk:build-staging && task splunk:up-staging`
+2. `task stage:up`
 3. VSCode: Run → **"Chrome: Staging Splunk Web"**
 
 **Staging mode**:
-1. `task splunk:up-staging` → staging on `:18000`
+1. `task stage:up` → staging on `:18000`
 2. VSCode: Run → **"Chrome: Staging Splunk Web"**
 
 ### splunk-config-dev
@@ -408,20 +405,20 @@ task test:all             # python:lint + test:e2e
 
 | Suite | Script | What it tests |
 |---|---|---|
-| boot | `test-boot.sh` | `splunk:up`, health, `SPLUNK_PASSWORD` auth, `splunk-config-dev` symlink |
-| app-lifecycle | `test-app-lifecycle.sh` | `app:create`, symlinks, `app:package`, `app:provision`, REST verify |
+| boot | `test-boot.sh` | `dev:up`, health, `SPLUNK_PASSWORD` auth, `splunk-config-dev` symlink |
+| app-lifecycle | `test-app-lifecycle.sh` | `app:create`, symlinks, `app:package`, REST verify |
 | deps-install | `test-deps-install.sh` | `deps:install` idempotency |
 | react-build | `test-react-build.sh` | `react:build`, `react:package`, tgz validation, idempotency |
-| staging | `test-staging.sh` | staging image build, `splunk:up-staging` |
+| staging | `test-staging.sh` | staging image build, `stage:up` |
 | skip-provision | `test-skip-provision.sh` | container restart skips Ansible |
 
 ## Troubleshooting
 
-- **Splunk won't start**: `task splunk:logs` → check for errors
-- **App changes not visible**: `task splunk:refresh` (reloads configs without restart); if that doesn't work, `task splunk:restartd`
-- **New app not visible**: `task app:sync-links` creates missing symlinks; `task splunk:refresh` reloads configs
+- **Splunk won't start**: `task dev:logs` → check for errors
+- **App changes not visible**: `task dev:refresh` (reloads configs without restart); if that doesn't work, `task dev:restartd`
+- **New app not visible**: `task app:sync-links` creates missing symlinks; `task dev:refresh` reloads configs
 - **Python debugger won't connect**: ensure SA-VSCode is installed (`task deps:install`), code has `dbg.enable_debugging()`, and port 5678 is exposed
 - **React HMR not working**: check webpack proxy config points to `splunk-dev:8089`
-- **Corrupt state after restart**: `task splunk:reprovision` (forces full Ansible)
-- **Full reset**: `task splunk:clean && task splunk:up`
+- **Corrupt state after restart**: `task dev:reprovision` (forces full Ansible)
+- **Full reset**: `task dev:clean && task dev:up`
 - **Port conflicts**: edit ports in `.devcontainer/docker-compose.yml` or `docker-compose.staging.yml`

@@ -15,18 +15,18 @@ log "Build and verify staging image"
 task app:package APP_NAME="${TEST_CMD_APP}" 2>/dev/null || true
 task app:package APP_NAME="${TEST_REACT_APP}" 2>/dev/null || true
 
-if task splunk:build-staging 2>&1 | tail -5; then
-    pass "task splunk:build-staging"
+if task stage:build 2>&1 | tail -5; then
+    pass "task stage:build"
 else
-    fail "task splunk:build-staging"
+    fail "task stage:build"
 fi
 
 log "Start staging Splunk and verify mounted apps are auto-installed"
 
-if task splunk:up-staging 2>&1 | tail -5; then
-    pass "task splunk:up-staging"
+if task stage:up 2>&1 | tail -5; then
+    pass "task stage:up"
 else
-    fail "task splunk:up-staging"
+    fail "task stage:up"
 fi
 
 # Wait for staging Splunk to become healthy
