@@ -358,10 +358,11 @@ tasks:
         echo ""
         echo "React app scaffolded."
       - |
-        # Detect the app package: has webpack.config.js (the 'main' component lib does not)
+        # Detect the app package: has src/main/webapp/pages/ (Splunk app structure)
+        # Component libraries do NOT have this — they have a flat src/ with components
         REACT_PKG=""
         for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
-          [ -f "${d}webpack.config.js" ] || continue
+          [ -d "${d}src/main/webapp/pages" ] || continue
           REACT_PKG=$(node -e "process.stdout.write(require('$(pwd)/${d}package.json').name.replace(/^@[^/]+\//,''))" 2>/dev/null || true)
           REACT_PATH="${d%/}"
           [ -n "$REACT_PKG" ] && break
@@ -441,7 +442,7 @@ tasks:
           REACT_PATH="{{.REACT_PACKAGES_DIR}}/${APP_NAME}"
         else
           for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
-            [ -f "${d}webpack.config.js" ] && REACT_PATH="${d%/}" && break
+            [ -d "${d}src/main/webapp/pages" ] && REACT_PATH="${d%/}" && break
           done
         fi
         if [ -z "${REACT_PATH}" ]; then echo "Cannot resolve REACT_PATH — set APP_NAME in .env"; exit 1; fi
@@ -463,7 +464,7 @@ tasks:
           REACT_PATH="{{.REACT_PACKAGES_DIR}}/${APP_NAME}"
         else
           for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
-            [ -f "${d}webpack.config.js" ] && REACT_PATH="${d%/}" && break
+            [ -d "${d}src/main/webapp/pages" ] && REACT_PATH="${d%/}" && break
           done
         fi
         if [ -z "${REACT_PATH}" ] || [ -z "${APP_NAME}" ]; then
