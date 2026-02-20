@@ -71,8 +71,17 @@ tasks:
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'up -d' }
+      - |
+        echo "Waiting for Splunk to be ready..."
+        for i in $(seq 1 36); do
+          STATUS=$(docker exec {{.SPLUNK_CONTAINER}} bash -lc \
+            "curl -sk -o /dev/null -w '%{http_code}' https://localhost:8089/services/server/health -u admin:\$SPLUNK_PASSWORD" 2>/dev/null || echo 000)
+          [ "$STATUS" = "200" ] && echo "Splunk ready." && break
+          [ "$i" = "36" ] && echo "Splunk did not become ready in time — run 'task app:sync-links' manually" && exit 0
+          sleep 5
+        done
       - task: app:sync-links
-    desc: Start dev Splunk and sync app symlinks (no rebuild)
+    desc: Start dev Splunk, wait for health, then sync app symlinks
 
   splunk:down:
     cmds:
