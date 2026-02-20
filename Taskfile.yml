@@ -380,6 +380,8 @@ tasks:
       - |
         echo "Adding page/component via @splunk/create (interactive)..."
         cd {{.REACT_PACKAGES_DIR}} && npx @splunk/create
+        echo "Installing new packages..."
+        yarn install
         echo ""
         echo "Done. Run 'task react:start' to rebuild, or 'task react:build-install' for production."
     desc: Add a new page or component to existing app via @splunk/create (interactive)
