@@ -45,9 +45,10 @@ tasks:
         echo "  task app:provision          # package + install local apps"
         echo "  task deps:install           # install Splunkbase dependencies"
         echo ""
-        echo "  task react:create           # scaffold React app via @splunk/create into react/, syncs APP_NAME in .env"
-        echo "  task react:start            # webpack watch (src/ edits → splunk:refresh to reload)"
-        echo "  task react:build-install    # build + install into running Splunk"
+        echo "  task react:create           # scaffold + initial build, syncs APP_NAME in .env"
+        echo "  task react:link             # symlink stage/ into Splunk (run once after react:create)"
+        echo "  task react:start            # webpack watch (stage/ updates live via symlink)"
+        echo "  task react:build-install    # production build + package + install into Splunk"
     desc: Show available tasks and common flows
 
   # ── Internal helpers ─────────────────────────────────────────────────
@@ -324,7 +325,16 @@ tasks:
       - python3 splunk/scripts/deps-install.py --env-file "{{.ENV_FILE}}" --deps-file "{{.DEPS_FILE}}" --stage-dir "{{.STAGE_DIR}}" --compose-file "{{.COMPOSE_FILE}}" --service "{{.SPLUNK_SERVICE}}"
     desc: Install Splunkbase dependencies from splunk/config/deps.yml (idempotent)
 
-  # ── React Development ────────────────────────────────────────────────
+  # ── React Development ─────────────────────────────────────────────────
+  #
+  # @splunk/create convention:
+  #   react/packages/<app>/stage/  ← webpack outputs a COMPLETE Splunk app here
+  #   yarn start                   ← webpack watch, stage/ updates live
+  #   yarn build                   ← production build to stage/
+  #
+  # Dev loop: react:create → react:link → react:start (webpack watch)
+  #           Splunk reads stage/ directly via symlink — no copying needed.
+  # Prod:     react:build-install → yarn build + package stage/ + splunk install app
 
   react:create:
     cmds:
@@ -335,32 +345,20 @@ tasks:
         echo ""
         echo "React app scaffolded."
       - |
-        # Detect the package name @splunk/create used and derive APP_NAME from it.
-        # @splunk/create names the package after what the user typed (e.g. "MyApp" → "my-app").
-        # We use that as APP_NAME so Splunk folder and React package always match.
+        # Detect the app package: has webpack.config.js (the 'main' component lib does not)
         REACT_PKG=""
-        # @splunk/create monorepo layout: packages/packages/<pkg>/package.json
         for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
-          if [ -f "${d}package.json" ]; then
-            REACT_PKG=$(node -e "process.stdout.write(require('$(pwd)/${d}package.json').name.replace(/^@[^/]+\//,''))" 2>/dev/null || true)
-            break
-          fi
+          [ -f "${d}webpack.config.js" ] || continue
+          REACT_PKG=$(node -e "process.stdout.write(require('$(pwd)/${d}package.json').name.replace(/^@[^/]+\//,''))" 2>/dev/null || true)
+          REACT_PATH="${d%/}"
+          [ -n "$REACT_PKG" ] && break
         done
-        # Flat layout: packages/<pkg>/package.json
         if [ -z "$REACT_PKG" ]; then
-          for d in "{{.REACT_PACKAGES_DIR}}"/*/; do
-            if [ -f "${d}package.json" ]; then
-              REACT_PKG=$(node -e "process.stdout.write(require('$(pwd)/${d}package.json').name.replace(/^@[^/]+\//,''))" 2>/dev/null || true)
-              break
-            fi
-          done
-        fi
-        if [ -z "$REACT_PKG" ]; then
-          echo "Could not detect package name from @splunk/create output. Set APP_NAME manually in .env."
+          echo "Could not detect app package. Set APP_NAME manually in .env."
           exit 0
         fi
-        echo "Detected @splunk/create package name: $REACT_PKG"
-        # Update APP_NAME in .env to match — this is the source of truth going forward
+        echo "Detected app package: $REACT_PKG"
+        # Sync APP_NAME in .env
         if [ -f "{{.ENV_FILE}}" ]; then
           if grep -q '^APP_NAME=' "{{.ENV_FILE}}"; then
             sed -i.bak "s|^APP_NAME=.*|APP_NAME=${REACT_PKG}|" "{{.ENV_FILE}}" && rm -f "{{.ENV_FILE}}.bak"
@@ -369,42 +367,61 @@ tasks:
           fi
           echo "Updated .env: APP_NAME=${REACT_PKG}"
         fi
-        # Create the Splunk app skeleton with the same name
-        if [ ! -d "{{.CONFIG_APPS_DIR}}/${REACT_PKG}" ]; then
-          echo "Creating Splunk app skeleton for ${REACT_PKG}..."
-          APP_NAME="${REACT_PKG}" task app:create
-        else
-          echo "Splunk app ${REACT_PKG} already exists — syncing symlinks"
-          task app:sync-links
-          task splunk:refresh 2>/dev/null || true
+        # Initial build so stage/ exists before linking
+        echo "Running initial build in ${REACT_PATH}..."
+        (cd "{{.REACT_PACKAGES_DIR}}" && yarn install)
+        (cd "${REACT_PATH}" && yarn build)
+        echo "Done. Run 'task react:link' to symlink into Splunk, then 'task react:start' to watch."
+    desc: Scaffold React app via @splunk/create, detect app name, update .env, run initial build
+
+  react:link:
+    cmds:
+      - |
+        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
+          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
         fi
-    desc: Scaffold a React Splunk app, sync APP_NAME in .env to match, create Splunk app skeleton
+        if [ -z "${APP_NAME}" ]; then echo "APP_NAME required"; exit 1; fi
+        # Verify stage/ exists on the host before linking
+        if [ -d "{{.REACT_PACKAGES_DIR}}/packages/${APP_NAME}/stage" ]; then
+          STAGE_PATH="$(pwd)/{{.REACT_PACKAGES_DIR}}/packages/${APP_NAME}/stage"
+        elif [ -d "{{.REACT_PACKAGES_DIR}}/${APP_NAME}/stage" ]; then
+          STAGE_PATH="$(pwd)/{{.REACT_PACKAGES_DIR}}/${APP_NAME}/stage"
+        else
+          echo "stage/ not found — run 'task react:create' or 'task react:build-install' first"; exit 1
+        fi
+        # Use container-internal path — react/ is mounted at /opt/splunk/react inside the container
+        CONTAINER_STAGE="/opt/splunk/react/packages/${APP_NAME}/stage"
+        echo "Linking ${CONTAINER_STAGE} → /opt/splunk/etc/apps/${APP_NAME} (inside container)..."
+        docker exec --user root {{.SPLUNK_CONTAINER}} bash -c "
+          LINK=/opt/splunk/etc/apps/${APP_NAME}
+          [ -L \"\$LINK\" ] && rm -f \"\$LINK\"
+          [ -e \"\$LINK\" ] && rm -rf \"\$LINK\"
+          ln -s ${CONTAINER_STAGE} \"\$LINK\"
+          echo \"Linked: \$LINK → ${CONTAINER_STAGE}\"
+        "
+        task splunk:refresh
+    desc: Symlink react/packages/<app>/stage/ directly into Splunk etc/apps/ (dev loop)
 
   react:start:
     cmds:
       - |
-        if [ -z "${REACT_PATH}" ] && [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
+        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
           APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
         fi
-        if [ -z "${REACT_PATH}" ] && [ -n "${APP_NAME}" ]; then
-          if [ -d "{{.REACT_PACKAGES_DIR}}/${APP_NAME}" ]; then
-            REACT_PATH="{{.REACT_PACKAGES_DIR}}/${APP_NAME}"
-          else
-            # @splunk/create monorepo: packages/packages/<any-dir-with-package.json>
-            for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
-              [ -f "${d}package.json" ] && REACT_PATH="${d%/}" && break
-            done
-          fi
-        fi
-        if [ -z "${REACT_PATH}" ]; then echo "REACT_PATH or APP_NAME required"; exit 1; fi
-        echo "Starting React dev server in ${REACT_PATH}..."
-        cd "${REACT_PATH}"
-        if [ -f "yarn.lock" ]; then
-          yarn start
+        REACT_PATH=""
+        if [ -d "{{.REACT_PACKAGES_DIR}}/packages/${APP_NAME}" ]; then
+          REACT_PATH="{{.REACT_PACKAGES_DIR}}/packages/${APP_NAME}"
+        elif [ -d "{{.REACT_PACKAGES_DIR}}/${APP_NAME}" ]; then
+          REACT_PATH="{{.REACT_PACKAGES_DIR}}/${APP_NAME}"
         else
-          npm start
+          for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
+            [ -f "${d}webpack.config.js" ] && REACT_PATH="${d%/}" && break
+          done
         fi
-    desc: Start React dev server with HMR (port 3000)
+        if [ -z "${REACT_PATH}" ]; then echo "Cannot resolve REACT_PATH — set APP_NAME in .env"; exit 1; fi
+        echo "Starting webpack watch in ${REACT_PATH} (stage/ updates live via symlink)..."
+        cd "${REACT_PATH}" && yarn start
+    desc: webpack watch — stage/ updates live, Splunk reads changes via react:link symlink
 
   react:build-install:
     cmds:
@@ -412,53 +429,33 @@ tasks:
         if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
           APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
         fi
-        if [ -z "${REACT_PATH}" ] && [ -n "${APP_NAME}" ]; then
-          if [ -d "{{.REACT_PACKAGES_DIR}}/${APP_NAME}" ]; then
-            REACT_PATH="{{.REACT_PACKAGES_DIR}}/${APP_NAME}"
-          else
-            # @splunk/create monorepo: packages/packages/<any-dir-with-package.json>
-            for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
-              [ -f "${d}package.json" ] && REACT_PATH="${d%/}" && break
-            done
-          fi
+        REACT_PATH=""
+        if [ -d "{{.REACT_PACKAGES_DIR}}/packages/${APP_NAME}" ]; then
+          REACT_PATH="{{.REACT_PACKAGES_DIR}}/packages/${APP_NAME}"
+        elif [ -d "{{.REACT_PACKAGES_DIR}}/${APP_NAME}" ]; then
+          REACT_PATH="{{.REACT_PACKAGES_DIR}}/${APP_NAME}"
+        else
+          for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
+            [ -f "${d}webpack.config.js" ] && REACT_PATH="${d%/}" && break
+          done
         fi
         if [ -z "${REACT_PATH}" ] || [ -z "${APP_NAME}" ]; then
-          echo "REACT_PATH and APP_NAME are required"; exit 1;
+          echo "Cannot resolve REACT_PATH — set APP_NAME in .env"; exit 1
         fi
-        APP_DIR="{{.CONFIG_APPS_DIR}}/${APP_NAME}"
-        DEST_DIR="${APP_DIR}/appserver/static"
-        if [ -n "${STATIC_SUBDIR}" ]; then DEST_DIR="${DEST_DIR}/${STATIC_SUBDIR}"; fi
-        if [ ! -d "$APP_DIR" ]; then echo "App not found: $APP_DIR"; exit 1; fi
-        if [ ! -f "${REACT_PATH}/package.json" ]; then echo "No package.json in ${REACT_PATH}"; exit 1; fi
-
-        echo "Building React app in ${REACT_PATH}..."
-        (cd "${REACT_PATH}" && \
-          if [ -f "yarn.lock" ]; then yarn install && yarn build; else npm install && npm run build; fi)
-
-        # Find build output — try standard dirs first, then @splunk/create's stage/
-        BUILD_DIR="${REACT_PATH}/build"
-        [ -d "$BUILD_DIR" ] || BUILD_DIR="${REACT_PATH}/dist"
-        if [ -d "$BUILD_DIR" ]; then
-          echo "Copying to $DEST_DIR ..."
-          mkdir -p "$DEST_DIR"
-          rsync -a --delete "$BUILD_DIR"/ "$DEST_DIR"/
-        elif [ -d "${REACT_PATH}/stage" ]; then
-          # @splunk/create: stage/ contains full Splunk app structure — merge into app dir
-          echo "Copying @splunk/create stage/ output to $APP_DIR ..."
-          rsync -a "${REACT_PATH}/stage"/ "$APP_DIR"/
-        else
-          echo "No build output found (tried build/, dist/, stage/)"; exit 1
-        fi
-
-        echo "Packaging and installing ${APP_NAME}..."
+        echo "Building ${APP_NAME} for production..."
+        (cd "{{.REACT_PACKAGES_DIR}}" && yarn install)
+        (cd "${REACT_PATH}" && yarn build)
+        STAGE_PATH="${REACT_PATH}/stage"
+        if [ ! -d "$STAGE_PATH" ]; then echo "Build failed — stage/ not found"; exit 1; fi
+        echo "Packaging ${STAGE_PATH} → {{.STAGE_DIR}}/${APP_NAME}.tgz ..."
         mkdir -p {{.STAGE_DIR}}
-        tar -czf "{{.STAGE_DIR}}/${APP_NAME}.tgz" -C "{{.CONFIG_APPS_DIR}}" "${APP_NAME}"
-
+        tar -czf "{{.STAGE_DIR}}/${APP_NAME}.tgz" -C "${REACT_PATH}" stage --transform "s|^stage|${APP_NAME}|"
+        echo "Installing into Splunk..."
         docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} \
           exec --user splunk {{.SPLUNK_SERVICE}} bash -lc \
           "{{.SPLUNK_BIN}} install app /tmp/apps/${APP_NAME}.tgz -update 1 -auth admin:\$SPLUNK_PASSWORD" || true
         echo "Done. If Splunk requests a restart: task splunk:restartd"
-    desc: Build React app, merge into Splunk app dir, package and install into Splunk
+    desc: Production build — yarn build, package stage/ as tgz, install into Splunk
 
   # ── Python Tooling ───────────────────────────────────────────────────
 

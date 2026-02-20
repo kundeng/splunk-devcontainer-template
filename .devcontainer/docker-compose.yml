@@ -39,6 +39,8 @@ services:
       - splunk-etc:/opt/splunk/etc
       # App source directories — symlinked into /opt/splunk/etc/apps/ by app:sync-links
       - ${LOCAL_WORKSPACE_FOLDER:-..}/splunk/config/apps:/opt/splunk/dev-apps
+      # React source — mounted so stage/ symlinks resolve inside container (react:link)
+      - ${LOCAL_WORKSPACE_FOLDER:-..}/react:/opt/splunk/react
     restart: unless-stopped
 
   ## ── Optional sidecars (uncomment as needed) ──────────────────────
