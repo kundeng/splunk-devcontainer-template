@@ -424,6 +424,16 @@ tasks:
           # @splunk/create: stage/ contains full Splunk app structure — merge into app dir
           echo "Copying @splunk/create stage/ output to $APP_DIR ..."
           rsync -a "${REACT_PATH}/stage"/ "$APP_DIR"/
+          # Patch hardcoded @splunk/create package name to match actual APP_NAME folder.
+          # @splunk/create uses kebab-case package name in template paths and static URLs;
+          # Splunk routes by folder name so these must match APP_NAME.
+          PKG_NAME=$(node -e "process.stdout.write(require('$(pwd)/${REACT_PATH}/package.json').name.replace(/^@[^/]+\//,''))" 2>/dev/null || true)
+          if [ -n "$PKG_NAME" ] && [ "$PKG_NAME" != "$APP_NAME" ]; then
+            echo "Patching @splunk/create package name '$PKG_NAME' → '$APP_NAME' in app files..."
+            find "$APP_DIR" -type f \( -name "*.xml" -o -name "*.html" -o -name "*.conf" \) \
+              -exec sed -i.bak "s|${PKG_NAME}|${APP_NAME}|g" {} \; \
+              -exec rm -f {}.bak \;
+          fi
         else
           echo "No build output found (tried build/, dist/, stage/)"; exit 1
         fi
