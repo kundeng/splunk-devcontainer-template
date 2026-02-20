@@ -72,7 +72,7 @@ splunk.env.example             # Template for .env
 1. Open repo in VS Code → "Reopen in Container"
 2. `post-create.sh` installs tools and builds the Splunk image
 3. `task splunk:up` → starts Splunk, syncs app symlinks (full Ansible provisioning on first boot, ~50s)
-4. `task deps:install` → install Splunkbase dependencies (SA-VSCode, MLTK, etc.)
+4. `task deps:install` → install Splunkbase dependencies declared in `splunk/config/deps.yml` (optional)
 
 ### Creating a New App
 
