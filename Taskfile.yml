@@ -445,33 +445,6 @@ tasks:
         pytest || echo "No tests found or pytest not installed"
     desc: Run Python tests with pytest
 
-  # ── Testing ─────────────────────────────────────────────────────────
-
-  test:e2e:
-    cmds:
-      - |
-        if command -v devcontainer &>/dev/null; then
-          DC_CLI="devcontainer"
-        else
-          echo "devcontainer CLI not found, using npx..."
-          DC_CLI="npx --yes @devcontainers/cli"
-        fi
-        echo "Running E2E tests (devcontainer CLI: $DC_CLI)"
-        bash tests/e2e/devcontainer-test.sh
-    desc: Run E2E devcontainer tests (build, up, tool checks, compose validation)
-
-  test:native:
-    cmds:
-      - |
-        echo "Running lifecycle tests natively (no devcontainer)..."
-        bash tests/e2e/run-lifecycle.sh
-    desc: Run Splunk lifecycle tests directly on Mac host (no devcontainer needed)
-
-  test:all:
-    cmds:
-      - task: python:lint
-      - task: test:e2e
-    desc: Run all tests (lint + E2E devcontainer)
 
   # ── Utility ──────────────────────────────────────────────────────────
 
