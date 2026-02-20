@@ -110,11 +110,11 @@ The devcontainer is the cross-platform equalizer: a Windows developer gets a Lin
 
 ### Requirement 9: Simultaneous Dev + Staging Environments
 
-**User Story:** As a developer, I want to run a staging Splunk instance alongside dev on different ports, so that I can validate baked-in app builds without disrupting my dev environment.
+**User Story:** As a developer, I want to run a staging Splunk instance alongside dev on different ports, so that I can validate packaged apps without disrupting my dev environment.
 
 #### Acceptance Criteria
 
-1. WHEN `task splunk:up-staging` is run, THEN a staging Splunk instance SHALL start on ports 18000/18089/18088 with apps baked into the image, using separate volumes (`splunk-staging-var`, `splunk-staging-etc`) isolated from dev.
+1. WHEN `task splunk:up-staging` is run, THEN a staging Splunk instance SHALL start on ports 18000/18089/18088 with `splunk/stage/` mounted to `/tmp/apps/` and tgz files auto-installed on first start, using separate volumes (`splunk-staging-var`, `splunk-staging-etc`) isolated from dev.
 2. WHEN both dev and staging are running, THEN they SHALL not conflict (different ports, volumes, container names).
 
 ### Requirement 10: E2E Testing

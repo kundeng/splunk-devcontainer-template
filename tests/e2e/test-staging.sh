@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test suite: Staging build + verify baked-in apps.
+# Test suite: Staging — verify packaged apps are auto-installed from splunk/stage/.
 # Expects Splunk dev to be running (for packaging). Starts/stops staging itself.
 
 set -euo pipefail
@@ -21,7 +21,7 @@ else
     fail "task splunk:build-staging"
 fi
 
-log "Start staging Splunk and verify baked-in apps"
+log "Start staging Splunk and verify mounted apps are auto-installed"
 
 if task splunk:up-staging 2>&1 | tail -5; then
     pass "task splunk:up-staging"
@@ -59,9 +59,8 @@ if [ "$STAGING_HEALTHY" = "true" ]; then
     done
 
     if [ "$STAGING_APPS_READY" = "true" ]; then
-        check_app_rest "${STAGING_CONTAINER}" "${TEST_CMD_APP}" "staging: baked-in custom cmd app"
-        check_app_rest "${STAGING_CONTAINER}" "${TEST_REACT_APP}" "staging: baked-in React app"
-        check_app_rest "${STAGING_CONTAINER}" "splunk-config-dev" "staging: baked-in config app"
+        check_app_rest "${STAGING_CONTAINER}" "${TEST_CMD_APP}" "staging: auto-installed custom cmd app"
+        check_app_rest "${STAGING_CONTAINER}" "${TEST_REACT_APP}" "staging: auto-installed React app"
     else
         fail "Staging apps not installed after waiting 120s"
     fi

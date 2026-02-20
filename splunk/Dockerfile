@@ -26,19 +26,3 @@ FROM base AS dev
 USER ansible
 ENTRYPOINT ["/sbin/entrypoint-wrapper.sh"]
 CMD ["start-service"]
-
-#####################################################################
-# STAGING STAGE — self-contained image with all apps baked in
-#
-# Build: docker compose ... build --build-arg TARGET=staging
-# Or:    task splunk:build-staging
-# All .tgz files from splunk/stage/ are copied into /tmp/apps.
-# Set SPLUNK_APPS_URL in compose to install them on first start
-# (standard splunk-ansible provisioning — same as dev).
-#####################################################################
-FROM base AS staging
-USER splunk
-COPY stage/*.tgz /tmp/apps/
-USER ansible
-ENTRYPOINT ["/sbin/entrypoint-wrapper.sh"]
-CMD ["start-service"]
