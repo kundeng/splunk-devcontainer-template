@@ -38,7 +38,7 @@ yarn-error.log
 
 # Splunk
 local/
-metadata/local.meta
+**/metadata/local.meta
 default.old*/
 *.spl
 *.tar.gz
