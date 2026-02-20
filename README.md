@@ -58,7 +58,7 @@ splunk/
       splunk-config-dev/       # Dev-mode Splunk settings (js_no_cache, enableWebDebug)
     deps.yml                   # Declarative Splunkbase dependency list
   stage/                       # Built tarballs (.tgz) — gitignored
-packages/                      # React/JS source (monorepo-friendly)
+react/                         # React/JS source (monorepo via @splunk/create)
 Taskfile.yml                   # All automation
 tests/e2e/                     # E2E test scripts (devcontainer + lifecycle)
 .env                           # Secrets/config — gitignored
