@@ -91,7 +91,7 @@ else
     echo "    Output: ${OUTPUT:0:200}"
 fi
 
-log "Package and provision test app"
+log "Package test app"
 
 if task app:package APP_NAME="${TEST_CMD_APP}" 2>&1 | tail -3; then
     if [ -f "splunk/stage/${TEST_CMD_APP}.tgz" ]; then
@@ -103,17 +103,10 @@ else
     fail "task app:package"
 fi
 
-if task app:provision APP_NAME="${TEST_CMD_APP}" 2>&1 | tail -5; then
-    pass "task app:provision"
-else
-    fail "task app:provision"
-fi
+log "Verify apps visible via symlink (dev model — no CLI install)"
 
-log "Verify apps via Splunk REST API after provision"
-
-sleep 5
-
-check_app_rest "${SPLUNK_CONTAINER}" "${TEST_CMD_APP}" "provisioned custom cmd app"
-check_app_rest "${SPLUNK_CONTAINER}" "splunk-config-dev" "dev-mounted config app (after provision)"
+# app:create already called sync-links + dev:refresh; just verify via REST
+check_app_rest "${SPLUNK_CONTAINER}" "${TEST_CMD_APP}" "symlinked custom cmd app"
+check_app_rest "${SPLUNK_CONTAINER}" "splunk-config-dev" "dev-mounted config app"
 
 results

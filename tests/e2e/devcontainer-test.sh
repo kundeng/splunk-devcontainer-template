@@ -91,7 +91,7 @@ else
 fi
 
 # Check expected namespaces exist
-for ns in splunk:up app:create react:start deps:install python:lint; do
+for ns in dev:up app:create react:start deps:install python:lint; do
     if echo "$TASK_LIST" | grep -qF "$ns"; then
         pass "task $ns exists"
     else

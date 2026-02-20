@@ -20,7 +20,7 @@ else
 fi
 
 RESTART_START=$(date +%s)
-task splunk:restart 2>&1 | tail -3 || true
+task dev:restart 2>&1 | tail -3 || true
 
 SKIP_HEALTHY=false
 for i in $(seq 1 12); do
@@ -59,7 +59,7 @@ check_app_rest "${SPLUNK_CONTAINER}" "splunk-config-dev" "config app (after skip
 log "Reprovision: full Ansible run"
 
 REPROV_START=$(date +%s)
-task splunk:reprovision 2>&1 | tail -5 || true
+task dev:reprovision 2>&1 | tail -5 || true
 
 REPROV_HEALTHY=false
 for i in $(seq 1 60); do
@@ -79,7 +79,7 @@ if [ "$REPROV_HEALTHY" = "true" ]; then
     pass "Reprovision: Splunk healthy after full Ansible (${REPROV_ELAPSED}s)"
 else
     fail "Splunk not healthy after reprovision (waited 600s)"
-    task splunk:logs 2>&1 | tail -30 || true
+    task dev:logs 2>&1 | tail -30 || true
 fi
 
 if docker exec "${SPLUNK_CONTAINER}" test -f /opt/splunk/var/.provisioned; then

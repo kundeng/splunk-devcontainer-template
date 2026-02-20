@@ -27,8 +27,8 @@ rm -rf ".task"
 
 cleanup_all() {
     log "Final cleanup"
-    task splunk:down 2>/dev/null || true
-    task splunk:down-staging 2>/dev/null || true
+    task dev:down 2>/dev/null || true
+    task stage:down 2>/dev/null || true
     rm -rf "splunk/config/apps/${TEST_CMD_APP}"
     rm -rf "splunk/config/apps/${TEST_REACT_APP}"
     rm -rf "react/packages/${TEST_REACT_APP}"

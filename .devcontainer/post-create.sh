@@ -28,6 +28,6 @@ mkdir -p /workspace/packages
 
 # ── Build Splunk image ────────────────────────────────────────────────
 echo "Building Splunk dev image (first time only)..."
-task splunk:build 2>&1 | tail -5 || true
+task dev:build 2>&1 | tail -5 || true
 
-echo "=== Setup complete. Run 'task splunk:up' to start Splunk. ==="
+echo "=== Setup complete. Run 'task dev:up' to start Splunk. ==="

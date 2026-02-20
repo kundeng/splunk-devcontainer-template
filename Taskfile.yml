@@ -30,32 +30,31 @@ tasks:
         task --list
         echo ""
         echo "Dev environment (port 8000):"
-        echo "  task splunk:build           # build dev Splunk image (first time / Dockerfile change)"
-        echo "  task splunk:up              # start + sync app symlinks (no rebuild)"
-        echo "  task splunk:refresh         # reload configs + static assets (no restart)"
-        echo "  task splunk:restartd        # restart splunkd process (~10s)"
-        echo "  task splunk:restart         # restart container (skips Ansible)"
-        echo "  task splunk:reprovision     # force full Ansible re-provisioning"
-        echo "  task splunk:clean           # stop + remove volumes (full reset)"
+        echo "  task dev:build              # build dev Splunk image (first time / Dockerfile change)"
+        echo "  task dev:up                 # start + sync app symlinks (no rebuild)"
+        echo "  task dev:refresh            # reload configs + static assets (no restart)"
+        echo "  task dev:restartd           # restart splunkd process (~10s)"
+        echo "  task dev:restart            # restart container (skips Ansible)"
+        echo "  task dev:reprovision        # force full Ansible re-provisioning"
+        echo "  task dev:clean              # stop + remove volumes (full reset)"
         echo ""
-        echo "App development (works with dev Splunk):"
+        echo "App development:"
         echo "  task app:create APP_NAME=x  # scaffold a new Splunk app"
-        echo "  task app:provision          # tar + splunk install app into dev container via CLI"
+        echo "  task app:package APP_NAME=x # package app dir into splunk/stage/<APP>.tgz"
         echo "  task deps:install           # install Splunkbase dependencies into dev container"
         echo ""
-        echo "React development (works with dev Splunk):"
+        echo "React development:"
         echo "  task react:create           # scaffold + initial build, syncs APP_NAME in .env"
         echo "  task react:add-page         # add a page/component via @splunk/create"
         echo "  task react:link             # symlink stage/ into dev Splunk (run once)"
         echo "  task react:start            # webpack watch (stage/ updates live via symlink)"
-        echo ""
-        echo "Staging environment (port 18000):"
-        echo "  task app:package            # package app dir into splunk/stage/<APP>.tgz"
         echo "  task react:build            # production webpack build (rebuilds stage/)"
         echo "  task react:package          # build + package React app into splunk/stage/<APP>.tgz"
-        echo "  task splunk:up-staging      # start staging (auto-installs tgz from splunk/stage/)"
-        echo "  task splunk:down-staging    # stop staging container"
-        echo "  task splunk:clean-staging   # stop staging + remove volumes"
+        echo ""
+        echo "Staging environment (port 18000):"
+        echo "  task stage:up               # start staging (auto-installs tgz from splunk/stage/)"
+        echo "  task stage:down             # stop staging container"
+        echo "  task stage:clean            # stop staging + remove volumes"
     desc: Show available tasks and common flows
 
   # ── Internal helpers ─────────────────────────────────────────────────
@@ -67,13 +66,13 @@ tasks:
 
   # ── Dev Splunk Lifecycle ────────────────────────────────────────────
 
-  splunk:build:
+  dev:build:
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'build {{.SPLUNK_SERVICE}}' }
     desc: Build the dev Splunk image
 
-  splunk:up:
+  dev:up:
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'up -d' }
@@ -89,31 +88,31 @@ tasks:
       - task: app:sync-links
     desc: Start dev Splunk, wait for health, then sync app symlinks
 
-  splunk:down:
+  dev:down:
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'down' }
     desc: Stop dev Splunk container
 
-  splunk:clean:
+  dev:clean:
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'down -v' }
     desc: Stop dev Splunk, remove containers and volumes (full reset)
 
-  splunk:restart:
+  dev:restart:
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'restart {{.SPLUNK_SERVICE}}' }
     desc: Restart dev Splunk container (entrypoint-wrapper skips Ansible)
 
-  splunk:restartd:
+  dev:restartd:
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'exec {{.SPLUNK_SERVICE}} bash -lc "{{.SPLUNK_BIN}} restart -auth admin:\$SPLUNK_PASSWORD"' }
     desc: Restart splunkd process inside running container (~10s)
 
-  splunk:refresh:
+  dev:refresh:
     cmds:
       - |
         DC="docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}}"
@@ -126,24 +125,24 @@ tasks:
         echo "Done. Config and static assets reloaded (no restart needed)."
     desc: Reload app configs + static assets without restarting splunkd
 
-  splunk:reprovision:
+  dev:reprovision:
     cmds:
       - |
         echo "Removing provisioning marker and restarting..."
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'exec --user root {{.SPLUNK_SERVICE}} bash -c "rm -f /opt/splunk/var/.provisioned"' }
-      - task: splunk:restart
+      - task: dev:restart
       - |
-        echo "Full Ansible provisioning will run. Follow with: task splunk:logs"
+        echo "Full Ansible provisioning will run. Follow with: task dev:logs"
     desc: Force full Ansible re-provisioning (removes marker + restarts)
 
-  splunk:status:
+  dev:status:
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'ps {{.SPLUNK_SERVICE}}' }
     desc: Check dev Splunk container status
 
-  splunk:logs:
+  dev:logs:
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'logs -f {{.SPLUNK_SERVICE}}' }
@@ -151,30 +150,30 @@ tasks:
 
   # ── Staging Splunk Lifecycle ───────────────────────────────────────
 
-  splunk:build-staging:
+  stage:build:
     cmds:
       - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} build
     desc: Build staging Splunk image (reuses dev image; apps mounted from splunk/stage/)
 
-  splunk:up-staging:
+  stage:up:
     cmds:
       - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} up -d
       - |
         echo "Staging Splunk started on port 18000 (Web), 18089 (REST), 18088 (HEC)"
-        echo "Follow logs: task splunk:logs-staging"
+        echo "Follow logs: task stage:logs"
     desc: Start staging Splunk (apps auto-installed from splunk/stage/ on first start)
 
-  splunk:down-staging:
+  stage:down:
     cmds:
       - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} down
     desc: Stop staging Splunk container
 
-  splunk:clean-staging:
+  stage:clean:
     cmds:
       - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} down -v
     desc: Stop staging Splunk, remove containers and volumes
 
-  splunk:logs-staging:
+  stage:logs:
     cmds:
       - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} logs -f
     desc: Follow staging Splunk container logs
@@ -202,7 +201,7 @@ tasks:
       - |
         CONTAINER="{{.SPLUNK_CONTAINER}}"
         if ! docker ps --filter name="$CONTAINER" --format '{{`{{.Names}}`}}' | grep -q "^${CONTAINER}$"; then
-          echo "Splunk container is not running — symlinks will be created on next 'task splunk:up'"
+          echo "Splunk container is not running — symlinks will be created on next 'task dev:up'"
           exit 0
         fi
         echo "Syncing app symlinks in $CONTAINER ..."
@@ -259,7 +258,7 @@ tasks:
           > "$APP_DIR/metadata/default.meta"
         echo "App created: $APP_DIR"
       - task: app:sync-links
-      - task: splunk:refresh
+      - task: dev:refresh
         ignore_error: true
     desc: Scaffold a new Splunk app skeleton (idempotent — skips if exists)
 
@@ -277,35 +276,6 @@ tasks:
         echo "Created $TAR_PATH"
     desc: Package splunk/config/apps/<APP_NAME> into splunk/stage/<APP_NAME>.tgz
 
-  app:provision:
-    cmds:
-      - |
-        APP_NAME="{{.APP_NAME}}"
-        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
-          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
-        fi
-        APPS="{{.APPS}}"
-        if [ -z "$APPS" ]; then
-          if [ -n "${APP_NAME}" ]; then APPS="${APP_NAME}"
-          else echo "APP_NAME is required (or pass APPS=app1,app2)"; exit 1; fi
-        fi
-        echo "Provisioning: $APPS"
-        mkdir -p "{{.STAGE_DIR}}"
-        DC="docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}}"
-        echo "$APPS" | tr ',' '\n' | while read -r APP; do
-          [ -z "$APP" ] && continue
-          SRC_DIR="{{.CONFIG_APPS_DIR}}/${APP}"
-          if [ ! -d "$SRC_DIR" ]; then echo "WARN: $SRC_DIR not found, skipping"; continue; fi
-          TAR_PATH="{{.STAGE_DIR}}/${APP}.tgz"
-          echo "Staging $SRC_DIR → $TAR_PATH"
-          tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "$APP"
-          echo "Installing $APP ..."
-          $DC exec --user splunk {{.SPLUNK_SERVICE}} bash -lc \
-            "{{.SPLUNK_BIN}} install app /tmp/apps/${APP}.tgz -update 1 -auth admin:\$SPLUNK_PASSWORD" || true
-        done
-        echo "Done. If Splunk requests a restart: task splunk:restartd"
-    desc: Package + install app(s) into running Splunk via splunk CLI (-update 1)
-
   # ── Dependency Management ────────────────────────────────────────────
 
   deps:install:
@@ -322,7 +292,7 @@ tasks:
   #
   # Dev loop: react:create → react:link → react:start (webpack watch)
   #           Splunk reads stage/ directly via symlink — no copying needed.
-  # Staging:  react:package → splunk:up-staging (tgz auto-installed from splunk/stage/)
+  # Staging:  react:package → stage:up (tgz auto-installed from splunk/stage/)
 
   # ── Internal: resolve APP_NAME + REACT_PATH ────────────────────────
   # Writes REACT_APP_NAME and REACT_APP_PATH to .task/react-env for
@@ -427,7 +397,7 @@ tasks:
           ln -s ${CONTAINER_STAGE} \"\$LINK\"
           echo \"Linked: \$LINK → ${CONTAINER_STAGE}\"
         "
-      - task: splunk:refresh
+      - task: dev:refresh
     desc: Symlink stage/ into dev Splunk (idempotent, auto-builds if stage/ missing)
 
   react:start:
@@ -465,7 +435,7 @@ tasks:
         tar -chzf "${TGZ}" -C "${TMPDIR}" "${REACT_APP_NAME}"
         rm -rf "${TMPDIR}"
         echo "Packaged → ${TGZ}"
-        echo "Deploy: task splunk:up-staging (auto-installs from splunk/stage/)"
+        echo "Deploy: task stage:up (auto-installs from splunk/stage/)"
     desc: Build + package stage/ as splunk/stage/<APP_NAME>.tgz for staging
 
   # ── Python Tooling ───────────────────────────────────────────────────

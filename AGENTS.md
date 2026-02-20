@@ -6,7 +6,7 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for full details: directory structure, co
 
 ## Key Entry Points
 
-- **`Taskfile.yml`** — all automation (`task splunk:up`, `task app:create`, `task react:start`, etc.)
+- **`Taskfile.yml`** — all automation (`task dev:up`, `task app:create`, `task react:start`, etc.)
 - **`.devcontainer/`** — devcontainer config, compose files
 - **`splunk/`** — Dockerfile, entrypoint wrapper, app source, dependencies
 - **`packages/`** — React/JS source (monorepo)
