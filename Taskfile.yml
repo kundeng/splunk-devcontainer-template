@@ -222,6 +222,7 @@ tasks:
   app:create:
     cmds:
       - |
+        APP_NAME="{{.APP_NAME}}"
         if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
           APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
         fi
@@ -265,6 +266,7 @@ tasks:
   app:package:
     cmds:
       - |
+        APP_NAME="{{.APP_NAME}}"
         if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
           APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
         fi
@@ -281,10 +283,11 @@ tasks:
   app:provision:
     cmds:
       - |
+        APP_NAME="{{.APP_NAME}}"
         if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
           APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
         fi
-        APPS="${APPS}"
+        APPS="{{.APPS}}"
         if [ -z "$APPS" ]; then
           if [ -n "${APP_NAME}" ]; then
             APPS="${APP_NAME}"
@@ -389,6 +392,7 @@ tasks:
   react:link:
     cmds:
       - |
+        APP_NAME="{{.APP_NAME}}"
         if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
           APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
         fi
@@ -417,6 +421,7 @@ tasks:
   react:start:
     cmds:
       - |
+        APP_NAME="{{.APP_NAME}}"
         if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
           APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
         fi
@@ -438,6 +443,7 @@ tasks:
   react:build-install:
     cmds:
       - |
+        APP_NAME="{{.APP_NAME}}"
         if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
           APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
         fi
