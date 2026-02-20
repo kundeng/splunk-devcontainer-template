@@ -86,7 +86,7 @@ splunk.env.example             # Template for .env
 2. `task react:link` → symlinks `stage/` directly into Splunk `etc/apps/` (run once, or after `splunk:clean`)
 3. `task react:start` → webpack watch; `stage/` updates live through the symlink — no copy needed
 4. `task react:add-page` → add more pages/components interactively via `@splunk/create`
-5. `task react:build-install` → production build + package `stage/` as tgz + install into Splunk
+5. `task react:package` → build + package `stage/` as tgz for staging
 
 ### Daily Dev Loop (fastest → slowest)
 
@@ -100,7 +100,8 @@ splunk.env.example             # Template for .env
 
 ### Staging Verification
 
-1. `task app:package APP_NAME=my_app` → package apps into `splunk/stage/`
+1. `task app:package APP_NAME=my_app` → package Python apps into `splunk/stage/`
+1. `task react:package` → build + package React app into `splunk/stage/`
 2. `task splunk:build-staging` → build staging image with apps baked in
 3. `task splunk:up-staging` → start staging on ports 18000/18089/18088
 
@@ -159,11 +160,12 @@ task app:sync-links         # create/update symlinks in Splunk container
 ### React UI
 
 ```bash
-task react:create           # scaffold + initial build, syncs APP_NAME in .env
-task react:add-page         # add a page/component to existing app via @splunk/create
-task react:link             # symlink stage/ into Splunk etc/apps/ (dev loop setup)
+task react:create           # scaffold + initial build, syncs APP_NAME in .env (interactive)
+task react:add-page         # add a page/component via @splunk/create (interactive)
+task react:link             # symlink stage/ into dev Splunk (auto-builds if stage/ missing)
 task react:start            # webpack watch — stage/ updates live via symlink
-task react:build-install    # production build + package stage/ as tgz + install into Splunk
+task react:build            # production webpack build (always rebuilds stage/)
+task react:package          # build + package stage/ as splunk/stage/<APP_NAME>.tgz for staging
 ```
 
 ### Python & Testing

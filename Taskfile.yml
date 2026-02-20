@@ -177,6 +177,22 @@ tasks:
 
   # ── App Management ───────────────────────────────────────────────────
 
+  # ── Internal: resolve APP_NAME ──────────────────────────────────────
+  # Writes APP_NAME to .task/app-env for downstream tasks.
+  __app:resolve:
+    internal: true
+    cmds:
+      - |
+        APP_NAME="{{.APP_NAME}}"
+        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
+          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
+        fi
+        if [ -z "${APP_NAME}" ]; then
+          echo "APP_NAME is required (pass APP_NAME=x or set in .env)"; exit 1
+        fi
+        mkdir -p .task
+        printf 'APP_NAME=%s\n' "${APP_NAME}" > .task/app-env
+
   app:sync-links:
     cmds:
       - |
@@ -186,107 +202,73 @@ tasks:
           exit 0
         fi
         echo "Syncing app symlinks in $CONTAINER ..."
-        # Create symlinks for each app in /opt/splunk/dev-apps/
         docker exec --user root "$CONTAINER" bash -c '
           DEV_APPS="/opt/splunk/dev-apps"
           ETC_APPS="/opt/splunk/etc/apps"
-          CREATED=0
-          REPLACED=0
-          SKIPPED=0
+          CREATED=0; REPLACED=0; SKIPPED=0
           if [ -d "$DEV_APPS" ]; then
             for APP_PATH in "$DEV_APPS"/*/; do
               [ -d "$APP_PATH" ] || continue
               APP=$(basename "$APP_PATH")
-              # Skip hidden dirs
               case "$APP" in .*) continue ;; esac
               LINK="$ETC_APPS/$APP"
               if [ -L "$LINK" ]; then
                 SKIPPED=$((SKIPPED + 1))
               else
-                if [ -e "$LINK" ]; then
-                  # Real dir/file exists (e.g. from Splunk provisioning) — replace with symlink
-                  rm -rf "$LINK"
-                  REPLACED=$((REPLACED + 1))
-                fi
+                [ -e "$LINK" ] && rm -rf "$LINK" && REPLACED=$((REPLACED + 1))
                 ln -s "$DEV_APPS/$APP" "$LINK"
                 CREATED=$((CREATED + 1))
               fi
             done
           fi
-          # Clean up stale symlinks pointing to deleted app dirs
           CLEANED=0
           for LINK in "$ETC_APPS"/*; do
             [ -L "$LINK" ] || continue
             TARGET=$(readlink "$LINK")
             case "$TARGET" in "$DEV_APPS"/*)
-              if [ ! -d "$TARGET" ]; then
-                rm -f "$LINK"
-                CLEANED=$((CLEANED + 1))
-              fi
+              [ ! -d "$TARGET" ] && rm -f "$LINK" && CLEANED=$((CLEANED + 1))
               ;;
             esac
           done
           echo "Symlinks: $CREATED created ($REPLACED replaced), $SKIPPED existing, $CLEANED stale removed"
         '
-    desc: Create symlinks in Splunk etc/apps/ for each app in dev-apps/ (via docker exec)
+    desc: Sync symlinks in Splunk etc/apps/ for each app in dev-apps/ (idempotent)
 
   app:create:
+    deps: [__app:resolve]
     cmds:
       - |
-        APP_NAME="{{.APP_NAME}}"
-        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
-          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
-        fi
-        if [ -z "${APP_NAME}" ]; then echo "APP_NAME is required"; exit 1; fi
+        . .task/app-env
         APP_DIR="{{.CONFIG_APPS_DIR}}/${APP_NAME}"
         if [ -d "$APP_DIR" ]; then echo "App already exists: $APP_DIR (skipping)"; exit 0; fi
         APP_LABEL=$(echo "${APP_NAME}" | tr '_-' '  ')
         echo "Creating app skeleton at $APP_DIR ..."
         mkdir -p "$APP_DIR/default" "$APP_DIR/metadata" "$APP_DIR/appserver/static" "$APP_DIR/bin"
-        cat > "$APP_DIR/default/app.conf" << EOF
-        [install]
-        state = enabled
-        is_configured = 0
-
-        [ui]
-        is_visible = 1
-        label = ${APP_LABEL}
-
-        [launcher]
-        author = developer
-        version = 1.0.0
-        description = ${APP_LABEL}
-
-        [package]
-        id = ${APP_NAME}
-        EOF
-        # Dedent
-        sed -i.bak 's/^        //' "$APP_DIR/default/app.conf" && rm -f "$APP_DIR/default/app.conf.bak"
-        cat > "$APP_DIR/metadata/default.meta" << 'EOF'
-        []
-        access = read : [ * ], write : [ admin, power ]
-        export = system
-        EOF
-        sed -i.bak 's/^        //' "$APP_DIR/metadata/default.meta" && rm -f "$APP_DIR/metadata/default.meta.bak"
+        printf '%s\n' \
+          "[install]" "state = enabled" "is_configured = 0" "" \
+          "[ui]" "is_visible = 1" "label = ${APP_LABEL}" "" \
+          "[launcher]" "author = developer" "version = 1.0.0" "description = ${APP_LABEL}" "" \
+          "[package]" "id = ${APP_NAME}" \
+          > "$APP_DIR/default/app.conf"
+        printf '%s\n' \
+          "[]" "access = read : [ * ], write : [ admin, power ]" "export = system" \
+          > "$APP_DIR/metadata/default.meta"
         echo "App created: $APP_DIR"
       - task: app:sync-links
       - task: splunk:refresh
         ignore_error: true
-    desc: Scaffold a new Splunk app, sync symlinks, and refresh Splunk
+    desc: Scaffold a new Splunk app skeleton (idempotent — skips if exists)
 
   app:package:
+    deps: [__app:resolve]
     cmds:
       - |
-        APP_NAME="{{.APP_NAME}}"
-        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
-          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
-        fi
-        if [ -z "${APP_NAME}" ]; then echo "APP_NAME is required"; exit 1; fi
+        . .task/app-env
         SRC_DIR="{{.CONFIG_APPS_DIR}}/${APP_NAME}"
         if [ ! -d "$SRC_DIR" ]; then echo "App not found: $SRC_DIR"; exit 1; fi
         mkdir -p "{{.STAGE_DIR}}"
         TAR_PATH="{{.STAGE_DIR}}/${APP_NAME}.tgz"
-        echo "Packaging $SRC_DIR -> $TAR_PATH"
+        echo "Packaging $SRC_DIR → $TAR_PATH"
         tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "${APP_NAME}"
         echo "Created $TAR_PATH"
     desc: Package splunk/config/apps/<APP_NAME> into splunk/stage/<APP_NAME>.tgz
@@ -300,38 +282,25 @@ tasks:
         fi
         APPS="{{.APPS}}"
         if [ -z "$APPS" ]; then
-          if [ -n "${APP_NAME}" ]; then
-            APPS="${APP_NAME}"
-          else
-            echo "APP_NAME is required (or pass APPS=app1,app2)"; exit 1
-          fi
+          if [ -n "${APP_NAME}" ]; then APPS="${APP_NAME}"
+          else echo "APP_NAME is required (or pass APPS=app1,app2)"; exit 1; fi
         fi
         echo "Provisioning: $APPS"
-        mkdir -p {{.STAGE_DIR}}
-        OLD_IFS="$IFS"; IFS=','
-        for APP in $APPS; do
-          IFS="$OLD_IFS"
+        mkdir -p "{{.STAGE_DIR}}"
+        DC="docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}}"
+        echo "$APPS" | tr ',' '\n' | while read -r APP; do
+          [ -z "$APP" ] && continue
           SRC_DIR="{{.CONFIG_APPS_DIR}}/${APP}"
           if [ ! -d "$SRC_DIR" ]; then echo "WARN: $SRC_DIR not found, skipping"; continue; fi
           TAR_PATH="{{.STAGE_DIR}}/${APP}.tgz"
-          echo "Staging $SRC_DIR -> $TAR_PATH"
+          echo "Staging $SRC_DIR → $TAR_PATH"
           tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "$APP"
+          echo "Installing $APP ..."
+          $DC exec --user splunk {{.SPLUNK_SERVICE}} bash -lc \
+            "{{.SPLUNK_BIN}} install app /tmp/apps/${APP}.tgz -update 1 -auth admin:\$SPLUNK_PASSWORD" || true
         done
-        IFS="$OLD_IFS"
-        IFS=','
-        for APP in $APPS; do
-          IFS="$OLD_IFS"
-          PKG="{{.STAGE_DIR}}/${APP}.tgz"
-          if [ -f "$PKG" ]; then
-            echo "Installing $APP ..."
-            docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} \
-              exec --user splunk {{.SPLUNK_SERVICE}} bash -lc \
-              "{{.SPLUNK_BIN}} install app /tmp/apps/${APP}.tgz -update 1 -auth admin:\$SPLUNK_PASSWORD" || true
-          fi
-        done
-        IFS="$OLD_IFS"
         echo "Done. If Splunk requests a restart: task splunk:restartd"
-    desc: Package and install local app(s) into running Splunk
+    desc: Package + install app(s) into running Splunk via splunk CLI (-update 1)
 
   # ── Dependency Management ────────────────────────────────────────────
 
@@ -427,7 +396,7 @@ tasks:
         (cd "{{.REACT_PACKAGES_DIR}}" && yarn install)
         (cd "${REACT_PATH}" && yarn build)
         echo "Done. Next: task react:link && task react:start"
-    desc: Scaffold React app via @splunk/create, detect app name, update .env, initial build
+    desc: Scaffold React app via @splunk/create (interactive), detect app, sync .env, initial build
 
   react:add-page:
     cmds:
@@ -512,6 +481,33 @@ tasks:
       - pytest {{.CONFIG_APPS_DIR}} || echo "No tests found or pytest not installed"
     desc: Run Python tests with pytest
 
+  # ── Testing ─────────────────────────────────────────────────────────
+
+  test:e2e:
+    cmds:
+      - |
+        if command -v devcontainer &>/dev/null; then
+          DC_CLI="devcontainer"
+        else
+          echo "devcontainer CLI not found, using npx..."
+          DC_CLI="npx --yes @devcontainers/cli"
+        fi
+        echo "Running E2E tests (devcontainer CLI: $DC_CLI)"
+        bash tests/e2e/devcontainer-test.sh
+    desc: E2E devcontainer tests (build, up, tool checks, compose validation)
+
+  test:native:
+    cmds:
+      - |
+        echo "Running lifecycle tests natively (no devcontainer)..."
+        bash tests/e2e/run-lifecycle.sh
+    desc: Splunk lifecycle tests on Mac host (boot, app, deps, react, staging, skip-provision)
+
+  test:all:
+    cmds:
+      - task: python:lint
+      - task: test:e2e
+    desc: All tests (lint + E2E devcontainer)
 
   # ── Utility ──────────────────────────────────────────────────────────
 
@@ -528,4 +524,4 @@ tasks:
         else
           echo ".env already exists"
         fi
-    desc: Create .env file from splunk.env.example
+    desc: Create .env from splunk.env.example (idempotent — skips if exists)
