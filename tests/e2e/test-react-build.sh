@@ -48,7 +48,7 @@ log "Test react:build"
 # Ensure no stale stage/
 rm -rf "${STAGE_DIR}"
 
-if APP_NAME="${TEST_REACT_APP}" task react:build 2>&1 | tail -3; then
+if task react:build APP_NAME="${TEST_REACT_APP}" 2>&1 | tail -3; then
     if [ -d "${STAGE_DIR}" ]; then
         pass "react:build created stage/"
     else
@@ -65,7 +65,7 @@ log "Test react:package"
 TGZ="splunk/stage/${TEST_REACT_APP}.tgz"
 rm -f "${TGZ}"
 
-if APP_NAME="${TEST_REACT_APP}" task react:package 2>&1 | tail -3; then
+if task react:package APP_NAME="${TEST_REACT_APP}" 2>&1 | tail -3; then
     if [ -f "${TGZ}" ]; then
         pass "react:package created ${TGZ}"
     else
@@ -92,7 +92,7 @@ fi
 
 log "Test react:package idempotency"
 
-if APP_NAME="${TEST_REACT_APP}" task react:package 2>&1 | tail -3; then
+if task react:package APP_NAME="${TEST_REACT_APP}" 2>&1 | tail -3; then
     pass "react:package second run succeeded"
 else
     fail "react:package second run failed"

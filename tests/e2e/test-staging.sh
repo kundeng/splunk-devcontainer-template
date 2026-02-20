@@ -12,8 +12,8 @@ STAGING_CONTAINER="splunk-staging"
 log "Build and verify staging image"
 
 # Package test apps into stage for staging build
-APP_NAME="${TEST_CMD_APP}" task app:package 2>/dev/null || true
-APP_NAME="${TEST_REACT_APP}" task app:package 2>/dev/null || true
+task app:package APP_NAME="${TEST_CMD_APP}" 2>/dev/null || true
+task app:package APP_NAME="${TEST_REACT_APP}" 2>/dev/null || true
 
 if task splunk:build-staging 2>&1 | tail -5; then
     pass "task splunk:build-staging"
