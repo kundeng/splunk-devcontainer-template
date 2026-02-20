@@ -367,6 +367,11 @@ tasks:
         if [ -z "${REACT_PATH}" ] && [ -n "${APP_NAME}" ]; then
           if [ -d "{{.REACT_PACKAGES_DIR}}/${APP_NAME}" ]; then
             REACT_PATH="{{.REACT_PACKAGES_DIR}}/${APP_NAME}"
+          else
+            # @splunk/create monorepo: packages/packages/<any-dir-with-package.json>
+            for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
+              [ -f "${d}package.json" ] && REACT_PATH="${d%/}" && break
+            done
           fi
         fi
         if [ -z "${REACT_PATH}" ]; then echo "REACT_PATH or APP_NAME required"; exit 1; fi
@@ -388,6 +393,11 @@ tasks:
         if [ -z "${REACT_PATH}" ] && [ -n "${APP_NAME}" ]; then
           if [ -d "{{.REACT_PACKAGES_DIR}}/${APP_NAME}" ]; then
             REACT_PATH="{{.REACT_PACKAGES_DIR}}/${APP_NAME}"
+          else
+            # @splunk/create monorepo: packages/packages/<any-dir-with-package.json>
+            for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
+              [ -f "${d}package.json" ] && REACT_PATH="${d%/}" && break
+            done
           fi
         fi
         if [ -z "${REACT_PATH}" ] || [ -z "${APP_NAME}" ]; then
@@ -403,14 +413,20 @@ tasks:
         (cd "${REACT_PATH}" && \
           if [ -f "yarn.lock" ]; then yarn install && yarn build; else npm install && npm run build; fi)
 
-        # Find build output
+        # Find build output — try standard dirs first, then @splunk/create's stage/
         BUILD_DIR="${REACT_PATH}/build"
         [ -d "$BUILD_DIR" ] || BUILD_DIR="${REACT_PATH}/dist"
-        [ -d "$BUILD_DIR" ] || { echo "No build output found (tried build/, dist/)"; exit 1; }
-
-        echo "Copying to $DEST_DIR ..."
-        mkdir -p "$DEST_DIR"
-        rsync -a --delete "$BUILD_DIR"/ "$DEST_DIR"/
+        if [ -d "$BUILD_DIR" ]; then
+          echo "Copying to $DEST_DIR ..."
+          mkdir -p "$DEST_DIR"
+          rsync -a --delete "$BUILD_DIR"/ "$DEST_DIR"/
+        elif [ -d "${REACT_PATH}/stage" ]; then
+          # @splunk/create: stage/ contains full Splunk app structure — merge into app dir
+          echo "Copying @splunk/create stage/ output to $APP_DIR ..."
+          rsync -a "${REACT_PATH}/stage"/ "$APP_DIR"/
+        else
+          echo "No build output found (tried build/, dist/, stage/)"; exit 1
+        fi
 
         echo "Packaging and installing ${APP_NAME}..."
         mkdir -p {{.STAGE_DIR}}
