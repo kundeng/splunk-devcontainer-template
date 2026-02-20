@@ -1,3 +1,7 @@
+# Windsurf/AI workflow tooling — not part of the template
+.windloop/
+AGENTS.md
+
 # Environment variables
 /.env
 
