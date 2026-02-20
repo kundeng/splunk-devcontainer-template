@@ -1,5 +1,7 @@
 #!/bin/bash
-# Test suite: React scaffold + build-install + REST verify.
+# Test suite: React build + package workflow.
+# Scaffolds a minimal fake React app (mimics @splunk/create output),
+# then tests react:build, react:package, tgz validation, and idempotency.
 # Expects Splunk to be running and healthy.
 
 set -euo pipefail
@@ -7,61 +9,93 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=helpers.sh
 source "${SCRIPT_DIR}/helpers.sh"
 
-log "Scaffold minimal React test app"
+log "Scaffold minimal React test app in react/packages/"
 
-REACT_DIR="packages/${TEST_REACT_APP}"
-mkdir -p "${REACT_DIR}/src"
+REACT_APP_DIR="react/packages/${TEST_REACT_APP}"
+STAGE_DIR="${REACT_APP_DIR}/stage"
+mkdir -p "${REACT_APP_DIR}/src/main/webapp/pages"
 
-cat > "${REACT_DIR}/package.json" << 'PKGJSON'
+# Root package.json (monorepo)
+cat > "react/package.json" <<'EOF'
+{ "private": true, "workspaces": ["packages/*"] }
+EOF
+
+# App package.json with build script that creates a stage/ directory
+cat > "${REACT_APP_DIR}/package.json" <<EOF
 {
-  "name": "test_react_app",
+  "name": "@splunk/${TEST_REACT_APP}",
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "mkdir -p dist && echo '<html><body><h1>Test React App</h1></body></html>' > dist/index.html && echo 'Build complete'",
-    "start": "echo 'Dev server would start here'"
+    "build": "mkdir -p stage/default stage/appserver/static/pages stage/appserver/templates && echo '[package]' > stage/default/app.conf && echo 'id = ${TEST_REACT_APP}' >> stage/default/app.conf && echo 'console.log(1)' > stage/appserver/static/pages/TestPage.js && echo 'Build complete'"
   }
 }
-PKGJSON
+EOF
 
-cat > "${REACT_DIR}/src/index.js" << 'JSEOF'
-// Minimal React app entry point for E2E testing
-console.log('Test React app loaded');
-JSEOF
+# Discriminator: src/main/webapp/pages/ marks this as a Splunk app (not a component lib)
+touch "${REACT_APP_DIR}/src/main/webapp/pages/.gitkeep"
 
-if [ -f "${REACT_DIR}/package.json" ]; then
-    pass "React app scaffolded in packages/${TEST_REACT_APP}/"
+if [ -f "${REACT_APP_DIR}/package.json" ]; then
+    pass "React app scaffolded in react/packages/${TEST_REACT_APP}/"
 else
     fail "React app scaffold failed"
 fi
 
-# Create the Splunk app so it can be bind-mounted
-if [ ! -d "splunk/config/apps/${TEST_REACT_APP}" ]; then
-    APP_NAME="${TEST_REACT_APP}" task app:create 2>/dev/null || true
-fi
+# ── react:build ──────────────────────────────────────────────────────
 
-# Verify React app symlink was created
-if docker exec "${SPLUNK_CONTAINER}" test -L "/opt/splunk/etc/apps/${TEST_REACT_APP}"; then
-    pass "symlink exists: /opt/splunk/etc/apps/${TEST_REACT_APP}"
-else
-    fail "symlink missing: /opt/splunk/etc/apps/${TEST_REACT_APP}"
-fi
+log "Test react:build"
 
-# Run react:build-install
-if APP_NAME="${TEST_REACT_APP}" REACT_PATH="${REACT_DIR}" \
-    task react:build-install 2>&1 | tail -5; then
-    pass "task react:build-install"
-    if [ -d "splunk/config/apps/${TEST_REACT_APP}/appserver/static" ]; then
-        pass "React build output deployed to appserver/static/"
+# Ensure no stale stage/
+rm -rf "${STAGE_DIR}"
+
+if APP_NAME="${TEST_REACT_APP}" task react:build 2>&1 | tail -3; then
+    if [ -d "${STAGE_DIR}" ]; then
+        pass "react:build created stage/"
     else
-        fail "React build output not found in appserver/static/"
+        fail "react:build did not create stage/"
     fi
 else
-    fail "task react:build-install"
+    fail "task react:build exited non-zero"
 fi
 
-log "Verify React app via Splunk REST API"
+# ── react:package ────────────────────────────────────────────────────
 
-check_app_rest "${SPLUNK_CONTAINER}" "${TEST_REACT_APP}" "symlinked React app"
+log "Test react:package"
+
+TGZ="splunk/stage/${TEST_REACT_APP}.tgz"
+rm -f "${TGZ}"
+
+if APP_NAME="${TEST_REACT_APP}" task react:package 2>&1 | tail -3; then
+    if [ -f "${TGZ}" ]; then
+        pass "react:package created ${TGZ}"
+    else
+        fail "react:package did not create tgz"
+    fi
+else
+    fail "task react:package exited non-zero"
+fi
+
+# Validate tgz contents
+if tar -tzf "${TGZ}" | grep -q "^${TEST_REACT_APP}/default/app.conf"; then
+    pass "tgz contains ${TEST_REACT_APP}/default/app.conf"
+else
+    fail "tgz missing expected app.conf"
+fi
+
+if tar -tzf "${TGZ}" | grep -q "^${TEST_REACT_APP}/appserver/static/pages/"; then
+    pass "tgz contains appserver/static/pages/"
+else
+    fail "tgz missing appserver/static/pages/"
+fi
+
+# ── Idempotency: run react:package again ─────────────────────────────
+
+log "Test react:package idempotency"
+
+if APP_NAME="${TEST_REACT_APP}" task react:package 2>&1 | tail -3; then
+    pass "react:package second run succeeded"
+else
+    fail "react:package second run failed"
+fi
 
 results

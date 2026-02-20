@@ -19,9 +19,11 @@ SUITES_RUN=0
 log "Pre-cleanup"
 rm -rf "splunk/config/apps/${TEST_CMD_APP}"
 rm -rf "splunk/config/apps/${TEST_REACT_APP}"
-rm -rf "packages/${TEST_REACT_APP}"
+rm -rf "react/packages/${TEST_REACT_APP}"
+rm -f "react/package.json"
 rm -f "splunk/stage/${TEST_CMD_APP}.tgz"
 rm -f "splunk/stage/${TEST_REACT_APP}.tgz"
+rm -rf ".task"
 
 cleanup_all() {
     log "Final cleanup"
@@ -29,9 +31,11 @@ cleanup_all() {
     task splunk:down-staging 2>/dev/null || true
     rm -rf "splunk/config/apps/${TEST_CMD_APP}"
     rm -rf "splunk/config/apps/${TEST_REACT_APP}"
-    rm -rf "packages/${TEST_REACT_APP}"
+    rm -rf "react/packages/${TEST_REACT_APP}"
+    rm -f "react/package.json"
     rm -f "splunk/stage/${TEST_CMD_APP}.tgz"
     rm -f "splunk/stage/${TEST_REACT_APP}.tgz"
+    rm -rf ".task"
     echo "  Artifacts cleaned up"
 }
 trap cleanup_all EXIT

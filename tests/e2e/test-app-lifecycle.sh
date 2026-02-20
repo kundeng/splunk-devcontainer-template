@@ -57,6 +57,16 @@ else
     fail "Python custom search command not created"
 fi
 
+log "Idempotency: app:create again (should skip)"
+
+OUTPUT=$(APP_NAME="${TEST_CMD_APP}" task app:create 2>&1)
+if echo "$OUTPUT" | grep -qi "skipping"; then
+    pass "app:create idempotent — second run skipped"
+else
+    fail "app:create idempotent — expected 'skipping' in output"
+    echo "    Output: ${OUTPUT:0:200}"
+fi
+
 log "Verify app symlink created"
 
 if docker exec "${SPLUNK_CONTAINER}" test -L "/opt/splunk/etc/apps/${TEST_CMD_APP}"; then
@@ -69,6 +79,16 @@ if docker exec "${SPLUNK_CONTAINER}" test -f "/opt/splunk/etc/apps/${TEST_CMD_AP
     pass "app.conf visible through symlink"
 else
     fail "app.conf not visible through symlink"
+fi
+
+log "Idempotency: app:sync-links again (should report 0 created)"
+
+OUTPUT=$(task app:sync-links 2>&1)
+if echo "$OUTPUT" | grep -q "0 created"; then
+    pass "app:sync-links idempotent — 0 created on second run"
+else
+    fail "app:sync-links idempotent — expected '0 created'"
+    echo "    Output: ${OUTPUT:0:200}"
 fi
 
 log "Package and provision test app"

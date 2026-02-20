@@ -9,7 +9,7 @@ A Docker-out-of-Docker development environment for building Splunk applications 
 - **Multi-app development** — multiple Splunk apps developed and tested simultaneously
 - **Simultaneous dev + staging** — dev on port 8000 (bind-mounted, live reload) and staging on port 18000 (baked-in, self-contained)
 - **Python debugging** — VSCode attaches to debugpy inside the Splunk container via SA-VSCode add-on
-- **React debugging** — Chrome DevTools via webpack dev server (HMR) or source maps in Splunk Web
+- **React debugging** — Chrome DevTools via source maps in Splunk Web (webpack watch updates stage/ live)
 
 ## System Overview
 
@@ -114,7 +114,7 @@ splunk/config/apps/
 
 Set `APP_NAME` in `.env` to identify the **primary app** you're developing. All `app:*`, `react:*`, and CI/CD commands use it as the default when no explicit `APP_NAME=` argument is passed.
 
-For React-based apps, `@splunk/create` outputs a complete Splunk app to `react/packages/<APP_NAME>/stage/`. In dev, `react:link` symlinks `stage/` directly into Splunk's `etc/apps/` — no separate app skeleton needed. `react:build-install` packages `stage/` as a tgz for production installs.
+For React-based apps, `@splunk/create` outputs a complete Splunk app to `react/packages/<APP_NAME>/stage/`. In dev, `react:link` symlinks `stage/` directly into Splunk's `etc/apps/` — no separate app skeleton needed. `react:package` builds and packages `stage/` as a tgz for staging image bake-in.
 
 Helper apps (like `splunk-config-dev`) are always present and don't need `APP_NAME`.
 
@@ -164,17 +164,18 @@ task app:package APP_NAME=x # package to splunk/stage/x.tgz (for staging only)
 | Preparing a release build for staging | `app:package` → `splunk:build-staging` |
 
 - **`sync-links`** — fastest (~1s). Makes the app *visible* via symlink. Enough for `.conf` edits, dashboards, and Python scripts (no packaging needed). Called automatically by `splunk:up` and `app:create`.
-- **`provision`** — packages the app into a `.tgz` then runs `splunk install app` inside the container. Use this when Splunk needs to fully register the app (e.g. first install of a custom search command, REST handler, or alert action). Does **not** build React — use `react:build-install` for that.
+- **`provision`** — packages the app into a `.tgz` then runs `splunk install app` inside the container. Use this when Splunk needs to fully register the app (e.g. first install of a custom search command, REST handler, or alert action). Does **not** build React — use `react:package` for that.
 - **`package`** — only produces a `.tgz` in `splunk/stage/`. Used as input for staging image builds (`splunk:build-staging`). Not needed for day-to-day dev.
 
 ### React UI
 
 ```bash
-task react:create           # scaffold + initial build, syncs APP_NAME in .env
-task react:add-page         # add a page/component to existing app via @splunk/create
-task react:link             # symlink stage/ into Splunk etc/apps/ (dev loop setup)
+task react:create           # scaffold + initial build, syncs APP_NAME in .env (interactive)
+task react:add-page         # add a page/component via @splunk/create (interactive)
+task react:link             # symlink stage/ into dev Splunk (auto-builds if stage/ missing)
 task react:start            # webpack watch — stage/ updates live via symlink
-task react:build-install    # production build + package stage/ as tgz + install into Splunk
+task react:build            # production webpack build (always rebuilds stage/)
+task react:package          # build + package stage/ as splunk/stage/<APP_NAME>.tgz for staging
 ```
 
 ### Dependencies, Python & Testing
@@ -209,7 +210,7 @@ task test:all               # lint + E2E
 2. `task react:link` → symlinks `stage/` into Splunk `etc/apps/` (run once, or after `splunk:clean`)
 3. `task react:start` → webpack watch; `stage/` updates live through the symlink
 4. `task react:add-page` → add more pages interactively via `@splunk/create`
-5. `task react:build-install` → production: yarn build + package `stage/` + install into Splunk
+5. `task react:package` → build + package `stage/` as tgz for staging
 
 ### Daily Dev Loop (fastest → slowest)
 
@@ -223,7 +224,8 @@ task test:all               # lint + E2E
 
 ### Staging Verification
 
-1. `task app:package APP_NAME=my_app` → package apps into `splunk/stage/`
+1. `task app:package APP_NAME=my_app` → package Python apps into `splunk/stage/`
+1. `task react:package` → build + package React app into `splunk/stage/`
 2. `task splunk:build-staging` → build staging image with apps baked in
 3. `task splunk:up-staging` → start staging on ports 18000/18089/18088
 
@@ -279,7 +281,7 @@ The entire `splunk/config/apps/` directory is bind-mounted to `/opt/splunk/dev-a
 | Python code in `bin/` | Re-run the search command (no restart) |
 | Python code needing restart | `task splunk:restartd` (~10s) |
 | React source (`src/`) | `task react:start` (webpack watch → `stage/` live via symlink) |
-| React production build | `task react:build-install` (yarn build + package + install) |
+| React production build | `task react:package` (build + package tgz for staging) |
 | Dashboard Studio JSON | Edit `definition.json` → HMR picks it up |
 | New app added | `task app:create` (symlink + refresh ~2-10s) |
 
@@ -299,7 +301,7 @@ The entire `splunk/config/apps/` directory is bind-mounted to `/opt/splunk/dev-a
 3. Add dashboard page: `task react:add-page` → `@splunk/create` offers "Add a Dashboard Page"
 4. Install dashboard packages: `yarn add @splunk/dashboard-core @splunk/dashboard-presets @splunk/dashboard-context` (from `react/`)
 5. Dev: `task react:start` → webpack watch; edit `src/` → `stage/` updates live through symlink
-6. Production: `task react:build-install` → yarn build → package `stage/` as tgz → install into Splunk
+6. Production: `task react:package` → yarn build → package `stage/` as tgz for staging
 
 ### Dependency Management
 
@@ -331,15 +333,16 @@ Path mapping: `splunk/config/apps/<app>/bin/` ↔ `/opt/splunk/etc/apps/<app>/bi
 
 ### React / JavaScript
 
-**Dev server mode** (recommended for development):
-1. `task react:start` → webpack dev server on `:3000` with HMR
-2. VSCode: Run → **"Chrome: React Dev Server"**
-3. Full source map support, hot reload, breakpoints in JSX
+**Webpack watch mode** (recommended for development):
+1. `task react:link` → symlink `stage/` into Splunk (run once)
+2. `task react:start` → webpack watch; edits to `src/` rebuild `stage/` live
+3. Refresh Splunk Web to see changes (source maps available for debugging)
+4. VSCode: Run → **"Chrome: Splunk Web App"** for breakpoints
 
-**Splunk Web mode** (for testing the built app):
-1. `task react:build-install` → builds and installs into Splunk
-2. VSCode: Run → **"Chrome: Splunk Web App"**
-3. Source maps from webpack provide debugging in Splunk Web
+**Production build** (for staging verification):
+1. `task react:package` → builds and packages `stage/` as tgz
+2. `task splunk:build-staging && task splunk:up-staging`
+3. VSCode: Run → **"Chrome: Staging Splunk Web"**
 
 **Staging mode**:
 1. `task splunk:up-staging` → staging on `:18000`
@@ -408,7 +411,7 @@ task test:all             # python:lint + test:e2e
 | boot | `test-boot.sh` | `splunk:up`, health, `SPLUNK_PASSWORD` auth, `splunk-config-dev` symlink |
 | app-lifecycle | `test-app-lifecycle.sh` | `app:create`, symlinks, `app:package`, `app:provision`, REST verify |
 | deps-install | `test-deps-install.sh` | `deps:install` idempotency |
-| react-build | `test-react-build.sh` | `react:create`, `react:link`, `react:start`, `react:build-install`, REST verify |
+| react-build | `test-react-build.sh` | `react:build`, `react:package`, tgz validation, idempotency |
 | staging | `test-staging.sh` | staging image build, `splunk:up-staging` |
 | skip-provision | `test-skip-provision.sh` | container restart skips Ansible |
 

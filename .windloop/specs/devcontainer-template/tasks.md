@@ -73,10 +73,10 @@ Implementation proceeded in phases: core Splunk image + entrypoint wrapper → d
     - **Properties**: 5
 
 - [x] 5. React UI + Debugging
-  - [x] 5.1 React workflow tasks (`react:create`, `react:start`, `react:build-install`)
-    - `react:create` via `npx @splunk/create` + Splunk skeleton + sync-links; `react:start` webpack HMR on :3000; `react:build-install` builds and installs into Splunk
+  - [x] 5.1 React workflow tasks (`react:create`, `react:link`, `react:start`, `react:build`, `react:package`, `react:add-page`)
+    - `react:create` via `npx @splunk/create` + detect app + initial build; `react:link` symlinks stage/ into Splunk (auto-builds if missing); `react:start` webpack watch; `react:build` production build; `react:package` build + tgz for staging; `react:add-page` interactive page scaffold
     - **Depends**: 3.2, 3.3
-    - **Requirements**: 6.1, 6.2, 6.3
+    - **Requirements**: 6.1, 6.2, 6.3, 6.4, 6.5, 6.6
     - **Properties**: 13
 
   - [x] 5.2 Debugging support (launch.json + splunk-config-dev + debugpy port)

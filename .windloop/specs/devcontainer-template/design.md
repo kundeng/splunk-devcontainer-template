@@ -184,7 +184,7 @@ CMD ["start-service"]
 - **Namespaces**:
   - `splunk:*` — compose lifecycle: `build`, `up`, `down`, `clean`, `refresh`, `restartd`, `restart`, `reprovision`, `status`, `logs`, `build-staging`, `up-staging`, `down-staging`, `clean-staging`, `logs-staging`
   - `app:*` — `create`, `package`, `provision`, `sync-links`
-  - `react:*` — `create`, `start`, `build-install`
+  - `react:*` — `create`, `add-page`, `link`, `start`, `build`, `package`
   - `deps:*` — `install`
   - `python:*` — `lint`, `format`, `test`
   - `test:*` — `e2e`, `all`
@@ -206,7 +206,7 @@ CMD ["start-service"]
 - **Purpose**: Enable Python and React/JS debugging from VS Code into the Splunk container
 - **Files**: `.vscode/launch.json`, `splunk/config/deps.yml`, `.devcontainer/docker-compose.yml`, `splunk/config/apps/splunk-config-dev/`
 - **Python debugging**: SA-VSCode add-on → `enable_debugging()` → debugpy on port 5678 → VS Code attach
-- **React/JS debugging**: webpack HMR on :3000 (dev server mode) or source maps in Splunk Web
+- **React/JS debugging**: webpack watch updates `stage/` live (symlinked into Splunk via `react:link`); source maps in Splunk Web for debugging
 - **splunk-config-dev**: Sets `web.conf` debug options (`js_no_cache`, `minify_js=false`, `enableWebDebug=true`)
 - **Launch configs**: Python attach, Chrome Splunk Web (:8000), Chrome React dev (:3000), Chrome Staging (:18000)
 

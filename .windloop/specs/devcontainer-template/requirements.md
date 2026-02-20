@@ -76,13 +76,16 @@ The devcontainer is the cross-platform equalizer: a Windows developer gets a Lin
 
 ### Requirement 6: React UI Development
 
-**User Story:** As a developer building a React-based Splunk app, I want scaffolding, a hot-reload dev server, and a build-install pipeline, so that I can iterate on UI quickly.
+**User Story:** As a developer building a React-based Splunk app, I want scaffolding, a live dev loop via symlinked stage/, and a packaging pipeline for staging, so that I can iterate on UI quickly.
 
 #### Acceptance Criteria
 
-1. WHEN `task react:create` is run, THEN a React app SHALL be scaffolded via `npx @splunk/create`, a Splunk app skeleton created, and symlinks synced so the app is visible in Splunk without container recreation.
-2. WHEN `task react:start` is run, THEN a webpack dev server with HMR SHALL start on port 3000, proxying API calls to the Splunk REST API on port 8089.
-3. WHEN `task react:build-install` is run, THEN the JS SHALL be built, output copied to `appserver/static/`, packaged, and installed into Splunk.
+1. WHEN `task react:create` is run, THEN a React app SHALL be scaffolded via `npx @splunk/create`, the app package detected, `APP_NAME` synced in `.env`, and an initial build run so `stage/` exists.
+2. WHEN `task react:link` is run, THEN `stage/` SHALL be symlinked into the dev Splunk container's `etc/apps/`. If `stage/` is missing, it SHALL auto-build first.
+3. WHEN `task react:start` is run, THEN webpack watch SHALL start, updating `stage/` live. Splunk reads changes via the symlink from `react:link`.
+4. WHEN `task react:build` is run, THEN a production webpack build SHALL always rebuild `stage/`.
+5. WHEN `task react:package` is run, THEN `react:build` SHALL run first, then `stage/` SHALL be packaged as `splunk/stage/<APP_NAME>.tgz` for staging image bake-in.
+6. WHEN `task react:add-page` is run, THEN a new page/component SHALL be added interactively via `@splunk/create`.
 
 ### Requirement 7: Task Automation
 
@@ -121,7 +124,7 @@ The devcontainer is the cross-platform equalizer: a Windows developer gets a Lin
 #### Acceptance Criteria
 
 1. WHEN `task test:e2e` is run, THEN it SHALL validate: devcontainer builds, `post-create.sh` completes, expected tools are on PATH, `task --list` works, and `docker compose config` validates for both compose files.
-2. WHEN the lifecycle E2E tests run, THEN they SHALL validate: `splunk:up` starts a healthy Splunk, `app:create` scaffolds and makes an app visible via REST API, `app:package` produces a tarball, `app:provision` installs it, `react:build-install` builds and deploys a React app, and `splunk:build-staging` builds a staging image.
+2. WHEN the lifecycle E2E tests run, THEN they SHALL validate: `splunk:up` starts a healthy Splunk, `app:create` scaffolds and makes an app visible via REST API, `app:package` produces a tarball, `app:provision` installs it, `react:build` and `react:package` produce a valid tgz, and `splunk:build-staging` builds a staging image.
 3. WHEN lifecycle tests run, THEN they SHALL be split into focused, independently-runnable scripts with shared helpers and per-suite pass/fail reporting.
 4. WHEN skip-provision E2E runs, THEN it SHALL verify: restarting a provisioned container recovers in ≤60s without Ansible, and `task splunk:reprovision` runs full Ansible and re-creates the marker.
 
