@@ -7,7 +7,7 @@ A Docker-out-of-Docker development environment for building Splunk applications 
 - **Custom search commands** — Python chunked-protocol commands, modular inputs, REST handlers, alert actions
 - **React UI apps** — built with `@splunk/create`, using `@splunk/dashboard-core` and Dashboard Studio exported components
 - **Multi-app development** — multiple Splunk apps developed and tested simultaneously
-- **Simultaneous dev + staging** — dev on port 8000 (bind-mounted, live reload) and staging on port 18000 (baked-in, self-contained)
+- **Simultaneous dev + staging** — dev on port 8000 (bind-mounted, live reload) and staging on port 18000 (packaged apps mounted from splunk/stage/)
 - **Python debugging** — VSCode attaches to debugpy inside the Splunk container via SA-VSCode add-on
 - **React debugging** — Chrome DevTools via source maps in Splunk Web (webpack watch updates stage/ live)
 
@@ -21,7 +21,7 @@ A Docker-out-of-Docker development environment for building Splunk applications 
 │  Docker CLI / Go Task│────▶│    bind-mounted apps, skip-provision │
 │  AppInspect / ruff   │     │                                      │
 │  debugpy             │     │  splunk-staging (port 18000, 18089)  │
-└──────────────────────┘     │    baked-in apps, same entrypoint    │
+└──────────────────────┘     │    mounted apps from splunk/stage/   │
         │                    └──────────────────────────────────────┘
         │                                    ▲
         ├── splunk/config/apps/ ─────────────┘  (bind-mounted + symlinked)
@@ -34,10 +34,10 @@ A Docker-out-of-Docker development environment for building Splunk applications 
 .devcontainer/
   devcontainer.json              # Tools-only container (Node, Python, Docker CLI, Task)
   docker-compose.yml             # Dev Splunk (target: dev, bind mounts, port 8000)
-  docker-compose.staging.yml     # Staging Splunk (target: staging, baked apps, port 18000)
+  docker-compose.staging.yml     # Staging Splunk (reuses dev image, mounts splunk/stage/, port 18000)
   post-create.sh                 # Tool install + Splunk image build
 splunk/
-  Dockerfile                     # Multi-stage: base → dev / staging
+  Dockerfile                     # Multi-stage: base → dev
   entrypoint-wrapper.sh          # Skip-provision + auto-discover /tmp/apps/*.tgz for SPLUNK_APPS_URL
   config/
     apps/                        # Splunk app source directories (symlinked into Splunk)
@@ -138,7 +138,7 @@ task splunk:status          # check container status
 ### Staging Splunk (port 18000) — runs alongside dev
 
 ```bash
-task splunk:build-staging   # build staging image (apps baked in from splunk/stage/)
+task splunk:build-staging   # build staging image (reuses dev image)
 task splunk:up-staging      # start staging (port 18000)
 task splunk:down-staging    # stop staging container
 task splunk:clean-staging   # stop staging + remove volumes
@@ -226,18 +226,18 @@ task test:all               # lint + E2E
 
 1. `task app:package APP_NAME=my_app` → package Python apps into `splunk/stage/`
 1. `task react:package` → build + package React app into `splunk/stage/`
-2. `task splunk:build-staging` → build staging image with apps baked in
-3. `task splunk:up-staging` → start staging on ports 18000/18089/18088
+2. `task splunk:up-staging` → start staging on ports 18000/18089/18088 (auto-installs tgz on first start)
 
 ## How It Works
 
 ### Multi-Stage Dockerfile
 
-The `splunk/Dockerfile` has three stages:
+The `splunk/Dockerfile` has two stages:
 
 - **`base`** — installs acl + entrypoint wrapper on the official Splunk image
-- **`dev`** (default for `docker-compose.yml`) — entrypoint-wrapper for skip-provision; apps bind-mounted live
-- **`staging`** (default for `docker-compose.staging.yml`) — bakes all `.tgz` from `splunk/stage/`; same `entrypoint-wrapper.sh` auto-discovers and sets `SPLUNK_APPS_URL`; self-contained
+- **`dev`** — entrypoint-wrapper for skip-provision; used by both dev and staging compose files
+
+Staging reuses the dev image. Packaged apps are bind-mounted from `splunk/stage/` → `/tmp/apps/`; the entrypoint auto-discovers and installs them on first start.
 
 ### Dev + Staging Side by Side
 
@@ -250,7 +250,7 @@ Dev and staging run as separate compose projects with different ports:
 | Web | `:8000` | `:18000` |
 | REST API | `:8089` | `:18089` |
 | HEC | `:8088` | `:18088` |
-| Apps | Bind-mounted (live edit) | Baked into image |
+| Apps | Bind-mounted (live edit) | Mounted from splunk/stage/ (auto-installed on first start) |
 | Entrypoint | entrypoint-wrapper.sh | entrypoint-wrapper.sh (same) |
 
 ### Skip-Provision Entrypoint

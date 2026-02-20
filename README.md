@@ -48,10 +48,10 @@ A custom entrypoint wrapper detects whether Splunk has already been provisioned.
 .devcontainer/
   devcontainer.json            # Tools-only dev container
   docker-compose.yml           # Dev Splunk (target: dev, bind mounts, port 8000)
-  docker-compose.staging.yml   # Staging Splunk (target: staging, baked apps, port 18000)
+  docker-compose.staging.yml   # Staging Splunk (reuses dev image, mounts splunk/stage/, port 18000)
   post-create.sh               # Tool install + Splunk image build
 splunk/
-  Dockerfile                   # Multi-stage: base → dev / staging
+  Dockerfile                   # Multi-stage: base → dev
   entrypoint-wrapper.sh        # Skip-provision + auto-discover /tmp/apps/*.tgz for SPLUNK_APPS_URL
   config/
     apps/                      # Splunk app source directories (symlinked into Splunk)
@@ -102,8 +102,7 @@ splunk.env.example             # Template for .env
 
 1. `task app:package APP_NAME=my_app` → package Python apps into `splunk/stage/`
 1. `task react:package` → build + package React app into `splunk/stage/`
-2. `task splunk:build-staging` → build staging image with apps baked in
-3. `task splunk:up-staging` → start staging on ports 18000/18089/18088
+2. `task splunk:up-staging` → start staging on ports 18000/18089/18088 (auto-installs tgz on first start)
 
 ### Installing Splunkbase Dependencies
 
@@ -141,7 +140,7 @@ task splunk:status          # check container status
 ### Staging Splunk
 
 ```bash
-task splunk:build-staging   # build staging image (apps baked in from splunk/stage/)
+task splunk:build-staging   # build staging image (reuses dev image)
 task splunk:up-staging      # start staging (port 18000)
 task splunk:down-staging    # stop staging container
 task splunk:clean-staging   # stop staging + remove volumes

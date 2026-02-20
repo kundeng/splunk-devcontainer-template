@@ -29,7 +29,7 @@ tasks:
         echo "=================================="
         task --list
         echo ""
-        echo "Common flows:"
+        echo "Dev environment (port 8000):"
         echo "  task splunk:build           # build dev Splunk image (first time / Dockerfile change)"
         echo "  task splunk:up              # start + sync app symlinks (no rebuild)"
         echo "  task splunk:refresh         # reload configs + static assets (no restart)"
@@ -38,20 +38,24 @@ tasks:
         echo "  task splunk:reprovision     # force full Ansible re-provisioning"
         echo "  task splunk:clean           # stop + remove volumes (full reset)"
         echo ""
-        echo "  task splunk:build-staging   # build staging image (from splunk/stage/*.tgz)"
-        echo "  task splunk:up-staging      # start staging (port 18000)"
-        echo "  task splunk:down-staging    # stop staging container"
-        echo ""
+        echo "App development (works with dev Splunk):"
         echo "  task app:create APP_NAME=x  # scaffold a new Splunk app"
-        echo "  task app:provision          # tar + splunk install app into running container"
-        echo "  task deps:install           # install Splunkbase dependencies"
+        echo "  task app:provision          # tar + splunk install app into dev container via CLI"
+        echo "  task deps:install           # install Splunkbase dependencies into dev container"
         echo ""
+        echo "React development (works with dev Splunk):"
         echo "  task react:create           # scaffold + initial build, syncs APP_NAME in .env"
-        echo "  task react:add-page         # add a page/component to existing app via @splunk/create"
-        echo "  task react:link             # symlink stage/ into Splunk (run once after react:create)"
+        echo "  task react:add-page         # add a page/component via @splunk/create"
+        echo "  task react:link             # symlink stage/ into dev Splunk (run once)"
         echo "  task react:start            # webpack watch (stage/ updates live via symlink)"
+        echo ""
+        echo "Staging environment (port 18000):"
+        echo "  task app:package            # package app dir into splunk/stage/<APP>.tgz"
         echo "  task react:build            # production webpack build (rebuilds stage/)"
-        echo "  task react:package          # build + package tgz for staging"
+        echo "  task react:package          # build + package React app into splunk/stage/<APP>.tgz"
+        echo "  task splunk:up-staging      # start staging (auto-installs tgz from splunk/stage/)"
+        echo "  task splunk:down-staging    # stop staging container"
+        echo "  task splunk:clean-staging   # stop staging + remove volumes"
     desc: Show available tasks and common flows
 
   # ── Internal helpers ─────────────────────────────────────────────────
@@ -149,8 +153,8 @@ tasks:
 
   splunk:build-staging:
     cmds:
-      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} build --no-cache
-    desc: Build staging Splunk image (apps baked in from splunk/stage/)
+      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} build
+    desc: Build staging Splunk image (reuses dev image; apps mounted from splunk/stage/)
 
   splunk:up-staging:
     cmds:
@@ -158,7 +162,7 @@ tasks:
       - |
         echo "Staging Splunk started on port 18000 (Web), 18089 (REST), 18088 (HEC)"
         echo "Follow logs: task splunk:logs-staging"
-    desc: Start staging Splunk (run splunk:build-staging first)
+    desc: Start staging Splunk (apps auto-installed from splunk/stage/ on first start)
 
   splunk:down-staging:
     cmds:
@@ -318,7 +322,7 @@ tasks:
   #
   # Dev loop: react:create → react:link → react:start (webpack watch)
   #           Splunk reads stage/ directly via symlink — no copying needed.
-  # Staging:  react:package → splunk:build-staging → splunk:up-staging
+  # Staging:  react:package → splunk:up-staging (tgz auto-installed from splunk/stage/)
 
   # ── Internal: resolve APP_NAME + REACT_PATH ────────────────────────
   # Writes REACT_APP_NAME and REACT_APP_PATH to .task/react-env for
@@ -461,7 +465,7 @@ tasks:
         tar -chzf "${TGZ}" -C "${TMPDIR}" "${REACT_APP_NAME}"
         rm -rf "${TMPDIR}"
         echo "Packaged → ${TGZ}"
-        echo "Deploy: task splunk:build-staging && task splunk:up-staging"
+        echo "Deploy: task splunk:up-staging (auto-installs from splunk/stage/)"
     desc: Build + package stage/ as splunk/stage/<APP_NAME>.tgz for staging
 
   # ── Python Tooling ───────────────────────────────────────────────────
