@@ -12,7 +12,7 @@ vars:
   STAGE_DIR: 'splunk/stage'
   SPLUNK_BIN: '/opt/splunk/bin/splunk'
   SPLUNK_CONTAINER: 'splunk-dev'
-  REACT_PACKAGES_DIR: 'packages'
+  REACT_PACKAGES_DIR: 'react'
 
 tasks:
   default:
@@ -45,7 +45,7 @@ tasks:
         echo "  task app:provision          # package + install local apps"
         echo "  task deps:install           # install Splunkbase dependencies"
         echo ""
-        echo "  task react:create           # scaffold React app via @splunk/create, syncs APP_NAME in .env"
+        echo "  task react:create           # scaffold React app via @splunk/create into react/, syncs APP_NAME in .env"
         echo "  task react:start            # webpack watch (src/ edits → splunk:refresh to reload)"
         echo "  task react:build-install    # build + install into running Splunk"
     desc: Show available tasks and common flows

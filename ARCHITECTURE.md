@@ -25,7 +25,7 @@ A Docker-out-of-Docker development environment for building Splunk applications 
         │                    └──────────────────────────────────────┘
         │                                    ▲
         ├── splunk/config/apps/ ─────────────┘  (bind-mounted + symlinked)
-        └── packages/          → builds to → config/apps/*/appserver/static/
+        └── react/             → builds to → config/apps/*/appserver/static/
 ```
 
 ## Directory Structure
@@ -49,7 +49,7 @@ splunk/
         metadata/
     deps.yml                     # Splunkbase dependencies (MLTK, SA-VSCode, etc.)
   stage/                         # Built tarballs (.tgz) — gitignored, created on demand
-packages/                        # React/JS source (monorepo via @splunk/create) — created on demand
+react/                           # React/JS source (monorepo via @splunk/create) — created on demand
   <frontend-app>/                # Scaffolded with npx @splunk/create
     src/main/
       webapp/pages/              # React pages (JSX + Dashboard Studio definitions)
@@ -108,11 +108,11 @@ splunk/config/apps/
 | **Folder name** | `APP_NAME` | `splunk/config/apps/<APP_NAME>/` |
 | **Package ID** (`app.conf [package] id`) | `APP_NAME` | Splunkbase, REST API |
 | **UI Label** (`app.conf [ui] label`) | `APP_NAME` with underscores → spaces | Splunk Web |
-| **React source** (if applicable) | `APP_NAME` | `packages/<APP_NAME>/` |
+| **React source** (if applicable) | `APP_NAME` | `react/<APP_NAME>/` |
 
 Set `APP_NAME` in `.env` to identify the **primary app** you're developing. All `app:*`, `react:*`, and CI/CD commands use it as the default when no explicit `APP_NAME=` argument is passed.
 
-For React-based apps, the source lives in `packages/<APP_NAME>/` and the built output lands in `splunk/config/apps/<APP_NAME>/appserver/static/`. The `react:build-install` command bridges the two.
+For React-based apps, the source lives in `react/<APP_NAME>/` and the built output lands in `splunk/config/apps/<APP_NAME>/appserver/static/`. The `react:build-install` command bridges the two.
 
 Helper apps (like `splunk-config-dev`) are always present and don't need `APP_NAME`.
 
@@ -288,7 +288,7 @@ The entire `splunk/config/apps/` directory is bind-mounted to `/opt/splunk/dev-a
 
 ### React + Dashboard Studio Dev Loop
 
-1. Scaffold: `npx @splunk/create` → creates monorepo under `packages/`
+1. Scaffold: `task react:create` → runs `@splunk/create` interactively, creates monorepo under `react/`, syncs `APP_NAME` in `.env`
 2. Install dashboard packages: `yarn add @splunk/dashboard-core @splunk/dashboard-presets @splunk/dashboard-context`
 3. Export dashboard definition from Dashboard Studio → save as `definition.json`
 4. Import in JSX: `<DashboardContextProvider preset={...} initialDefinition={definition}><DashboardCore /></DashboardContextProvider>`
