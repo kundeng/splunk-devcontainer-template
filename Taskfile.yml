@@ -46,6 +46,7 @@ tasks:
         echo "  task deps:install           # install Splunkbase dependencies"
         echo ""
         echo "  task react:create           # scaffold + initial build, syncs APP_NAME in .env"
+        echo "  task react:add-page         # add a page/component to existing app via @splunk/create"
         echo "  task react:link             # symlink stage/ into Splunk (run once after react:create)"
         echo "  task react:start            # webpack watch (stage/ updates live via symlink)"
         echo "  task react:build-install    # production build + package + install into Splunk"
@@ -373,6 +374,15 @@ tasks:
         (cd "${REACT_PATH}" && yarn build)
         echo "Done. Run 'task react:link' to symlink into Splunk, then 'task react:start' to watch."
     desc: Scaffold React app via @splunk/create, detect app name, update .env, run initial build
+
+  react:add-page:
+    cmds:
+      - |
+        echo "Adding page/component via @splunk/create (interactive)..."
+        cd {{.REACT_PACKAGES_DIR}} && npx @splunk/create
+        echo ""
+        echo "Done. Run 'task react:start' to rebuild, or 'task react:build-install' for production."
+    desc: Add a new page or component to existing app via @splunk/create (interactive)
 
   react:link:
     cmds:
