@@ -50,7 +50,7 @@ tasks:
         echo "  task react:add-page         # add a page/component to existing app via @splunk/create"
         echo "  task react:link             # symlink stage/ into Splunk (run once after react:create)"
         echo "  task react:start            # webpack watch (stage/ updates live via symlink)"
-        echo "  task react:build-install    # production build + package + install into Splunk"
+        echo "  task react:build            # production build + package tgz for staging"
     desc: Show available tasks and common flows
 
   # ── Internal helpers ─────────────────────────────────────────────────
@@ -348,7 +348,7 @@ tasks:
   #
   # Dev loop: react:create → react:link → react:start (webpack watch)
   #           Splunk reads stage/ directly via symlink — no copying needed.
-  # Prod:     react:build-install → yarn build + package stage/ + splunk install app
+  # Staging:  react:build → splunk:build-staging → splunk:up-staging
 
   react:create:
     cmds:
@@ -397,7 +397,7 @@ tasks:
         echo "Installing new packages..."
         yarn install
         echo ""
-        echo "Done. Run 'task react:start' to rebuild, or 'task react:build-install' for production."
+        echo "Done. Run 'task react:start' to rebuild, or 'task react:build' for staging."
     desc: Add a new page or component to existing app via @splunk/create (interactive)
 
   react:link:
@@ -451,7 +451,7 @@ tasks:
         cd "${REACT_PATH}" && yarn start
     desc: webpack watch — stage/ updates live, Splunk reads changes via react:link symlink
 
-  react:build-install:
+  react:build:
     cmds:
       - |
         APP_NAME="{{.APP_NAME}}"
@@ -482,23 +482,11 @@ tasks:
         TGZ="{{.STAGE_DIR}}/${APP_NAME}.tgz"
         TMPDIR=$(mktemp -d)
         ln -s "$(cd "${STAGE_PATH}" && pwd)" "${TMPDIR}/${APP_NAME}"
-        tar -czf "${TGZ}" -C "${TMPDIR}" "${APP_NAME}"
+        tar -chzf "${TGZ}" -C "${TMPDIR}" "${APP_NAME}"
         rm -rf "${TMPDIR}"
         echo "Packaged → ${TGZ}"
-
-        # Install into Splunk (idempotent: try fresh install, fall back to update)
-        DC="docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}}"
-        INSTALL_CMD="{{.SPLUNK_BIN}} install app /tmp/apps/${APP_NAME}.tgz -auth admin:\$SPLUNK_PASSWORD"
-        OUTPUT=$($DC exec --user splunk {{.SPLUNK_SERVICE}} bash -lc "${INSTALL_CMD}" 2>&1) && echo "$OUTPUT" || {
-          if echo "$OUTPUT" | grep -q "already exists"; then
-            echo "App exists, updating..."
-            $DC exec --user splunk {{.SPLUNK_SERVICE}} bash -lc "${INSTALL_CMD} -update 1" 2>&1
-          else
-            echo "$OUTPUT" >&2; exit 1
-          fi
-        }
-        echo "Installed. Restart if prompted: task splunk:restartd"
-    desc: Production build — yarn build, package stage/ as tgz, install into Splunk
+        echo "Deploy to staging: task splunk:build-staging && task splunk:up-staging"
+    desc: Production build — yarn build, package stage/ as splunk/stage/<APP_NAME>.tgz
 
   # ── Python Tooling ───────────────────────────────────────────────────
 
