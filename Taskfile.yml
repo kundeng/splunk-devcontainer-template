@@ -45,21 +45,12 @@ tasks:
         echo "  task app:provision          # package + install local apps"
         echo "  task deps:install           # install Splunkbase dependencies"
         echo ""
-        echo "  task react:create           # scaffold React app (npx @splunk/create)"
-        echo "  task react:start            # dev server with HMR (port 3000)"
-        echo "  task react:build-install    # build + copy to app + package + install"
+        echo "  task react:create           # scaffold React app via @splunk/create, syncs APP_NAME in .env"
+        echo "  task react:start            # webpack watch (src/ edits → splunk:refresh to reload)"
+        echo "  task react:build-install    # build + install into running Splunk"
     desc: Show available tasks and common flows
 
   # ── Internal helpers ─────────────────────────────────────────────────
-
-  __load-app-name:
-    internal: true
-    cmds:
-      - |
-        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
-          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
-          export APP_NAME
-        fi
 
   __dev-compose:
     internal: true
@@ -116,7 +107,7 @@ tasks:
         $DC exec {{.SPLUNK_SERVICE}} bash -lc \
           'curl -sk -X POST https://localhost:8089/services/server/control/restart_webui -u "admin:${SPLUNK_PASSWORD}" -o /dev/null -w "%{http_code}\n"'
         echo "Done. Config and static assets reloaded (no restart needed)."
-    desc: Reload configs + static assets without restarting (debug/refresh + _bump)
+    desc: Reload app configs + static assets without restarting splunkd
 
   splunk:reprovision:
     cmds:
@@ -235,7 +226,7 @@ tasks:
         if [ -z "${APP_NAME}" ]; then echo "APP_NAME is required"; exit 1; fi
         APP_DIR="{{.CONFIG_APPS_DIR}}/${APP_NAME}"
         if [ -d "$APP_DIR" ]; then echo "App already exists: $APP_DIR"; exit 1; fi
-        APP_LABEL=$(echo "${APP_NAME}" | tr '_' ' ')
+        APP_LABEL=$(echo "${APP_NAME}" | tr '_-' '  ')
         echo "Creating app skeleton at $APP_DIR ..."
         mkdir -p "$APP_DIR/default" "$APP_DIR/metadata" "$APP_DIR/appserver/static" "$APP_DIR/bin"
         cat > "$APP_DIR/default/app.conf" << EOF
@@ -293,9 +284,10 @@ tasks:
         fi
         APPS="${APPS}"
         if [ -z "$APPS" ]; then
-          APPS="splunk-config-dev"
           if [ -n "${APP_NAME}" ]; then
-            APPS="${APPS},${APP_NAME}"
+            APPS="${APP_NAME}"
+          else
+            echo "APP_NAME is required (or pass APPS=app1,app2)"; exit 1
           fi
         fi
         echo "Provisioning: $APPS"
@@ -466,29 +458,23 @@ tasks:
           exec --user splunk {{.SPLUNK_SERVICE}} bash -lc \
           "{{.SPLUNK_BIN}} install app /tmp/apps/${APP_NAME}.tgz -update 1 -auth admin:\$SPLUNK_PASSWORD" || true
         echo "Done. If Splunk requests a restart: task splunk:restartd"
-    desc: Build React app, copy to appserver/static, package, and install
+    desc: Build React app, merge into Splunk app dir, package and install into Splunk
 
   # ── Python Tooling ───────────────────────────────────────────────────
 
   python:lint:
     cmds:
-      - |
-        echo "Linting Python code with ruff..."
-        ruff check {{.CONFIG_APPS_DIR}} {{.REACT_PACKAGES_DIR}} || true
-    desc: Lint Python code with ruff
+      - ruff check {{.CONFIG_APPS_DIR}} || true
+    desc: Lint Python code in splunk/config/apps/ with ruff
 
   python:format:
     cmds:
-      - |
-        echo "Formatting Python code with ruff..."
-        ruff format {{.CONFIG_APPS_DIR}} {{.REACT_PACKAGES_DIR}} || true
-    desc: Format Python code with ruff
+      - ruff format {{.CONFIG_APPS_DIR}} || true
+    desc: Format Python code in splunk/config/apps/ with ruff
 
   python:test:
     cmds:
-      - |
-        echo "Running Python tests..."
-        pytest || echo "No tests found or pytest not installed"
+      - pytest {{.CONFIG_APPS_DIR}} || echo "No tests found or pytest not installed"
     desc: Run Python tests with pytest
 
 
