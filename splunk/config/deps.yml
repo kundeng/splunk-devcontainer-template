@@ -8,13 +8,13 @@
 # They persist in the splunk-var volume across restarts.
 
 dependencies:
-  - name: Splunk_SA_Scientific_Python_linux_x86_64
-    splunkbase_id: 2882
-    version: "4.2.3"
+  # - name: Splunk_SA_Scientific_Python_linux_x86_64
+  #   splunkbase_id: 2882
+  #   version: "4.2.3"
 
-  - name: Splunk_ML_Toolkit
-    splunkbase_id: 2890
-    version: "5.6.1"
+  # - name: Splunk_ML_Toolkit
+  #   splunkbase_id: 2890
+  #   version: "5.6.1"
 
   # - name: SA-VSCode
   #   splunkbase_id: 4801
