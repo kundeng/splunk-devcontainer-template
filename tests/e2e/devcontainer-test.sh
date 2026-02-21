@@ -101,12 +101,12 @@ done
 
 # ── App symlink task exists ───────────────────────────────────────────
 
-log "Verify app:sync-links task"
+log "Verify dev:ensure-links task"
 
-if echo "$TASK_LIST" | grep -qF "app:sync-links"; then
-    pass "task app:sync-links exists"
+if echo "$TASK_LIST" | grep -qF "dev:ensure-links"; then
+    pass "task dev:ensure-links exists"
 else
-    fail "task app:sync-links missing"
+    fail "task dev:ensure-links missing"
 fi
 
 # ── Environment variable checks ──────────────────────────────────────

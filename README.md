@@ -95,7 +95,7 @@ splunk.env.example             # Template for .env
 | Edit `.conf` / dashboard | `task dev:refresh` | ~2s |
 | Edit Python code | `task dev:restartd` | ~10s |
 | New app | `task app:create` (symlink + refresh) | ~2-10s |
-| Dockerfile change | `task dev:build` then `task dev:up` | varies |
+| Dockerfile change | `task dev:build-image` then `task dev:up` | varies |
 | Full reset | `task dev:clean` then `task dev:up` | ~90s |
 
 ### Staging Verification
@@ -125,7 +125,7 @@ Then run `task deps:install`. It downloads and installs only what's missing or o
 ### Dev Splunk Lifecycle
 
 ```bash
-task dev:build              # build dev Splunk image (first time / Dockerfile change)
+task dev:build-image        # build dev Splunk Docker image (first time / Dockerfile change)
 task dev:up                 # start + sync app symlinks (no rebuild)
 task dev:refresh            # reload configs + static assets via REST API (~2s)
 task dev:restartd           # restart splunkd process (~10s)
@@ -140,7 +140,7 @@ task dev:status             # check container status
 ### Staging Splunk
 
 ```bash
-task stage:build            # build staging image (reuses dev image)
+task stage:deploy           # package all apps + start staging
 task stage:up               # start staging (port 18000)
 task stage:down             # stop staging container
 task stage:clean            # stop staging + remove volumes
@@ -152,7 +152,6 @@ task stage:logs             # follow staging container logs
 ```bash
 task app:create APP_NAME=x  # scaffold + symlink + refresh Splunk (no recreate)
 task app:package APP_NAME=x # package to splunk/stage/x.tgz
-task app:sync-links         # create/update symlinks in Splunk container
 ```
 
 ### React UI
@@ -195,7 +194,7 @@ The entire `splunk/config/apps/` directory is bind-mounted to `/opt/splunk/dev-a
 
 - **No container recreation** when adding a new app — just `docker exec ln -s` + refresh
 - **Live editing** — file changes on the host are immediately visible through the symlink
-- `task app:sync-links` manages symlinks (creates missing, removes stale)
+- `task dev:ensure-links` manages symlinks (creates missing, removes stale)
 - This pattern is validated by Splunk's own `@splunk/create` tooling (`yarn run link:app`)
 
 ### Persistence
@@ -209,7 +208,7 @@ The entire `splunk/config/apps/` directory is bind-mounted to `/opt/splunk/dev-a
 
 ### Build / Up Separation
 
-The Splunk image is built once during `post-create.sh` (or explicitly via `task dev:build`). `task dev:up` only starts the container — it does not rebuild. This avoids unnecessary rebuilds during daily development.
+The Splunk image is built once during `post-create.sh` (or explicitly via `task dev:build-image`). `task dev:up` only starts the container — it does not rebuild. This avoids unnecessary rebuilds during daily development.
 
 ## Ports
 
@@ -243,7 +242,7 @@ The Splunk image is built once during `post-create.sh` (or explicitly via `task 
 
 - **Splunk won't start** — `task dev:logs` → check for errors
 - **App changes not visible** — `task dev:refresh` (reloads configs without restart); if that doesn't work, `task dev:restartd`
-- **New app not visible** — `task app:sync-links` creates missing symlinks; `task dev:refresh` reloads configs
+- **New app not visible** — `task dev:ensure-links` creates missing symlinks; `task dev:refresh` reloads configs
 - **Python debugger won't connect** — ensure SA-VSCode is installed (`task deps:install`), code has `dbg.enable_debugging()`, and port 5678 is exposed
 - **Corrupt state after restart** — `task dev:reprovision` (forces full Ansible)
 - **Full reset** — `task dev:clean && task dev:up`
