@@ -63,7 +63,7 @@ fi
 
 log "Verify tools on PATH"
 
-for tool in node python3 docker task ruff; do
+for tool in node python3 docker task ruff expect; do
     if dc_exec which "$tool" &>/dev/null; then
         VERSION=$(dc_exec "$tool" --version 2>/dev/null | head -1 || echo "ok")
         pass "$tool ($VERSION)"
@@ -90,8 +90,9 @@ else
     fail "task --list"
 fi
 
-# Check expected namespaces exist
-for ns in dev:up app:create react:start deps:install python:lint; do
+# Check expected user-facing tasks exist
+for ns in dev:up dev:ensure-links app:create react:start deps:install python:lint \
+          stage:package stage:install stage:deploy test:lifecycle; do
     if echo "$TASK_LIST" | grep -qF "$ns"; then
         pass "task $ns exists"
     else
@@ -99,15 +100,18 @@ for ns in dev:up app:create react:start deps:install python:lint; do
     fi
 done
 
-# ── App symlink task exists ───────────────────────────────────────────
+# ── Internal guard tasks ─────────────────────────────────────────────
 
-log "Verify dev:ensure-links task"
+log "Verify internal guard tasks"
 
-if echo "$TASK_LIST" | grep -qF "dev:ensure-links"; then
-    pass "task dev:ensure-links exists"
-else
-    fail "task dev:ensure-links missing"
-fi
+TASK_LIST_ALL=$(dc_exec task --list-all 2>&1) || true
+for guard in __ensure-image __dev:ensure-running __stage:ensure-running __ensure-app-name __wait-healthy; do
+    if echo "$TASK_LIST_ALL" | grep -qF "$guard"; then
+        pass "internal task $guard exists"
+    else
+        fail "internal task $guard missing"
+    fi
+done
 
 # ── Environment variable checks ──────────────────────────────────────
 
@@ -145,19 +149,14 @@ if [ "$FAIL" -gt 0 ]; then
     exit 1
 fi
 
-# ── Lifecycle tests (Splunk up, app create, provision, staging) ───────
+# ── Lifecycle tests (same code path as host) ────────────────────────
 
-log "Running lifecycle tests (this takes several minutes)..."
+log "Running lifecycle tests inside devcontainer (this takes several minutes)..."
 
-LIFECYCLE_SCRIPT="tests/e2e/run-lifecycle.sh"
-if [ -f "$LIFECYCLE_SCRIPT" ]; then
-    if dc_exec bash "$LIFECYCLE_SCRIPT" 2>&1; then
-        pass "lifecycle tests"
-    else
-        fail "lifecycle tests"
-    fi
+if dc_exec task test:lifecycle 2>&1; then
+    pass "lifecycle tests"
 else
-    echo "  (skipped — $LIFECYCLE_SCRIPT not found)"
+    fail "lifecycle tests"
 fi
 
 # ── Final summary ─────────────────────────────────────────────────────
