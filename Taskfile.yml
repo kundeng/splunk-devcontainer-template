@@ -193,10 +193,11 @@ tasks:
 
   # ── Staging Splunk Lifecycle ───────────────────────────────────────
 
-  stage:deploy:
+  stage:package:
     cmds:
       - |
         echo "Packaging all apps in {{.CONFIG_APPS_DIR}}/ ..."
+        mkdir -p "{{.STAGE_DIR}}"
         for APP_DIR in {{.CONFIG_APPS_DIR}}/*/; do
           [ -d "$APP_DIR" ] || continue
           APP=$(basename "$APP_DIR")
@@ -206,30 +207,61 @@ tasks:
           tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "$APP"
         done
         echo "All apps packaged to {{.STAGE_DIR}}/"
-      - task: stage:up
-    desc: Package all apps into splunk/stage/ then start staging
+    desc: Package all apps from splunk/config/apps/ into splunk/stage/
 
   stage:up:
     cmds:
-      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} up -d
+      - task: __stage-compose
+        vars: { COMPOSE_ARGS: 'up -d' }
       - |
-        echo "Staging Splunk started on port 18000 (Web), 18089 (REST), 18088 (HEC)"
-        echo "Follow logs: task stage:logs"
-    desc: Start staging Splunk (apps auto-installed from splunk/stage/ on first start)
+        echo "Waiting for staging Splunk to be ready..."
+        for i in $(seq 1 36); do
+          STATUS=$(docker exec splunk-staging bash -lc \
+            "curl -sk -o /dev/null -w '%{http_code}' https://localhost:8089/services/server/health -u admin:\$SPLUNK_PASSWORD" 2>/dev/null || echo 000)
+          [ "$STATUS" = "200" ] && echo "Staging Splunk ready." && break
+          [ "$i" = "36" ] && echo "Staging did not become ready in time." && exit 1
+          sleep 5
+        done
+    desc: Start staging Splunk and wait for healthy
+
+  stage:install:
+    deps: [stage:package, stage:up]
+    cmds:
+      - |
+        echo "Installing apps from {{.STAGE_DIR}}/ into staging..."
+        INSTALLED=0; SKIPPED=0
+        for TGZ in {{.STAGE_DIR}}/*.tgz; do
+          [ -f "$TGZ" ] || continue
+          APP=$(basename "$TGZ" .tgz)
+          echo "  Installing $APP..."
+          docker exec splunk-staging bash -lc \
+            "{{.SPLUNK_BIN}} install app /tmp/apps/${APP}.tgz -update true -auth admin:\$SPLUNK_PASSWORD" \
+            2>&1 && INSTALLED=$((INSTALLED + 1)) || SKIPPED=$((SKIPPED + 1))
+        done
+        echo "Install complete: $INSTALLED installed, $SKIPPED failed"
+    desc: Install all tgz from splunk/stage/ into running staging (deps auto-package + start)
+
+  stage:deploy:
+    cmds:
+      - task: stage:install
+    desc: Package all apps, start staging, and install (convenience alias)
 
   stage:down:
     cmds:
-      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} down
+      - task: __stage-compose
+        vars: { COMPOSE_ARGS: 'down' }
     desc: Stop staging Splunk container
 
   stage:clean:
     cmds:
-      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} down -v
+      - task: __stage-compose
+        vars: { COMPOSE_ARGS: 'down -v' }
     desc: Stop staging Splunk, remove containers and volumes
 
   stage:logs:
     cmds:
-      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} logs -f
+      - task: __stage-compose
+        vars: { COMPOSE_ARGS: 'logs -f' }
     desc: Follow staging Splunk container logs
 
   # ── App Management ───────────────────────────────────────────────────
