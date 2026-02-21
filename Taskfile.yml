@@ -141,12 +141,14 @@ tasks:
     desc: Restart dev Splunk container (entrypoint-wrapper skips Ansible)
 
   dev:restartd:
+    deps: [__dev:ensure-running]
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'exec {{.SPLUNK_SERVICE}} bash -lc "{{.SPLUNK_BIN}} restart -auth admin:\$SPLUNK_PASSWORD"' }
     desc: Restart splunkd process inside running container (~10s)
 
   dev:refresh:
+    deps: [__dev:ensure-running]
     cmds:
       - |
         DC="docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}}"
@@ -160,6 +162,7 @@ tasks:
     desc: Reload app configs + static assets without restarting splunkd
 
   dev:reprovision:
+    deps: [__dev:ensure-running]
     cmds:
       - |
         echo "Removing provisioning marker and restarting..."
@@ -171,6 +174,7 @@ tasks:
     desc: Force full Ansible re-provisioning (removes marker + restarts)
 
   dev:ensure-links:
+    deps: [__dev:ensure-running]
     cmds:
       - task: app:sync-links
     desc: Sync app symlinks in Splunk container (idempotent, run after dev:clean)
@@ -247,13 +251,10 @@ tasks:
         printf 'APP_NAME=%s\n' "${APP_NAME}" > .task/app-env
 
   app:sync-links:
+    deps: [__dev:ensure-running]
     cmds:
       - |
         CONTAINER="{{.SPLUNK_CONTAINER}}"
-        if ! docker ps --filter name="$CONTAINER" --format '{{`{{.Names}}`}}' | grep -q "^${CONTAINER}$"; then
-          echo "Splunk container is not running — symlinks will be created on next 'task dev:up'"
-          exit 0
-        fi
         echo "Syncing app symlinks in $CONTAINER ..."
         docker exec --user root "$CONTAINER" bash -c '
           DEV_APPS="/opt/splunk/dev-apps"
@@ -329,6 +330,7 @@ tasks:
   # ── Dependency Management ────────────────────────────────────────────
 
   deps:install:
+    deps: [__dev:ensure-running]
     cmds:
       - python3 splunk/scripts/deps-install.py --env-file "{{.ENV_FILE}}" --deps-file "{{.DEPS_FILE}}" --stage-dir "{{.STAGE_DIR}}" --compose-file "{{.COMPOSE_FILE}}" --service "{{.SPLUNK_SERVICE}}"
     desc: Install Splunkbase dependencies from splunk/config/deps.yml (idempotent)
@@ -434,7 +436,7 @@ tasks:
     desc: Add a new page or component to existing app via @splunk/create (interactive)
 
   react:link:
-    deps: [__react:ensure-build]
+    deps: [__react:ensure-build, __dev:ensure-running]
     cmds:
       - |
         . .task/react-env
