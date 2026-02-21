@@ -2,4 +2,11 @@
 # Auto-updated by spec-go workflow
 # Format: [TIMESTAMP] [STATUS] [TASK_ID] - [DESCRIPTION]
 # STATUS: DONE | BLOCKED | SKIPPED | IN_PROGRESS
-# SUMMARY: 0/6 done | next: 1.1
+# SUMMARY: 6/6 done | E2E verification pending (requires running containers)
+
+2026-02-20 DONE 1.1 - Add __dev:ensure-running, __stage:ensure-running, __stage-compose, __ensure-app-name
+2026-02-20 DONE 2.1 - Wire dev tasks to __dev:ensure-running + remove inline checks
+2026-02-20 DONE 3.1 - Replace __app:resolve with __ensure-app-name, remove .task/app-env
+2026-02-20 DONE 4.1 - Restructure staging: stage:package, stage:up (health), stage:install (deps), stage:deploy
+2026-02-20 DONE 5.1 - Update help text, ARCHITECTURE.md, README.md
+2026-02-20 DONE 6.1 - Update staging E2E test comments; all tests structurally compatible
