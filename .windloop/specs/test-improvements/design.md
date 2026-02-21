@@ -82,7 +82,7 @@ graph TD
 - **Known prompts** (from `@splunk/create` npm docs):
   1. `What do you want to name your Splunk app?` → text input (app name)
   2. `What do you want to name your new page?` → text input (page name)
-  3. `What type of page would you like to...` → selection (exact options TBD — discover empirically by running wizard once in devcontainer)
+  3. `What type of page would you like to...` → arrow-key selection (options include: simple page, dashboard page — select with ↑/↓ + Enter)
 - **Behavior**:
   1. Spawns `task react:create`
   2. Responds to each prompt using loose pattern matching (`*name your Splunk app*`, `*name your new page*`, `*type of page*`)
