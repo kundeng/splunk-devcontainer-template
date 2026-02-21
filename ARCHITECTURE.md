@@ -123,7 +123,7 @@ Helper apps (like `splunk-config-dev`) are always present and don't need `APP_NA
 ### Dev Splunk Lifecycle
 
 ```bash
-task dev:build              # build dev Splunk image (first time / Dockerfile change)
+task dev:build-image        # build dev Splunk Docker image (first time / Dockerfile change)
 task dev:up                 # start + sync app symlinks (no rebuild)
 task dev:refresh            # reload configs + static assets via REST API (~2s)
 task dev:restartd           # restart splunkd process (~10s)
@@ -138,7 +138,7 @@ task dev:status             # check container status
 ### Staging Splunk (port 18000) — runs alongside dev
 
 ```bash
-task stage:build            # build staging image (reuses dev image)
+task stage:deploy           # package all apps + start staging
 task stage:up               # start staging (port 18000)
 task stage:down             # stop staging container
 task stage:clean            # stop staging + remove volumes
@@ -149,7 +149,6 @@ task stage:logs             # follow staging container logs
 
 ```bash
 task app:create APP_NAME=x  # scaffold + symlink + refresh Splunk (no recreate)
-task app:sync-links         # create/update symlinks in Splunk container
 task app:package APP_NAME=x # package to splunk/stage/x.tgz (for staging)
 ```
 
@@ -158,10 +157,10 @@ task app:package APP_NAME=x # package to splunk/stage/x.tgz (for staging)
 | Situation | Command |
 |---|---|
 | New app just created, want it visible in Splunk | `app:create` (calls sync-links automatically) |
-| Symlinks got out of sync (e.g. after `dev:clean`) | `app:sync-links` |
+| Symlinks got out of sync (e.g. after `dev:clean`) | `dev:ensure-links` |
 | Preparing a release build for staging | `app:package` → `stage:up` |
 
-- **`sync-links`** — fastest (~1s). Makes the app *visible* via symlink. Enough for `.conf` edits, dashboards, and Python scripts (no packaging needed). Called automatically by `dev:up` and `app:create`.
+- **`dev:ensure-links`** — fastest (~1s). Makes the app *visible* via symlink. Enough for `.conf` edits, dashboards, and Python scripts (no packaging needed). Called automatically by `dev:up` and `app:create`.
 - **`package`** — produces a `.tgz` in `splunk/stage/`. Used as input for staging (`stage:up` auto-installs from there). Not needed for day-to-day dev.
 
 ### React UI
@@ -216,7 +215,7 @@ task test:all               # lint + E2E
 | Edit `.conf` / dashboard | `task dev:refresh` | ~2s |
 | Edit Python code | `task dev:restartd` | ~10s |
 | New app | `task app:create` (symlink + refresh) | ~2-10s |
-| Dockerfile change | `task dev:build` then `task dev:up` | varies |
+| Dockerfile change | `task dev:build-image` then `task dev:up` | varies |
 | Full reset | `task dev:clean` then `task dev:up` | ~90s |
 
 ### Staging Verification
@@ -261,7 +260,7 @@ The wrapper also writes the Docker healthcheck state file so `checkstate.sh` pas
 
 ### Build / Up Separation
 
-The Splunk image is built once during `post-create.sh` (or explicitly via `task dev:build`). `task dev:up` only starts the container — it does not rebuild. This avoids unnecessary rebuilds during daily development.
+The Splunk image is built once during `post-create.sh` (or explicitly via `task dev:build-image`). `task dev:up` only starts the container — it does not rebuild. This avoids unnecessary rebuilds during daily development.
 
 ### App Symlink Mounts
 
@@ -269,7 +268,7 @@ The entire `splunk/config/apps/` directory is bind-mounted to `/opt/splunk/dev-a
 
 - **No container recreation** when adding a new app — just `docker exec ln -s` + refresh
 - **Live editing** — file changes on the host are immediately visible through the symlink
-- `task app:sync-links` manages symlinks (creates missing, removes stale)
+- `task dev:ensure-links` manages symlinks (creates missing, removes stale)
 - This pattern is validated by Splunk's own `@splunk/create` tooling (`yarn run link:app`)
 
 | Change type | Action needed |
@@ -416,7 +415,7 @@ task test:all             # python:lint + test:e2e
 
 - **Splunk won't start**: `task dev:logs` → check for errors
 - **App changes not visible**: `task dev:refresh` (reloads configs without restart); if that doesn't work, `task dev:restartd`
-- **New app not visible**: `task app:sync-links` creates missing symlinks; `task dev:refresh` reloads configs
+- **New app not visible**: `task dev:ensure-links` creates missing symlinks; `task dev:refresh` reloads configs
 - **Python debugger won't connect**: ensure SA-VSCode is installed (`task deps:install`), code has `dbg.enable_debugging()`, and port 5678 is exposed
 - **React HMR not working**: check webpack proxy config points to `splunk-dev:8089`
 - **Corrupt state after restart**: `task dev:reprovision` (forces full Ansible)

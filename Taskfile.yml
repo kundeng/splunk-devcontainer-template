@@ -30,12 +30,13 @@ tasks:
         task --list
         echo ""
         echo "Dev environment (port 8000):"
-        echo "  task dev:build              # build dev Splunk image (first time / Dockerfile change)"
+        echo "  task dev:build-image        # build dev Splunk Docker image (first time / Dockerfile change)"
         echo "  task dev:up                 # start + sync app symlinks (no rebuild)"
         echo "  task dev:refresh            # reload configs + static assets (no restart)"
         echo "  task dev:restartd           # restart splunkd process (~10s)"
         echo "  task dev:restart            # restart container (skips Ansible)"
         echo "  task dev:reprovision        # force full Ansible re-provisioning"
+        echo "  task dev:ensure-links       # sync app symlinks (idempotent, run after dev:clean)"
         echo "  task dev:clean              # stop + remove volumes (full reset)"
         echo ""
         echo "App development:"
@@ -52,6 +53,7 @@ tasks:
         echo "  task react:package          # build + package React app into splunk/stage/<APP>.tgz"
         echo ""
         echo "Staging environment (port 18000):"
+        echo "  task stage:deploy           # package all apps + start staging"
         echo "  task stage:up               # start staging (auto-installs tgz from splunk/stage/)"
         echo "  task stage:down             # stop staging container"
         echo "  task stage:clean            # stop staging + remove volumes"
@@ -66,11 +68,11 @@ tasks:
 
   # ── Dev Splunk Lifecycle ────────────────────────────────────────────
 
-  dev:build:
+  dev:build-image:
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'build {{.SPLUNK_SERVICE}}' }
-    desc: Build the dev Splunk image
+    desc: Build the dev Splunk Docker image
 
   dev:up:
     cmds:
@@ -82,10 +84,10 @@ tasks:
           STATUS=$(docker exec {{.SPLUNK_CONTAINER}} bash -lc \
             "curl -sk -o /dev/null -w '%{http_code}' https://localhost:8089/services/server/health -u admin:\$SPLUNK_PASSWORD" 2>/dev/null || echo 000)
           [ "$STATUS" = "200" ] && echo "Splunk ready." && break
-          [ "$i" = "36" ] && echo "Splunk did not become ready in time — run 'task app:sync-links' manually" && exit 0
+          [ "$i" = "36" ] && echo "Splunk did not become ready in time — run 'task dev:ensure-links' manually" && exit 0
           sleep 5
         done
-      - task: app:sync-links
+      - task: dev:ensure-links
     desc: Start dev Splunk, wait for health, then sync app symlinks
 
   dev:down:
@@ -136,6 +138,11 @@ tasks:
         echo "Full Ansible provisioning will run. Follow with: task dev:logs"
     desc: Force full Ansible re-provisioning (removes marker + restarts)
 
+  dev:ensure-links:
+    cmds:
+      - task: app:sync-links
+    desc: Sync app symlinks in Splunk container (idempotent, run after dev:clean)
+
   dev:status:
     cmds:
       - task: __dev-compose
@@ -150,10 +157,21 @@ tasks:
 
   # ── Staging Splunk Lifecycle ───────────────────────────────────────
 
-  stage:build:
+  stage:deploy:
     cmds:
-      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} build
-    desc: Build staging Splunk image (reuses dev image; apps mounted from splunk/stage/)
+      - |
+        echo "Packaging all apps in {{.CONFIG_APPS_DIR}}/ ..."
+        for APP_DIR in {{.CONFIG_APPS_DIR}}/*/; do
+          [ -d "$APP_DIR" ] || continue
+          APP=$(basename "$APP_DIR")
+          case "$APP" in .*) continue ;; esac
+          TAR_PATH="{{.STAGE_DIR}}/${APP}.tgz"
+          echo "  $APP → $TAR_PATH"
+          tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "$APP"
+        done
+        echo "All apps packaged to {{.STAGE_DIR}}/"
+      - task: stage:up
+    desc: Package all apps into splunk/stage/ then start staging
 
   stage:up:
     cmds:
@@ -257,7 +275,7 @@ tasks:
           "[]" "access = read : [ * ], write : [ admin, power ]" "export = system" \
           > "$APP_DIR/metadata/default.meta"
         echo "App created: $APP_DIR"
-      - task: app:sync-links
+      - task: dev:ensure-links
       - task: dev:refresh
         ignore_error: true
     desc: Scaffold a new Splunk app skeleton (idempotent — skips if exists)

@@ -81,13 +81,13 @@ else
     fail "app.conf not visible through symlink"
 fi
 
-log "Idempotency: app:sync-links again (should report 0 created)"
+log "Idempotency: dev:ensure-links again (should report 0 created)"
 
-OUTPUT=$(task app:sync-links 2>&1)
+OUTPUT=$(task dev:ensure-links 2>&1)
 if echo "$OUTPUT" | grep -q "0 created"; then
-    pass "app:sync-links idempotent — 0 created on second run"
+    pass "dev:ensure-links idempotent — 0 created on second run"
 else
-    fail "app:sync-links idempotent — expected '0 created'"
+    fail "dev:ensure-links idempotent — expected '0 created'"
     echo "    Output: ${OUTPUT:0:200}"
 fi
 

@@ -9,7 +9,7 @@ source "${SCRIPT_DIR}/helpers.sh"
 
 log "Build and start Splunk"
 
-task dev:build 2>&1 | tail -3 || true
+task dev:build-image 2>&1 | tail -3 || true
 
 if task dev:up 2>&1 | tail -5; then
     pass "task dev:up"

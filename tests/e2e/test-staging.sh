@@ -9,25 +9,16 @@ source "${SCRIPT_DIR}/helpers.sh"
 
 STAGING_CONTAINER="splunk-staging"
 
-log "Build and verify staging image"
+log "Deploy and start staging Splunk"
 
-# Package test apps into stage for staging build
-task app:package APP_NAME="${TEST_CMD_APP}" 2>/dev/null || true
-task app:package APP_NAME="${TEST_REACT_APP}" 2>/dev/null || true
-
-if task stage:build 2>&1 | tail -5; then
-    pass "task stage:build"
+# stage:deploy packages all apps in splunk/config/apps/ then calls stage:up
+if task stage:deploy 2>&1 | tail -10; then
+    pass "task stage:deploy"
 else
-    fail "task stage:build"
+    fail "task stage:deploy"
 fi
 
-log "Start staging Splunk and verify mounted apps are auto-installed"
-
-if task stage:up 2>&1 | tail -5; then
-    pass "task stage:up"
-else
-    fail "task stage:up"
-fi
+log "Verify mounted apps are auto-installed"
 
 # Wait for staging Splunk to become healthy
 STAGING_HEALTHY=false
