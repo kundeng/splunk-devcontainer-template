@@ -1,5 +1,5 @@
 #!/bin/bash
-# Test suite: Staging — verify packaged apps are auto-installed from splunk/stage/.
+# Test suite: Staging — verify stage:deploy packages, starts, and installs apps.
 # Expects Splunk dev to be running (for packaging). Starts/stops staging itself.
 
 set -euo pipefail
@@ -11,14 +11,14 @@ STAGING_CONTAINER="splunk-staging"
 
 log "Deploy and start staging Splunk"
 
-# stage:deploy packages all apps in splunk/config/apps/ then calls stage:up
-if task stage:deploy 2>&1 | tail -10; then
+# stage:deploy → stage:install → deps: [stage:package, stage:up] → CLI install
+if task stage:deploy 2>&1 | tail -20; then
     pass "task stage:deploy"
 else
     fail "task stage:deploy"
 fi
 
-log "Verify mounted apps are auto-installed"
+log "Verify apps are installed via CLI"
 
 # Wait for staging Splunk to become healthy
 STAGING_HEALTHY=false
