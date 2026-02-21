@@ -6,8 +6,8 @@ Unify test entry points, revise devcontainer static checks, add expect-based rea
 
 ## Tasks
 
-- [ ] 1. Unified Test Entry Points
-  - [ ] 1.1 Rename test:native → test:lifecycle, test:e2e → test:devcontainer
+- [x] 1. Unified Test Entry Points
+  - [x] 1.1 Rename test:native → test:lifecycle, test:e2e → test:devcontainer
     - Rename `test:native` to `test:lifecycle` in Taskfile.yml
     - Rename `test:e2e` to `test:devcontainer` in Taskfile.yml
     - Update `test:all` to call `test:devcontainer`
@@ -17,8 +17,8 @@ Unify test entry points, revise devcontainer static checks, add expect-based rea
     - **Depends**: —
     - **Requirements**: R1.1, R1.2, R1.3, R1.4, R1.5
 
-- [ ] 2. Revise Devcontainer Static Checks
-  - [ ] 2.1 Update devcontainer-test.sh for current task structure
+- [x] 2. Revise Devcontainer Static Checks
+  - [x] 2.1 Update devcontainer-test.sh for current task structure
     - Add `stage:package`, `stage:install`, `stage:deploy`, `test:lifecycle` to task existence checks
     - Add guard task checks via `task --list-all`: `__ensure-image`, `__dev:ensure-running`, `__stage:ensure-running`, `__ensure-app-name`, `__wait-healthy`
     - Remove stale references (`test:native`, `app:provision`, any `splunk:*` names)
@@ -27,14 +27,14 @@ Unify test entry points, revise devcontainer static checks, add expect-based rea
     - **Requirements**: R2.1, R2.2, R2.3
     - **Properties**: 2
 
-- [ ] 3. Expect Infrastructure
-  - [ ] 3.1 Install expect in devcontainer
+- [x] 3. Expect Infrastructure
+  - [x] 3.1 Install expect in devcontainer
     - Add `sudo apt-get install -y expect` to `.devcontainer/post-create.sh`
     - Verify expect is on PATH after devcontainer build
     - **Depends**: —
     - **Requirements**: R4.1, R4.2
 
-  - [ ] 3.2 Create expect script for react:create wizard
+  - [x] 3.2 Create expect script for react:create wizard
     - Create `tests/e2e/expect/react-create.exp`
     - Handle 3 prompts: app name (text), page name (text), page type (arrow-key selection)
     - Use loose pattern matching and 60s timeouts per prompt
@@ -44,8 +44,8 @@ Unify test entry points, revise devcontainer static checks, add expect-based rea
     - **Requirements**: R3.1
     - **Properties**: 4
 
-- [ ] 4. Revise React Build Test
-  - [ ] 4.1 Rewrite test-react-build.sh with expect/fallback
+- [x] 4. Revise React Build Test
+  - [x] 4.1 Rewrite test-react-build.sh with expect/fallback
     - If `command -v expect`: call `react-create.exp` → verify directory, `.env` sync, `stage/` exists → `react:link` → verify symlink → `react:build` → `react:package` → tgz validation
     - If no expect: warn, use current fake scaffold → `react:build` → `react:package` → tgz validation
     - Keep idempotency check for react:package
