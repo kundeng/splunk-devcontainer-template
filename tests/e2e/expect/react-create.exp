@@ -1,0 +1,87 @@
+#!/usr/bin/env expect
+# Automates the interactive @splunk/create wizard invoked by `task react:create`.
+#
+# Prompts handled:
+#   1. "What do you want to name your Splunk app?" → text input (app_name)
+#   2. "What do you want to name your new page?"   → text input (page_name)
+#   3. "What type of page would you like to..."    → arrow-key selection (default: first option)
+#
+# Usage: expect tests/e2e/expect/react-create.exp <app_name> [page_name]
+# Exit:  0 on success, 1 on timeout/failure
+
+set timeout 120
+set app_name [lindex $argv 0]
+set page_name [lindex $argv 1]
+
+if {$app_name eq ""} {
+    puts "Usage: expect react-create.exp <app_name> \[page_name\]"
+    exit 1
+}
+
+if {$page_name eq ""} {
+    set page_name "TestPage"
+}
+
+puts "=== expect: starting task react:create ==="
+
+spawn task react:create
+
+# Prompt 1: App name
+expect {
+    -re {name your Splunk app} {
+        send "$app_name\r"
+        puts "=== expect: sent app name: $app_name ==="
+    }
+    timeout {
+        puts "=== expect: TIMEOUT waiting for app name prompt ==="
+        exit 1
+    }
+}
+
+# Prompt 2: Page name
+expect {
+    -re {name your new page} {
+        send "$page_name\r"
+        puts "=== expect: sent page name: $page_name ==="
+    }
+    timeout {
+        puts "=== expect: TIMEOUT waiting for page name prompt ==="
+        exit 1
+    }
+}
+
+# Prompt 3: Page type (arrow-key selection — accept default with Enter)
+expect {
+    -re {type of page} {
+        # Accept the first/default option
+        send "\r"
+        puts "=== expect: selected default page type ==="
+    }
+    timeout {
+        puts "=== expect: TIMEOUT waiting for page type prompt ==="
+        exit 1
+    }
+}
+
+# Wait for task to complete (initial build can take a while)
+set timeout 300
+expect {
+    eof {
+        puts "=== expect: task react:create finished ==="
+    }
+    timeout {
+        puts "=== expect: TIMEOUT waiting for react:create to finish ==="
+        exit 1
+    }
+}
+
+# Check exit status
+catch wait result
+set exit_code [lindex $result 3]
+if {$exit_code != 0} {
+    puts "=== expect: react:create exited with code $exit_code ==="
+    exit 1
+}
+
+puts "=== expect: success ==="
+exit 0
