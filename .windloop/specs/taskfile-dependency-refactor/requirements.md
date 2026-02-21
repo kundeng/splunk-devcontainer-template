@@ -90,9 +90,21 @@ This spec does NOT rename tasks or change user-facing behavior — it restructur
 4. WHEN `__app:resolve` and `.task/app-env` are removed, THEN `app:create` and `app:package` SHALL use `deps: [__ensure-app-name]` and reference `{{.APP_NAME}}` directly in their `cmds`.
 5. WHEN React tasks need `REACT_APP_PATH` (a computed value), THEN `__react:resolve` MAY continue to use a temp file or inline `sh:` var, since the path requires directory scanning.
 
+### Requirement 8: Reduce Repetition via Shared Helpers
+
+**User Story:** As a maintainer, I want duplicated logic extracted into shared internal tasks, so that changes to common patterns (health checks, compose commands, container names) only need to happen in one place.
+
+#### Acceptance Criteria
+
+1. WHEN `dev:up` or `stage:up` needs to wait for Splunk health, THEN both SHALL use a shared `__wait-healthy` internal task parameterized by container name. No inline health-wait loops.
+2. WHEN any task references the staging container name, THEN it SHALL use a `STAGING_CONTAINER` Taskfile variable (not hardcoded `splunk-staging`).
+3. WHEN `dev:up` or `stage:up` is run and the Docker image has not been built, THEN `__ensure-image` SHALL fail with: "Splunk image not built. Run: task dev:build-image".
+4. WHEN `dev:refresh` runs compose exec commands, THEN it SHALL use `__dev-compose` instead of constructing its own `docker compose` command inline.
+5. WHEN a new guard test suite (`test-guards.sh`) is run before boot, THEN it SHALL verify that `dev:refresh` fails fast without a container, `app:create` fails without APP_NAME, and `dev:up` fails without an image.
+
 ### Non-Functional
 
-**NF 1**: All 6 E2E test suites SHALL continue to pass after the refactor.
+**NF 1**: All 7 E2E test suites (guards, boot, app-lifecycle, deps-install, react-build, staging, skip-provision) SHALL pass after the refactor.
 
 **NF 2**: No new user-facing tasks are added except `stage:package` and `stage:install`. `stage:deploy` already exists but changes behavior.
 

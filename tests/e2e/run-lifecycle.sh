@@ -60,6 +60,7 @@ run_suite() {
 # ── Run suites in order ──────────────────────────────────────────────
 # Boot must run first (starts Splunk). Others depend on a running instance.
 
+run_suite "guards"         "${SCRIPT_DIR}/test-guards.sh"
 run_suite "boot"           "${SCRIPT_DIR}/test-boot.sh"
 run_suite "app-lifecycle"  "${SCRIPT_DIR}/test-app-lifecycle.sh"
 run_suite "deps-install"   "${SCRIPT_DIR}/test-deps-install.sh"

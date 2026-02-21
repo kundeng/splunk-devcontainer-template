@@ -13,6 +13,8 @@ vars:
   STAGE_DIR: 'splunk/stage'
   SPLUNK_BIN: '/opt/splunk/bin/splunk'
   SPLUNK_CONTAINER: 'splunk-dev'
+  STAGING_CONTAINER: 'splunk-staging'
+  STAGING_SERVICE: 'splunk-staging'
   REACT_PACKAGES_DIR: 'react'
 
 tasks:
@@ -86,10 +88,33 @@ tasks:
     internal: true
     cmds:
       - |
-        if ! docker ps --filter name="splunk-staging" --format '{{`{{.Names}}`}}' | grep -q "^splunk-staging$"; then
+        if ! docker ps --filter name="{{.STAGING_CONTAINER}}" --format '{{`{{.Names}}`}}' | grep -q "^{{.STAGING_CONTAINER}}$"; then
           echo "ERROR: Staging container is not running. Start with: task stage:up"
           exit 1
         fi
+
+  __ensure-image:
+    internal: true
+    cmds:
+      - |
+        IMAGE=$(docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} images -q {{.SPLUNK_SERVICE}} 2>/dev/null || true)
+        if [ -z "$IMAGE" ]; then
+          echo "ERROR: Splunk image not built. Run: task dev:build-image"
+          exit 1
+        fi
+
+  __wait-healthy:
+    internal: true
+    cmds:
+      - |
+        echo "Waiting for {{.WAIT_CONTAINER}} to be ready..."
+        for i in $(seq 1 36); do
+          STATUS=$(docker exec {{.WAIT_CONTAINER}} bash -lc \
+            "curl -sk -o /dev/null -w '%{http_code}' https://localhost:8089/services/server/health -u admin:\$SPLUNK_PASSWORD" 2>/dev/null || echo 000)
+          [ "$STATUS" = "200" ] && echo "{{.WAIT_CONTAINER}} ready." && exit 0
+          [ "$i" = "36" ] && echo "{{.WAIT_CONTAINER}} did not become ready in time." && exit 1
+          sleep 5
+        done
 
   __ensure-app-name:
     internal: true
@@ -109,18 +134,12 @@ tasks:
     desc: Build the dev Splunk Docker image
 
   dev:up:
+    deps: [__ensure-image]
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'up -d' }
-      - |
-        echo "Waiting for Splunk to be ready..."
-        for i in $(seq 1 36); do
-          STATUS=$(docker exec {{.SPLUNK_CONTAINER}} bash -lc \
-            "curl -sk -o /dev/null -w '%{http_code}' https://localhost:8089/services/server/health -u admin:\$SPLUNK_PASSWORD" 2>/dev/null || echo 000)
-          [ "$STATUS" = "200" ] && echo "Splunk ready." && break
-          [ "$i" = "36" ] && echo "Splunk did not become ready in time — run 'task dev:ensure-links' manually" && exit 0
-          sleep 5
-        done
+      - task: __wait-healthy
+        vars: { WAIT_CONTAINER: '{{.SPLUNK_CONTAINER}}' }
       - task: dev:ensure-links
     desc: Start dev Splunk, wait for health, then sync app symlinks
 
@@ -153,13 +172,14 @@ tasks:
     deps: [__dev:ensure-running]
     cmds:
       - |
-        DC="docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}}"
         echo "Reloading app configs..."
-        $DC exec {{.SPLUNK_SERVICE}} bash -lc \
-          'curl -sk -X POST https://localhost:8089/services/apps/local/_reload -u "admin:${SPLUNK_PASSWORD}" -o /dev/null -w "%{http_code}\n"'
+      - task: __dev-compose
+        vars: { COMPOSE_ARGS: 'exec {{.SPLUNK_SERVICE}} bash -lc ''curl -sk -X POST https://localhost:8089/services/apps/local/_reload -u "admin:${SPLUNK_PASSWORD}" -o /dev/null -w "%{http_code}\n"''' }
+      - |
         echo "Restarting Splunk Web (picks up static asset changes)..."
-        $DC exec {{.SPLUNK_SERVICE}} bash -lc \
-          'curl -sk -X POST https://localhost:8089/services/server/control/restart_webui -u "admin:${SPLUNK_PASSWORD}" -o /dev/null -w "%{http_code}\n"'
+      - task: __dev-compose
+        vars: { COMPOSE_ARGS: 'exec {{.SPLUNK_SERVICE}} bash -lc ''curl -sk -X POST https://localhost:8089/services/server/control/restart_webui -u "admin:${SPLUNK_PASSWORD}" -o /dev/null -w "%{http_code}\n"''' }
+      - |
         echo "Done. Config and static assets reloaded (no restart needed)."
     desc: Reload app configs + static assets without restarting splunkd
 
@@ -212,18 +232,12 @@ tasks:
     desc: Package all apps from splunk/config/apps/ into splunk/stage/
 
   stage:up:
+    deps: [__ensure-image]
     cmds:
       - task: __stage-compose
         vars: { COMPOSE_ARGS: 'up -d' }
-      - |
-        echo "Waiting for staging Splunk to be ready..."
-        for i in $(seq 1 36); do
-          STATUS=$(docker exec splunk-staging bash -lc \
-            "curl -sk -o /dev/null -w '%{http_code}' https://localhost:8089/services/server/health -u admin:\$SPLUNK_PASSWORD" 2>/dev/null || echo 000)
-          [ "$STATUS" = "200" ] && echo "Staging Splunk ready." && break
-          [ "$i" = "36" ] && echo "Staging did not become ready in time." && exit 1
-          sleep 5
-        done
+      - task: __wait-healthy
+        vars: { WAIT_CONTAINER: '{{.STAGING_CONTAINER}}' }
     desc: Start staging Splunk and wait for healthy
 
   stage:install:
@@ -236,7 +250,7 @@ tasks:
           [ -f "$TGZ" ] || continue
           APP=$(basename "$TGZ" .tgz)
           echo "  Installing $APP..."
-          docker exec splunk-staging bash -lc \
+          docker exec {{.STAGING_CONTAINER}} bash -lc \
             "{{.SPLUNK_BIN}} install app /tmp/apps/${APP}.tgz -update true -auth admin:\$SPLUNK_PASSWORD" \
             2>&1 && INSTALLED=$((INSTALLED + 1)) || SKIPPED=$((SKIPPED + 1))
         done

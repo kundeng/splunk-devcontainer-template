@@ -10,3 +10,9 @@
 2026-02-20 DONE 4.1 - Restructure staging: stage:package, stage:up (health), stage:install (deps), stage:deploy
 2026-02-20 DONE 5.1 - Update help text, ARCHITECTURE.md, README.md
 2026-02-20 DONE 6.1 - Update staging E2E test comments; all tests structurally compatible
+2026-02-20 DONE 7.1 - Add __ensure-image guard, __wait-healthy shared helper, STAGING_CONTAINER var
+2026-02-20 DONE 7.2 - Wire dev:up + stage:up to __ensure-image + __wait-healthy (dedup health loops)
+2026-02-20 DONE 7.3 - Refactor dev:refresh to use __dev-compose (dedup compose command)
+2026-02-20 DONE 7.4 - Replace hardcoded splunk-staging with {{.STAGING_CONTAINER}} everywhere
+2026-02-20 DONE 7.5 - Add test-guards.sh E2E suite, simplify test-staging.sh (no redundant health wait)
+2026-02-20 DONE 7.6 - Update requirements.md (R8), ARCHITECTURE.md (test table)

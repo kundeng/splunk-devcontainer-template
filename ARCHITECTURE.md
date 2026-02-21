@@ -406,6 +406,7 @@ task test:all             # python:lint + test:e2e
 
 | Suite | Script | What it tests |
 |---|---|---|
+| guards | `test-guards.sh` | Guard tasks fail fast with clear errors (no container, no image, no APP_NAME) |
 | boot | `test-boot.sh` | `dev:up`, health, `SPLUNK_PASSWORD` auth, `splunk-config-dev` symlink |
 | app-lifecycle | `test-app-lifecycle.sh` | `app:create`, symlinks, `app:package`, REST verify |
 | deps-install | `test-deps-install.sh` | `deps:install` idempotency |
