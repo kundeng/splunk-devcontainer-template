@@ -67,7 +67,7 @@ This spec does NOT rename tasks or change user-facing behavior — it restructur
 #### Acceptance Criteria
 
 1. WHEN `dev:up` is run, THEN it SHALL use `cmds` (not `deps`) for the sequence: compose up → health wait → `dev:ensure-links`, because each step depends on the previous one completing.
-2. WHEN `dev:up` health wait times out, THEN it SHALL print a message suggesting `task dev:ensure-links` and exit gracefully (not fail).
+2. WHEN `dev:up` health wait times out, THEN it SHALL print a clear error message and fail (exit 1), so the user knows Splunk didn't start.
 
 ### Requirement 6: Backward Compatibility
 
