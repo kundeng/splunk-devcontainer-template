@@ -66,6 +66,38 @@ tasks:
     cmds:
       - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} {{.COMPOSE_ARGS}}
 
+  __stage-compose:
+    internal: true
+    cmds:
+      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} {{.COMPOSE_ARGS}}
+
+  __dev:ensure-running:
+    internal: true
+    cmds:
+      - |
+        if ! docker ps --filter name="{{.SPLUNK_CONTAINER}}" --format '{{`{{.Names}}`}}' | grep -q "^{{.SPLUNK_CONTAINER}}$"; then
+          echo "ERROR: Dev container is not running. Start with: task dev:up"
+          exit 1
+        fi
+
+  __stage:ensure-running:
+    internal: true
+    cmds:
+      - |
+        if ! docker ps --filter name="splunk-staging" --format '{{`{{.Names}}`}}' | grep -q "^splunk-staging$"; then
+          echo "ERROR: Staging container is not running. Start with: task stage:up"
+          exit 1
+        fi
+
+  __ensure-app-name:
+    internal: true
+    cmds:
+      - |
+        if [ -z "{{.APP_NAME}}" ]; then
+          echo "ERROR: APP_NAME is required (pass APP_NAME=x or set in .env)"
+          exit 1
+        fi
+
   # ── Dev Splunk Lifecycle ────────────────────────────────────────────
 
   dev:build-image:
