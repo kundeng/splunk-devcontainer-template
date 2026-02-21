@@ -183,8 +183,9 @@ task deps:install           # install Splunkbase deps from deps.yml (idempotent)
 task python:lint            # ruff check
 task python:format          # ruff format
 task python:test            # pytest
-task test:e2e               # full E2E test (devcontainer + Splunk lifecycle)
-task test:all               # lint + E2E
+task test:lifecycle          # Splunk lifecycle tests — 7 suites (any host)
+task test:devcontainer      # build devcontainer + static checks + lifecycle
+task test:all               # lint + devcontainer
 ```
 
 ## Developer Workflow
@@ -387,20 +388,20 @@ This app is always bind-mounted in dev. Do not include it in staging builds.
 Requires: Docker Desktop running, `.env` configured, `task` installed on Mac.
 
 ```bash
-task test:native          # Splunk lifecycle tests (boot, app, deps, react, staging, skip-provision)
+task test:lifecycle        # Splunk lifecycle tests — 7 suites (guards, boot, app, deps, react, staging, skip-provision)
 task python:lint          # ruff lint
 ```
 
-`test:native` runs `tests/e2e/run-lifecycle.sh` directly — starts Splunk, runs all lifecycle suites, cleans up.
+`test:lifecycle` runs `tests/e2e/run-lifecycle.sh` directly — starts Splunk, runs all 7 lifecycle suites, cleans up. Works on any host with Docker + task.
 
 ### Inside devcontainer (full E2E including devcontainer build)
 
 ```bash
-task test:e2e             # devcontainer build + up + static checks + lifecycle tests
-task test:all             # python:lint + test:e2e
+task test:devcontainer    # devcontainer build + static checks + lifecycle tests
+task test:all             # python:lint + test:devcontainer
 ```
 
-`test:e2e` uses `@devcontainers/cli` to build and start the devcontainer, then runs all checks including `LOCAL_WORKSPACE_FOLDER` injection, tool availability, and compose config validation.
+`test:devcontainer` uses `@devcontainers/cli` to build and start the devcontainer, runs static checks (tool availability, `LOCAL_WORKSPACE_FOLDER`, compose config), then calls `task test:lifecycle` inside it — same test code path as running on the host.
 
 ### Test suites (in `tests/e2e/`)
 

@@ -11,6 +11,10 @@ if ! grep -q '.local/bin' "$HOME/.bashrc" 2>/dev/null; then
 fi
 export PATH="$HOME/.local/bin:$PATH"
 
+# ── System tools ─────────────────────────────────────────────────────
+echo "Installing expect (interactive test automation)..."
+sudo apt-get update -qq && sudo apt-get install -y -qq expect >/dev/null 2>&1
+
 # ── Python dev tools ─────────────────────────────────────────────────
 echo "Installing Python tools (appinspect, ruff, pytest)..."
 pip install --user --quiet splunk-appinspect ruff pytest 2>/dev/null

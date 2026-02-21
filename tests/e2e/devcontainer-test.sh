@@ -3,7 +3,7 @@
 # Uses @devcontainers/cli (installed via npx if not available).
 #
 # Usage: bash tests/e2e/devcontainer-test.sh
-# Or:    task test:e2e
+# Or:    task test:devcontainer
 
 set -euo pipefail
 

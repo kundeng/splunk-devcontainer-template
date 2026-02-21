@@ -173,8 +173,9 @@ task react:package          # build + package stage/ as splunk/stage/<APP_NAME>.
 task python:lint            # ruff check
 task python:format          # ruff format
 task python:test            # pytest
-task test:e2e               # full E2E test (devcontainer + Splunk lifecycle)
-task test:all               # lint + E2E
+task test:lifecycle          # Splunk lifecycle tests — 7 suites (any host)
+task test:devcontainer      # build devcontainer + static checks + lifecycle
+task test:all               # lint + devcontainer
 ```
 
 ## How It Works

@@ -538,7 +538,14 @@ tasks:
 
   # ── Testing ─────────────────────────────────────────────────────────
 
-  test:e2e:
+  test:lifecycle:
+    cmds:
+      - |
+        echo "Running lifecycle tests (guards, boot, app, deps, react, staging, skip-provision)..."
+        bash tests/e2e/run-lifecycle.sh
+    desc: Splunk lifecycle tests — 7 suites (works on any host with Docker + task)
+
+  test:devcontainer:
     cmds:
       - |
         if command -v devcontainer &>/dev/null; then
@@ -547,22 +554,15 @@ tasks:
           echo "devcontainer CLI not found, using npx..."
           DC_CLI="npx --yes @devcontainers/cli"
         fi
-        echo "Running E2E tests (devcontainer CLI: $DC_CLI)"
+        echo "Running devcontainer tests (static checks + lifecycle)..."
         bash tests/e2e/devcontainer-test.sh
-    desc: E2E devcontainer tests (build, up, tool checks, compose validation)
-
-  test:native:
-    cmds:
-      - |
-        echo "Running lifecycle tests natively (no devcontainer)..."
-        bash tests/e2e/run-lifecycle.sh
-    desc: Splunk lifecycle tests on Mac host (boot, app, deps, react, staging, skip-provision)
+    desc: Build devcontainer, run static checks + lifecycle tests inside it
 
   test:all:
     cmds:
       - task: python:lint
-      - task: test:e2e
-    desc: All tests (lint + E2E devcontainer)
+      - task: test:devcontainer
+    desc: All tests (lint + devcontainer)
 
   # ── Utility ──────────────────────────────────────────────────────────
 
