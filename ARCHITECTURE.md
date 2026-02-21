@@ -138,8 +138,10 @@ task dev:status             # check container status
 ### Staging Splunk (port 18000) — runs alongside dev
 
 ```bash
-task stage:deploy           # package all apps + start staging
-task stage:up               # start staging (port 18000)
+task stage:deploy           # package + start + install (full pipeline)
+task stage:package          # package all apps to splunk/stage/
+task stage:up               # start staging container + health wait
+task stage:install          # install tgz into running staging
 task stage:down             # stop staging container
 task stage:clean            # stop staging + remove volumes
 task stage:logs             # follow staging container logs
@@ -158,10 +160,10 @@ task app:package APP_NAME=x # package to splunk/stage/x.tgz (for staging)
 |---|---|
 | New app just created, want it visible in Splunk | `app:create` (calls sync-links automatically) |
 | Symlinks got out of sync (e.g. after `dev:clean`) | `dev:ensure-links` |
-| Preparing a release build for staging | `app:package` → `stage:up` |
+| Preparing a release build for staging | `stage:deploy` (packages + starts + installs) |
 
 - **`dev:ensure-links`** — fastest (~1s). Makes the app *visible* via symlink. Enough for `.conf` edits, dashboards, and Python scripts (no packaging needed). Called automatically by `dev:up` and `app:create`.
-- **`package`** — produces a `.tgz` in `splunk/stage/`. Used as input for staging (`stage:up` auto-installs from there). Not needed for day-to-day dev.
+- **`package`** — produces a `.tgz` in `splunk/stage/`. Used as input for staging (`stage:install` installs from there). Not needed for day-to-day dev.
 
 ### React UI
 
@@ -220,9 +222,9 @@ task test:all               # lint + E2E
 
 ### Staging Verification
 
-1. `task app:package APP_NAME=my_app` → package Python apps into `splunk/stage/`
-1. `task react:package` → build + package React app into `splunk/stage/`
-2. `task stage:up` → start staging on ports 18000/18089/18088 (auto-installs tgz on first start)
+1. `task stage:deploy` → packages all apps, starts staging, installs via CLI
+   - Or manually: `task stage:package` → `task stage:up` → `task stage:install`
+2. For React apps: `task react:package` first (puts tgz in `splunk/stage/`), then `task stage:deploy`
 
 ## How It Works
 
@@ -337,11 +339,11 @@ Path mapping: `splunk/config/apps/<app>/bin/` ↔ `/opt/splunk/etc/apps/<app>/bi
 
 **Production build** (for staging verification):
 1. `task react:package` → builds and packages `stage/` as tgz
-2. `task stage:up`
+2. `task stage:deploy`
 3. VSCode: Run → **"Chrome: Staging Splunk Web"**
 
 **Staging mode**:
-1. `task stage:up` → staging on `:18000`
+1. `task stage:deploy` → staging on `:18000`
 2. VSCode: Run → **"Chrome: Staging Splunk Web"**
 
 ### splunk-config-dev
@@ -408,7 +410,7 @@ task test:all             # python:lint + test:e2e
 | app-lifecycle | `test-app-lifecycle.sh` | `app:create`, symlinks, `app:package`, REST verify |
 | deps-install | `test-deps-install.sh` | `deps:install` idempotency |
 | react-build | `test-react-build.sh` | `react:build`, `react:package`, tgz validation, idempotency |
-| staging | `test-staging.sh` | staging image build, `stage:up` |
+| staging | `test-staging.sh` | `stage:deploy` (package + start + install) |
 | skip-provision | `test-skip-provision.sh` | container restart skips Ansible |
 
 ## Troubleshooting

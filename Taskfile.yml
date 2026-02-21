@@ -53,8 +53,10 @@ tasks:
         echo "  task react:package          # build + package React app into splunk/stage/<APP>.tgz"
         echo ""
         echo "Staging environment (port 18000):"
-        echo "  task stage:deploy           # package all apps + start staging"
-        echo "  task stage:up               # start staging (auto-installs tgz from splunk/stage/)"
+        echo "  task stage:deploy           # package + start + install (full pipeline)"
+        echo "  task stage:package          # package all apps to splunk/stage/"
+        echo "  task stage:up               # start staging container"
+        echo "  task stage:install          # install tgz into running staging"
         echo "  task stage:down             # stop staging container"
         echo "  task stage:clean            # stop staging + remove volumes"
     desc: Show available tasks and common flows
