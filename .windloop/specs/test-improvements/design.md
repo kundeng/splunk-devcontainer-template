@@ -79,12 +79,17 @@ graph TD
   ```
   expect tests/e2e/expect/react-create.exp <app_name>
   ```
+- **Known prompts** (from `@splunk/create` npm docs):
+  1. `What do you want to name your Splunk app?` → text input (app name)
+  2. `What do you want to name your new page?` → text input (page name)
+  3. `What type of page would you like to...` → selection (exact options TBD — discover empirically by running wizard once in devcontainer)
 - **Behavior**:
   1. Spawns `task react:create`
-  2. Waits for the `@splunk/create` prompts
-  3. Selects "Splunk App" type, enters app name
-  4. Waits for completion (initial build)
+  2. Responds to each prompt using loose pattern matching (`*name your Splunk app*`, `*name your new page*`, `*type of page*`)
+  3. Uses generous timeouts (60s per prompt) to handle npm download delays
+  4. Waits for completion (initial build via yarn)
   5. Exits with 0 on success, 1 on timeout/failure
+- **Implementation note**: Run `npx @splunk/create` manually once to confirm exact prompt text and selection options before writing the final expect script. The page type selection may require arrow-key navigation + enter.
 - **Fallback**: `test-react-build.sh` checks `command -v expect`. If absent, uses current fake scaffold with a warning.
 - **Requirements**: R3
 
