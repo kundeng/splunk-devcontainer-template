@@ -234,21 +234,6 @@ tasks:
 
   # ── App Management ───────────────────────────────────────────────────
 
-  # ── Internal: resolve APP_NAME ──────────────────────────────────────
-  # Writes APP_NAME to .task/app-env for downstream tasks.
-  __app:resolve:
-    internal: true
-    cmds:
-      - |
-        APP_NAME="{{.APP_NAME}}"
-        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
-          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
-        fi
-        if [ -z "${APP_NAME}" ]; then
-          echo "APP_NAME is required (pass APP_NAME=x or set in .env)"; exit 1
-        fi
-        mkdir -p .task
-        printf 'APP_NAME=%s\n' "${APP_NAME}" > .task/app-env
 
   app:sync-links:
     deps: [__dev:ensure-running]
@@ -289,20 +274,19 @@ tasks:
     desc: Sync symlinks in Splunk etc/apps/ for each app in dev-apps/ (idempotent)
 
   app:create:
-    deps: [__app:resolve]
+    deps: [__ensure-app-name]
     cmds:
       - |
-        . .task/app-env
-        APP_DIR="{{.CONFIG_APPS_DIR}}/${APP_NAME}"
+        APP_DIR="{{.CONFIG_APPS_DIR}}/{{.APP_NAME}}"
         if [ -d "$APP_DIR" ]; then echo "App already exists: $APP_DIR (skipping)"; exit 0; fi
-        APP_LABEL=$(echo "${APP_NAME}" | tr '_-' '  ')
+        APP_LABEL=$(echo "{{.APP_NAME}}" | tr '_-' '  ')
         echo "Creating app skeleton at $APP_DIR ..."
         mkdir -p "$APP_DIR/default" "$APP_DIR/metadata" "$APP_DIR/appserver/static" "$APP_DIR/bin"
         printf '%s\n' \
           "[install]" "state = enabled" "is_configured = 0" "" \
           "[ui]" "is_visible = 1" "label = ${APP_LABEL}" "" \
           "[launcher]" "author = developer" "version = 1.0.0" "description = ${APP_LABEL}" "" \
-          "[package]" "id = ${APP_NAME}" \
+          "[package]" "id = {{.APP_NAME}}" \
           > "$APP_DIR/default/app.conf"
         printf '%s\n' \
           "[]" "access = read : [ * ], write : [ admin, power ]" "export = system" \
@@ -314,16 +298,15 @@ tasks:
     desc: Scaffold a new Splunk app skeleton (idempotent — skips if exists)
 
   app:package:
-    deps: [__app:resolve]
+    deps: [__ensure-app-name]
     cmds:
       - |
-        . .task/app-env
-        SRC_DIR="{{.CONFIG_APPS_DIR}}/${APP_NAME}"
+        SRC_DIR="{{.CONFIG_APPS_DIR}}/{{.APP_NAME}}"
         if [ ! -d "$SRC_DIR" ]; then echo "App not found: $SRC_DIR"; exit 1; fi
         mkdir -p "{{.STAGE_DIR}}"
-        TAR_PATH="{{.STAGE_DIR}}/${APP_NAME}.tgz"
+        TAR_PATH="{{.STAGE_DIR}}/{{.APP_NAME}}.tgz"
         echo "Packaging $SRC_DIR → $TAR_PATH"
-        tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "${APP_NAME}"
+        tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "{{.APP_NAME}}"
         echo "Created $TAR_PATH"
     desc: Package splunk/config/apps/<APP_NAME> into splunk/stage/<APP_NAME>.tgz
 
@@ -346,32 +329,30 @@ tasks:
   #           Splunk reads stage/ directly via symlink — no copying needed.
   # Staging:  react:package → stage:up (tgz auto-installed from splunk/stage/)
 
-  # ── Internal: resolve APP_NAME + REACT_PATH ────────────────────────
+  # ── Internal: resolve REACT_APP_PATH ───────────────────────────────
+  # Uses {{.APP_NAME}} (from dotenv or CLI) to find the React package dir.
   # Writes REACT_APP_NAME and REACT_APP_PATH to .task/react-env for
-  # downstream tasks.  Skips work if already resolved this invocation.
+  # downstream tasks (REACT_APP_PATH is computed, needs temp file).
   __react:resolve:
     internal: true
+    deps: [__ensure-app-name]
     cmds:
       - |
-        APP_NAME="{{.APP_NAME}}"
-        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
-          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
-        fi
         REACT_PATH=""
-        if [ -d "{{.REACT_PACKAGES_DIR}}/packages/${APP_NAME}" ]; then
-          REACT_PATH="{{.REACT_PACKAGES_DIR}}/packages/${APP_NAME}"
-        elif [ -d "{{.REACT_PACKAGES_DIR}}/${APP_NAME}" ]; then
-          REACT_PATH="{{.REACT_PACKAGES_DIR}}/${APP_NAME}"
+        if [ -d "{{.REACT_PACKAGES_DIR}}/packages/{{.APP_NAME}}" ]; then
+          REACT_PATH="{{.REACT_PACKAGES_DIR}}/packages/{{.APP_NAME}}"
+        elif [ -d "{{.REACT_PACKAGES_DIR}}/{{.APP_NAME}}" ]; then
+          REACT_PATH="{{.REACT_PACKAGES_DIR}}/{{.APP_NAME}}"
         else
           for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
             [ -d "${d}src/main/webapp/pages" ] && REACT_PATH="${d%/}" && break
           done
         fi
-        if [ -z "${REACT_PATH}" ] || [ -z "${APP_NAME}" ]; then
+        if [ -z "${REACT_PATH}" ]; then
           echo "Cannot resolve React app — set APP_NAME in .env or run react:create"; exit 1
         fi
         mkdir -p .task
-        printf 'REACT_APP_NAME=%s\nREACT_APP_PATH=%s\n' "${APP_NAME}" "${REACT_PATH}" > .task/react-env
+        printf 'REACT_APP_NAME=%s\nREACT_APP_PATH=%s\n' "{{.APP_NAME}}" "${REACT_PATH}" > .task/react-env
 
   # ── Internal: ensure stage/ exists (build only if missing) ──────────
   __react:ensure-build:
