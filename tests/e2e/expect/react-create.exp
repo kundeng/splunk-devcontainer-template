@@ -75,6 +75,18 @@ expect {
     }
 }
 
+# Prompt 5: Overwrite .gitignore? (Y/n) — accept default (Y)
+expect {
+    -re {Overwrite.*gitignore} {
+        send "\r"
+        puts "=== expect: accepted .gitignore overwrite ==="
+    }
+    timeout {
+        puts "=== expect: TIMEOUT waiting for .gitignore prompt ==="
+        exit 1
+    }
+}
+
 # Wait for task to complete (initial build can take a while)
 set timeout 300
 expect {
