@@ -25,6 +25,12 @@ log "Verify apps installed via CLI"
 sleep 5
 
 check_app_rest "${STAGING_CONTAINER}" "${TEST_CMD_APP}" "staging: CLI-installed custom cmd app"
-check_app_rest "${STAGING_CONTAINER}" "${TEST_REACT_APP}" "staging: CLI-installed React app"
+
+# Use actual React app name from .env (set by react:create during react-build suite)
+REACT_APP_NAME=$(grep "^APP_NAME=" .env 2>/dev/null | cut -d= -f2)
+if [ -z "$REACT_APP_NAME" ]; then
+    REACT_APP_NAME="${TEST_REACT_APP}"
+fi
+check_app_rest "${STAGING_CONTAINER}" "${REACT_APP_NAME}" "staging: CLI-installed React app"
 
 results
