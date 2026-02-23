@@ -19,8 +19,7 @@ SUITES_RUN=0
 log "Pre-cleanup"
 task dev:down 2>/dev/null || true
 task stage:clean 2>/dev/null || true
-rm -rf "splunk/config/apps/${TEST_CMD_APP}"
-rm -rf "splunk/config/apps/${TEST_REACT_APP}"
+rm -rf splunk/config/apps/test_cmd_app splunk/config/apps/test-react-app splunk/config/apps/testReactApp
 rm -rf react/packages react/package.json react/node_modules react/yarn.lock
 rm -f splunk/stage/*.tgz
 rm -rf ".task"
@@ -33,8 +32,7 @@ cleanup_all() {
     log "Final cleanup"
     task dev:down 2>/dev/null || true
     task stage:clean 2>/dev/null || true
-    rm -rf "splunk/config/apps/${TEST_CMD_APP}"
-    rm -rf "splunk/config/apps/${TEST_REACT_APP}"
+    rm -rf splunk/config/apps/test_cmd_app splunk/config/apps/test-react-app splunk/config/apps/testReactApp
     rm -rf react/packages react/package.json react/node_modules react/yarn.lock
     rm -f splunk/stage/*.tgz
     rm -rf ".task"
