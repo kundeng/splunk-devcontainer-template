@@ -97,8 +97,7 @@ tasks:
     internal: true
     cmds:
       - |
-        IMAGE=$(docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} images -q {{.SPLUNK_SERVICE}} 2>/dev/null || true)
-        if [ -z "$IMAGE" ]; then
+        if ! docker images -q devcontainer-splunk:latest 2>/dev/null | grep -q .; then
           echo "ERROR: Splunk image not built. Run: task dev:build-image"
           exit 1
         fi

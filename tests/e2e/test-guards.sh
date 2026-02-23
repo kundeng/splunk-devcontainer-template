@@ -30,8 +30,7 @@ fi
 log "Guard: __ensure-image (image not built)"
 
 # Only test if image doesn't exist — skip if already built from a previous run
-IMAGE=$(docker compose --env-file .env -f .devcontainer/docker-compose.yml images -q splunk 2>/dev/null || true)
-if [ -z "$IMAGE" ]; then
+if ! docker images -q devcontainer-splunk:latest 2>/dev/null | grep -q .; then
     OUTPUT=$(task dev:up 2>&1 || true)
     if echo "$OUTPUT" | grep -q "ERROR: Splunk image not built"; then
         pass "dev:up fails fast when image not built"
