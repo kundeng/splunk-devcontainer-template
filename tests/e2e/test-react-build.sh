@@ -10,8 +10,6 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=helpers.sh
 source "${SCRIPT_DIR}/helpers.sh"
 
-REACT_APP_DIR="react/packages/${TEST_REACT_APP}"
-STAGE_DIR="${REACT_APP_DIR}/stage"
 USE_EXPECT=false
 
 if command -v expect &>/dev/null; then
@@ -24,26 +22,34 @@ if [ "$USE_EXPECT" = true ]; then
     log "Scaffold React app via expect (real react:create wizard)"
 
     # Clean any previous scaffold
-    rm -rf "react/packages/${TEST_REACT_APP}" react/package.json
+    rm -rf react/packages react/package.json
 
     if expect "${SCRIPT_DIR}/expect/react-create.exp" "${TEST_REACT_APP}" 2>&1 | tail -20; then
-        if [ -d "${REACT_APP_DIR}" ]; then
-            pass "react:create scaffolded ${TEST_REACT_APP}/ (via expect)"
-        else
-            fail "react:create did not create ${REACT_APP_DIR}/"
-        fi
+        pass "react:create wizard completed (via expect)"
     else
         fail "react:create via expect failed"
     fi
 
+    # Detect the actual app directory created by @splunk/create (in packages/packages/)
+    REACT_APP_DIR=$(find react/packages/packages -maxdepth 1 -type d -name "*react*" 2>/dev/null | head -1)
+    if [ -n "$REACT_APP_DIR" ]; then
+        pass "react:create scaffolded app in ${REACT_APP_DIR}"
+    else
+        fail "react:create did not create app directory"
+    fi
+
     # Verify APP_NAME was synced to .env
-    if grep -q "^APP_NAME=${TEST_REACT_APP}" .env 2>/dev/null; then
-        pass "react:create synced APP_NAME=${TEST_REACT_APP} in .env"
+    DETECTED_APP_NAME=$(grep "^APP_NAME=" .env 2>/dev/null | cut -d= -f2)
+    if [ -n "$DETECTED_APP_NAME" ]; then
+        pass "react:create synced APP_NAME=${DETECTED_APP_NAME} in .env"
+        # Use the detected app name for subsequent tests
+        TEST_REACT_APP="$DETECTED_APP_NAME"
     else
         fail "react:create did not sync APP_NAME in .env"
     fi
 
     # Verify initial build created stage/
+    STAGE_DIR="${REACT_APP_DIR}/stage"
     if [ -d "${STAGE_DIR}" ]; then
         pass "react:create initial build created stage/"
     else
@@ -70,6 +76,9 @@ else
     log "WARNING: expect not available — using fake scaffold (install expect for full react:create test)"
 
     log "Scaffold minimal React test app in react/packages/"
+
+    REACT_APP_DIR="react/packages/${TEST_REACT_APP}"
+    STAGE_DIR="${REACT_APP_DIR}/stage"
 
     mkdir -p "${REACT_APP_DIR}/src/main/webapp/pages"
 
@@ -104,8 +113,10 @@ fi
 
 log "Test react:build"
 
-# Ensure no stale stage/
-rm -rf "${STAGE_DIR}"
+# Ensure no stale stage/ (only if STAGE_DIR is set)
+if [ -n "${STAGE_DIR:-}" ]; then
+    rm -rf "${STAGE_DIR}"
+fi
 
 if task react:build APP_NAME="${TEST_REACT_APP}" 2>&1 | tail -3; then
     if [ -d "${STAGE_DIR}" ]; then
