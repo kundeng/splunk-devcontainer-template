@@ -63,6 +63,18 @@ expect {
     }
 }
 
+# Prompt 4: Overwrite .editorconfig? (Y/n) — accept default (Y)
+expect {
+    -re {Overwrite.*editorconfig} {
+        send "\r"
+        puts "=== expect: accepted .editorconfig overwrite ==="
+    }
+    timeout {
+        puts "=== expect: TIMEOUT waiting for .editorconfig prompt ==="
+        exit 1
+    }
+}
+
 # Wait for task to complete (initial build can take a while)
 set timeout 300
 expect {
