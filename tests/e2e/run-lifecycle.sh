@@ -17,25 +17,31 @@ SUITES_RUN=0
 
 # Pre-cleanup (remove leftover artifacts from previous failed runs)
 log "Pre-cleanup"
+task dev:down 2>/dev/null || true
+task stage:clean 2>/dev/null || true
 rm -rf "splunk/config/apps/${TEST_CMD_APP}"
 rm -rf "splunk/config/apps/${TEST_REACT_APP}"
-rm -rf "react/packages/${TEST_REACT_APP}"
-rm -f "react/package.json"
-rm -f "splunk/stage/${TEST_CMD_APP}.tgz"
-rm -f "splunk/stage/${TEST_REACT_APP}.tgz"
+rm -rf react/packages react/package.json react/node_modules react/yarn.lock
+rm -f splunk/stage/*.tgz
 rm -rf ".task"
+# Clear APP_NAME from .env so guards test works cleanly
+if [ -f .env ]; then
+    sed -i.bak '/^APP_NAME=/d' .env && rm -f .env.bak
+fi
 
 cleanup_all() {
     log "Final cleanup"
     task dev:down 2>/dev/null || true
-    task stage:down 2>/dev/null || true
+    task stage:clean 2>/dev/null || true
     rm -rf "splunk/config/apps/${TEST_CMD_APP}"
     rm -rf "splunk/config/apps/${TEST_REACT_APP}"
-    rm -rf "react/packages/${TEST_REACT_APP}"
-    rm -f "react/package.json"
-    rm -f "splunk/stage/${TEST_CMD_APP}.tgz"
-    rm -f "splunk/stage/${TEST_REACT_APP}.tgz"
+    rm -rf react/packages react/package.json react/node_modules react/yarn.lock
+    rm -f splunk/stage/*.tgz
     rm -rf ".task"
+    # Clear APP_NAME from .env so next run starts clean
+    if [ -f .env ]; then
+        sed -i.bak '/^APP_NAME=/d' .env && rm -f .env.bak
+    fi
     echo "  Artifacts cleaned up"
 }
 trap cleanup_all EXIT

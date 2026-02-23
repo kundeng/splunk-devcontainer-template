@@ -10,6 +10,9 @@ source "${SCRIPT_DIR}/helpers.sh"
 
 log "Deploy and start staging Splunk"
 
+# Clean stale staging containers + volumes to avoid permission errors from previous runs
+task stage:clean 2>/dev/null || true
+
 # stage:deploy → stage:install → deps: [stage:package, stage:up] → CLI install
 # stage:up includes __wait-healthy, so staging is ready when deploy finishes.
 if task stage:deploy 2>&1 | tail -20; then
