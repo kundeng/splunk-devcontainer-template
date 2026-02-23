@@ -30,8 +30,9 @@ if [ "$USE_EXPECT" = true ]; then
         fail "react:create via expect failed"
     fi
 
-    # Detect the actual app directory created by @splunk/create (in packages/packages/)
-    REACT_APP_DIR=$(find react/packages/packages -maxdepth 1 -type d -name "*react*" 2>/dev/null | head -1)
+    # Detect the actual app directory created by @splunk/create
+    # The wizard creates the app directly in react/packages/ (not nested)
+    REACT_APP_DIR=$(find react/packages -maxdepth 1 -type d -name "*test*" 2>/dev/null | grep -v "^react/packages$" | head -1)
     if [ -n "$REACT_APP_DIR" ]; then
         pass "react:create scaffolded app in ${REACT_APP_DIR}"
     else
