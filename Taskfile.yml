@@ -249,7 +249,7 @@ tasks:
           [ -f "$TGZ" ] || continue
           APP=$(basename "$TGZ" .tgz)
           echo "  Installing $APP..."
-          docker exec {{.STAGING_CONTAINER}} bash -lc \
+          docker exec --user splunk {{.STAGING_CONTAINER}} bash -lc \
             "{{.SPLUNK_BIN}} install app /tmp/apps/${APP}.tgz -update true -auth admin:\$SPLUNK_PASSWORD" \
             2>&1 && INSTALLED=$((INSTALLED + 1)) || SKIPPED=$((SKIPPED + 1))
         done
