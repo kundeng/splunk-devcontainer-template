@@ -2,12 +2,15 @@
 # Auto-updated by spec-go workflow
 # Format: [TIMESTAMP] [STATUS] [TASK_ID] - [DESCRIPTION]
 # STATUS: DONE | BLOCKED | SKIPPED | IN_PROGRESS
-# SUMMARY: 6/6 done | all tasks complete
+# SUMMARY: ALL DONE | 7/7 lifecycle suites pass
 
 2026-02-20 DONE 1.1 - Rename test:native→test:lifecycle, test:e2e→test:devcontainer + update docs
 2026-02-20 DONE 2.1 - Revise devcontainer-test.sh: new tasks, guard checks, expect tool, unified lifecycle
 2026-02-20 DONE 3.1 - Install expect in post-create.sh
-2026-02-20 DONE 3.2 - Create expect/react-create.exp for @splunk/create wizard
+2026-02-20 DONE 3.2 - Create expect/react-create.exp for @splunk/create wizard (handles overwrite prompts generically)
 2026-02-20 DONE 4.1 - Rewrite test-react-build.sh with expect/fallback
-2026-02-23 DONE 5.1 - Verify test:lifecycle passes (5/7 suites, react-build 11/11 ✓)
-2026-02-23 DONE 5.2 - Staging test reads app name from .env (env issue, not test logic)
+2026-02-23 DONE 5.1 - Fix expect script: generic overwrite prompt loop, correct app dir detection
+2026-02-24 DONE 5.2 - Fix guards: stop container + clear APP_NAME from .env before testing
+2026-02-24 DONE 5.3 - Fix staging: --user splunk for docker exec, stage:clean before deploy, read APP_NAME from .env
+2026-02-24 DONE 5.4 - Fix run-lifecycle.sh: robust pre/post cleanup (all test app variants, stage:clean, APP_NAME)
+2026-02-24 DONE 5.5 - Verified test:lifecycle 7/7 suites pass (guards 3/3, boot 4/4, app 10/10, deps 4/4, react 11/11, staging 3/3, skip-provision 7/7)
