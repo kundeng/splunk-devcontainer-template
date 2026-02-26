@@ -13,6 +13,8 @@ vars:
   STAGE_DIR: 'splunk/stage'
   SPLUNK_BIN: '/opt/splunk/bin/splunk'
   SPLUNK_CONTAINER: 'splunk-dev'
+  STAGING_CONTAINER: 'splunk-staging'
+  STAGING_SERVICE: 'splunk-staging'
   REACT_PACKAGES_DIR: 'react'
 
 tasks:
@@ -53,8 +55,10 @@ tasks:
         echo "  task react:package          # build + package React app into splunk/stage/<APP>.tgz"
         echo ""
         echo "Staging environment (port 18000):"
-        echo "  task stage:deploy           # package all apps + start staging"
-        echo "  task stage:up               # start staging (auto-installs tgz from splunk/stage/)"
+        echo "  task stage:deploy           # package + start + install (full pipeline)"
+        echo "  task stage:package          # package all apps to splunk/stage/"
+        echo "  task stage:up               # start staging container"
+        echo "  task stage:install          # install tgz into running staging"
         echo "  task stage:down             # stop staging container"
         echo "  task stage:clean            # stop staging + remove volumes"
     desc: Show available tasks and common flows
@@ -66,6 +70,60 @@ tasks:
     cmds:
       - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}} {{.COMPOSE_ARGS}}
 
+  __stage-compose:
+    internal: true
+    cmds:
+      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} {{.COMPOSE_ARGS}}
+
+  __dev:ensure-running:
+    internal: true
+    cmds:
+      - |
+        if ! docker ps --filter name="{{.SPLUNK_CONTAINER}}" --format '{{`{{.Names}}`}}' | grep -q "^{{.SPLUNK_CONTAINER}}$"; then
+          echo "ERROR: Dev container is not running. Start with: task dev:up"
+          exit 1
+        fi
+
+  __stage:ensure-running:
+    internal: true
+    cmds:
+      - |
+        if ! docker ps --filter name="{{.STAGING_CONTAINER}}" --format '{{`{{.Names}}`}}' | grep -q "^{{.STAGING_CONTAINER}}$"; then
+          echo "ERROR: Staging container is not running. Start with: task stage:up"
+          exit 1
+        fi
+
+  __ensure-image:
+    internal: true
+    cmds:
+      - |
+        if ! docker images -q devcontainer-splunk:latest 2>/dev/null | grep -q .; then
+          echo "ERROR: Splunk image not built. Run: task dev:build-image"
+          exit 1
+        fi
+
+  __wait-healthy:
+    internal: true
+    cmds:
+      - |
+        echo "Waiting for {{.WAIT_CONTAINER}} to be ready..."
+        for i in $(seq 1 36); do
+          STATUS=$(docker exec {{.WAIT_CONTAINER}} bash -lc \
+            "curl -sk -o /dev/null -w '%{http_code}' https://localhost:8089/services/server/health -u admin:\$SPLUNK_PASSWORD" 2>/dev/null || echo 000)
+          [ "$STATUS" = "200" ] && echo "{{.WAIT_CONTAINER}} ready." && exit 0
+          [ "$i" = "36" ] && echo "{{.WAIT_CONTAINER}} did not become ready in time." && exit 1
+          sleep 5
+        done
+
+  __ensure-app-name:
+    internal: true
+    cmds:
+      - |
+        if [ -z "{{.APP_NAME}}" ]; then
+          echo "ERROR: APP_NAME is required (pass APP_NAME=x or set in .env)"
+          exit 1
+        fi
+
   # ── Dev Splunk Lifecycle ────────────────────────────────────────────
 
   dev:build-image:
@@ -75,18 +133,12 @@ tasks:
     desc: Build the dev Splunk Docker image
 
   dev:up:
+    deps: [__ensure-image]
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'up -d' }
-      - |
-        echo "Waiting for Splunk to be ready..."
-        for i in $(seq 1 36); do
-          STATUS=$(docker exec {{.SPLUNK_CONTAINER}} bash -lc \
-            "curl -sk -o /dev/null -w '%{http_code}' https://localhost:8089/services/server/health -u admin:\$SPLUNK_PASSWORD" 2>/dev/null || echo 000)
-          [ "$STATUS" = "200" ] && echo "Splunk ready." && break
-          [ "$i" = "36" ] && echo "Splunk did not become ready in time — run 'task dev:ensure-links' manually" && exit 0
-          sleep 5
-        done
+      - task: __wait-healthy
+        vars: { WAIT_CONTAINER: '{{.SPLUNK_CONTAINER}}' }
       - task: dev:ensure-links
     desc: Start dev Splunk, wait for health, then sync app symlinks
 
@@ -109,25 +161,29 @@ tasks:
     desc: Restart dev Splunk container (entrypoint-wrapper skips Ansible)
 
   dev:restartd:
+    deps: [__dev:ensure-running]
     cmds:
       - task: __dev-compose
         vars: { COMPOSE_ARGS: 'exec {{.SPLUNK_SERVICE}} bash -lc "{{.SPLUNK_BIN}} restart -auth admin:\$SPLUNK_PASSWORD"' }
     desc: Restart splunkd process inside running container (~10s)
 
   dev:refresh:
+    deps: [__dev:ensure-running]
     cmds:
       - |
-        DC="docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_FILE}}"
         echo "Reloading app configs..."
-        $DC exec {{.SPLUNK_SERVICE}} bash -lc \
-          'curl -sk -X POST https://localhost:8089/services/apps/local/_reload -u "admin:${SPLUNK_PASSWORD}" -o /dev/null -w "%{http_code}\n"'
+      - task: __dev-compose
+        vars: { COMPOSE_ARGS: 'exec {{.SPLUNK_SERVICE}} bash -lc ''curl -sk -X POST https://localhost:8089/services/apps/local/_reload -u "admin:${SPLUNK_PASSWORD}" -o /dev/null -w "%{http_code}\n"''' }
+      - |
         echo "Restarting Splunk Web (picks up static asset changes)..."
-        $DC exec {{.SPLUNK_SERVICE}} bash -lc \
-          'curl -sk -X POST https://localhost:8089/services/server/control/restart_webui -u "admin:${SPLUNK_PASSWORD}" -o /dev/null -w "%{http_code}\n"'
+      - task: __dev-compose
+        vars: { COMPOSE_ARGS: 'exec {{.SPLUNK_SERVICE}} bash -lc ''curl -sk -X POST https://localhost:8089/services/server/control/restart_webui -u "admin:${SPLUNK_PASSWORD}" -o /dev/null -w "%{http_code}\n"''' }
+      - |
         echo "Done. Config and static assets reloaded (no restart needed)."
     desc: Reload app configs + static assets without restarting splunkd
 
   dev:reprovision:
+    deps: [__dev:ensure-running]
     cmds:
       - |
         echo "Removing provisioning marker and restarting..."
@@ -139,6 +195,7 @@ tasks:
     desc: Force full Ansible re-provisioning (removes marker + restarts)
 
   dev:ensure-links:
+    deps: [__dev:ensure-running]
     cmds:
       - task: app:sync-links
     desc: Sync app symlinks in Splunk container (idempotent, run after dev:clean)
@@ -157,10 +214,11 @@ tasks:
 
   # ── Staging Splunk Lifecycle ───────────────────────────────────────
 
-  stage:deploy:
+  stage:package:
     cmds:
       - |
         echo "Packaging all apps in {{.CONFIG_APPS_DIR}}/ ..."
+        mkdir -p "{{.STAGE_DIR}}"
         for APP_DIR in {{.CONFIG_APPS_DIR}}/*/; do
           [ -d "$APP_DIR" ] || continue
           APP=$(basename "$APP_DIR")
@@ -170,58 +228,65 @@ tasks:
           tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "$APP"
         done
         echo "All apps packaged to {{.STAGE_DIR}}/"
-      - task: stage:up
-    desc: Package all apps into splunk/stage/ then start staging
+    desc: Package all apps from splunk/config/apps/ into splunk/stage/
 
   stage:up:
+    deps: [__ensure-image]
     cmds:
-      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} up -d
+      - task: __stage-compose
+        vars: { COMPOSE_ARGS: 'up -d' }
+      - task: __wait-healthy
+        vars: { WAIT_CONTAINER: '{{.STAGING_CONTAINER}}' }
+    desc: Start staging Splunk and wait for healthy
+
+  stage:install:
+    deps: [stage:package, stage:up]
+    cmds:
       - |
-        echo "Staging Splunk started on port 18000 (Web), 18089 (REST), 18088 (HEC)"
-        echo "Follow logs: task stage:logs"
-    desc: Start staging Splunk (apps auto-installed from splunk/stage/ on first start)
+        echo "Installing apps from {{.STAGE_DIR}}/ into staging..."
+        INSTALLED=0; SKIPPED=0
+        for TGZ in {{.STAGE_DIR}}/*.tgz; do
+          [ -f "$TGZ" ] || continue
+          APP=$(basename "$TGZ" .tgz)
+          echo "  Installing $APP..."
+          docker exec --user splunk {{.STAGING_CONTAINER}} bash -lc \
+            "{{.SPLUNK_BIN}} install app /tmp/apps/${APP}.tgz -update true -auth admin:\$SPLUNK_PASSWORD" \
+            2>&1 && INSTALLED=$((INSTALLED + 1)) || SKIPPED=$((SKIPPED + 1))
+        done
+        echo "Install complete: $INSTALLED installed, $SKIPPED failed"
+    desc: Install all tgz from splunk/stage/ into running staging (deps auto-package + start)
+
+  stage:deploy:
+    cmds:
+      - task: stage:install
+    desc: Package all apps, start staging, and install (convenience alias)
 
   stage:down:
     cmds:
-      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} down
+      - task: __stage-compose
+        vars: { COMPOSE_ARGS: 'down' }
     desc: Stop staging Splunk container
 
   stage:clean:
     cmds:
-      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} down -v
+      - task: __stage-compose
+        vars: { COMPOSE_ARGS: 'down -v' }
     desc: Stop staging Splunk, remove containers and volumes
 
   stage:logs:
     cmds:
-      - docker compose --env-file {{.ENV_FILE}} -f {{.COMPOSE_STAGING_FILE}} logs -f
+      - task: __stage-compose
+        vars: { COMPOSE_ARGS: 'logs -f' }
     desc: Follow staging Splunk container logs
 
   # ── App Management ───────────────────────────────────────────────────
 
-  # ── Internal: resolve APP_NAME ──────────────────────────────────────
-  # Writes APP_NAME to .task/app-env for downstream tasks.
-  __app:resolve:
-    internal: true
-    cmds:
-      - |
-        APP_NAME="{{.APP_NAME}}"
-        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
-          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
-        fi
-        if [ -z "${APP_NAME}" ]; then
-          echo "APP_NAME is required (pass APP_NAME=x or set in .env)"; exit 1
-        fi
-        mkdir -p .task
-        printf 'APP_NAME=%s\n' "${APP_NAME}" > .task/app-env
 
   app:sync-links:
+    deps: [__dev:ensure-running]
     cmds:
       - |
         CONTAINER="{{.SPLUNK_CONTAINER}}"
-        if ! docker ps --filter name="$CONTAINER" --format '{{`{{.Names}}`}}' | grep -q "^${CONTAINER}$"; then
-          echo "Splunk container is not running — symlinks will be created on next 'task dev:up'"
-          exit 0
-        fi
         echo "Syncing app symlinks in $CONTAINER ..."
         docker exec --user root "$CONTAINER" bash -c '
           DEV_APPS="/opt/splunk/dev-apps"
@@ -256,20 +321,19 @@ tasks:
     desc: Sync symlinks in Splunk etc/apps/ for each app in dev-apps/ (idempotent)
 
   app:create:
-    deps: [__app:resolve]
+    deps: [__ensure-app-name]
     cmds:
       - |
-        . .task/app-env
-        APP_DIR="{{.CONFIG_APPS_DIR}}/${APP_NAME}"
+        APP_DIR="{{.CONFIG_APPS_DIR}}/{{.APP_NAME}}"
         if [ -d "$APP_DIR" ]; then echo "App already exists: $APP_DIR (skipping)"; exit 0; fi
-        APP_LABEL=$(echo "${APP_NAME}" | tr '_-' '  ')
+        APP_LABEL=$(echo "{{.APP_NAME}}" | tr '_-' '  ')
         echo "Creating app skeleton at $APP_DIR ..."
         mkdir -p "$APP_DIR/default" "$APP_DIR/metadata" "$APP_DIR/appserver/static" "$APP_DIR/bin"
         printf '%s\n' \
           "[install]" "state = enabled" "is_configured = 0" "" \
           "[ui]" "is_visible = 1" "label = ${APP_LABEL}" "" \
           "[launcher]" "author = developer" "version = 1.0.0" "description = ${APP_LABEL}" "" \
-          "[package]" "id = ${APP_NAME}" \
+          "[package]" "id = {{.APP_NAME}}" \
           > "$APP_DIR/default/app.conf"
         printf '%s\n' \
           "[]" "access = read : [ * ], write : [ admin, power ]" "export = system" \
@@ -281,22 +345,22 @@ tasks:
     desc: Scaffold a new Splunk app skeleton (idempotent — skips if exists)
 
   app:package:
-    deps: [__app:resolve]
+    deps: [__ensure-app-name]
     cmds:
       - |
-        . .task/app-env
-        SRC_DIR="{{.CONFIG_APPS_DIR}}/${APP_NAME}"
+        SRC_DIR="{{.CONFIG_APPS_DIR}}/{{.APP_NAME}}"
         if [ ! -d "$SRC_DIR" ]; then echo "App not found: $SRC_DIR"; exit 1; fi
         mkdir -p "{{.STAGE_DIR}}"
-        TAR_PATH="{{.STAGE_DIR}}/${APP_NAME}.tgz"
+        TAR_PATH="{{.STAGE_DIR}}/{{.APP_NAME}}.tgz"
         echo "Packaging $SRC_DIR → $TAR_PATH"
-        tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "${APP_NAME}"
+        tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "{{.APP_NAME}}"
         echo "Created $TAR_PATH"
     desc: Package splunk/config/apps/<APP_NAME> into splunk/stage/<APP_NAME>.tgz
 
   # ── Dependency Management ────────────────────────────────────────────
 
   deps:install:
+    deps: [__dev:ensure-running]
     cmds:
       - python3 splunk/scripts/deps-install.py --env-file "{{.ENV_FILE}}" --deps-file "{{.DEPS_FILE}}" --stage-dir "{{.STAGE_DIR}}" --compose-file "{{.COMPOSE_FILE}}" --service "{{.SPLUNK_SERVICE}}"
     desc: Install Splunkbase dependencies from splunk/config/deps.yml (idempotent)
@@ -312,32 +376,30 @@ tasks:
   #           Splunk reads stage/ directly via symlink — no copying needed.
   # Staging:  react:package → stage:up (tgz auto-installed from splunk/stage/)
 
-  # ── Internal: resolve APP_NAME + REACT_PATH ────────────────────────
+  # ── Internal: resolve REACT_APP_PATH ───────────────────────────────
+  # Uses {{.APP_NAME}} (from dotenv or CLI) to find the React package dir.
   # Writes REACT_APP_NAME and REACT_APP_PATH to .task/react-env for
-  # downstream tasks.  Skips work if already resolved this invocation.
+  # downstream tasks (REACT_APP_PATH is computed, needs temp file).
   __react:resolve:
     internal: true
+    deps: [__ensure-app-name]
     cmds:
       - |
-        APP_NAME="{{.APP_NAME}}"
-        if [ -z "${APP_NAME}" ] && [ -f "{{.ENV_FILE}}" ]; then
-          APP_NAME=$(grep -E '^APP_NAME=' "{{.ENV_FILE}}" | head -1 | cut -d= -f2-)
-        fi
         REACT_PATH=""
-        if [ -d "{{.REACT_PACKAGES_DIR}}/packages/${APP_NAME}" ]; then
-          REACT_PATH="{{.REACT_PACKAGES_DIR}}/packages/${APP_NAME}"
-        elif [ -d "{{.REACT_PACKAGES_DIR}}/${APP_NAME}" ]; then
-          REACT_PATH="{{.REACT_PACKAGES_DIR}}/${APP_NAME}"
+        if [ -d "{{.REACT_PACKAGES_DIR}}/packages/{{.APP_NAME}}" ]; then
+          REACT_PATH="{{.REACT_PACKAGES_DIR}}/packages/{{.APP_NAME}}"
+        elif [ -d "{{.REACT_PACKAGES_DIR}}/{{.APP_NAME}}" ]; then
+          REACT_PATH="{{.REACT_PACKAGES_DIR}}/{{.APP_NAME}}"
         else
           for d in "{{.REACT_PACKAGES_DIR}}/packages"/*/; do
             [ -d "${d}src/main/webapp/pages" ] && REACT_PATH="${d%/}" && break
           done
         fi
-        if [ -z "${REACT_PATH}" ] || [ -z "${APP_NAME}" ]; then
+        if [ -z "${REACT_PATH}" ]; then
           echo "Cannot resolve React app — set APP_NAME in .env or run react:create"; exit 1
         fi
         mkdir -p .task
-        printf 'REACT_APP_NAME=%s\nREACT_APP_PATH=%s\n' "${APP_NAME}" "${REACT_PATH}" > .task/react-env
+        printf 'REACT_APP_NAME=%s\nREACT_APP_PATH=%s\n' "{{.APP_NAME}}" "${REACT_PATH}" > .task/react-env
 
   # ── Internal: ensure stage/ exists (build only if missing) ──────────
   __react:ensure-build:
@@ -402,7 +464,7 @@ tasks:
     desc: Add a new page or component to existing app via @splunk/create (interactive)
 
   react:link:
-    deps: [__react:ensure-build]
+    deps: [__react:ensure-build, __dev:ensure-running]
     cmds:
       - |
         . .task/react-env
@@ -475,7 +537,14 @@ tasks:
 
   # ── Testing ─────────────────────────────────────────────────────────
 
-  test:e2e:
+  test:lifecycle:
+    cmds:
+      - |
+        echo "Running lifecycle tests (guards, boot, app, deps, react, staging, skip-provision)..."
+        bash tests/e2e/run-lifecycle.sh
+    desc: Splunk lifecycle tests — 7 suites (works on any host with Docker + task)
+
+  test:devcontainer:
     cmds:
       - |
         if command -v devcontainer &>/dev/null; then
@@ -484,22 +553,15 @@ tasks:
           echo "devcontainer CLI not found, using npx..."
           DC_CLI="npx --yes @devcontainers/cli"
         fi
-        echo "Running E2E tests (devcontainer CLI: $DC_CLI)"
+        echo "Running devcontainer tests (static checks + lifecycle)..."
         bash tests/e2e/devcontainer-test.sh
-    desc: E2E devcontainer tests (build, up, tool checks, compose validation)
-
-  test:native:
-    cmds:
-      - |
-        echo "Running lifecycle tests natively (no devcontainer)..."
-        bash tests/e2e/run-lifecycle.sh
-    desc: Splunk lifecycle tests on Mac host (boot, app, deps, react, staging, skip-provision)
+    desc: Build devcontainer, run static checks + lifecycle tests inside it
 
   test:all:
     cmds:
       - task: python:lint
-      - task: test:e2e
-    desc: All tests (lint + E2E devcontainer)
+      - task: test:devcontainer
+    desc: All tests (lint + devcontainer)
 
   # ── Utility ──────────────────────────────────────────────────────────
 

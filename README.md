@@ -100,9 +100,9 @@ splunk.env.example             # Template for .env
 
 ### Staging Verification
 
-1. `task app:package APP_NAME=my_app` → package Python apps into `splunk/stage/`
-1. `task react:package` → build + package React app into `splunk/stage/`
-2. `task stage:up` → start staging on ports 18000/18089/18088 (auto-installs tgz on first start)
+1. `task stage:deploy` → packages all apps, starts staging, installs via CLI
+   - Or manually: `task stage:package` → `task stage:up` → `task stage:install`
+2. For React apps: `task react:package` first (puts tgz in `splunk/stage/`), then `task stage:deploy`
 
 ### Installing Splunkbase Dependencies
 
@@ -140,8 +140,10 @@ task dev:status             # check container status
 ### Staging Splunk
 
 ```bash
-task stage:deploy           # package all apps + start staging
-task stage:up               # start staging (port 18000)
+task stage:deploy           # package + start + install (full pipeline)
+task stage:package          # package all apps to splunk/stage/
+task stage:up               # start staging container + health wait
+task stage:install          # install tgz into running staging
 task stage:down             # stop staging container
 task stage:clean            # stop staging + remove volumes
 task stage:logs             # follow staging container logs
@@ -171,8 +173,9 @@ task react:package          # build + package stage/ as splunk/stage/<APP_NAME>.
 task python:lint            # ruff check
 task python:format          # ruff format
 task python:test            # pytest
-task test:e2e               # full E2E test (devcontainer + Splunk lifecycle)
-task test:all               # lint + E2E
+task test:lifecycle          # Splunk lifecycle tests — 7 suites (any host)
+task test:devcontainer      # build devcontainer + static checks + lifecycle
+task test:all               # lint + devcontainer
 ```
 
 ## How It Works

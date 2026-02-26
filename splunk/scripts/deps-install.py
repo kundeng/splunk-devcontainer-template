@@ -245,11 +245,8 @@ def main():
         print("No dependencies to install.")
         return 0
 
-    # Find container
+    # Find container (guard task __dev:ensure-running already verified it's running)
     container = find_container(args.compose_file, args.env_file, args.service)
-    if not container:
-        print("ERROR: Splunk container not running. Start with: task dev:up")
-        return 1
 
     os.makedirs(args.stage_dir, exist_ok=True)
 

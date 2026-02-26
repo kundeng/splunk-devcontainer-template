@@ -138,8 +138,10 @@ task dev:status             # check container status
 ### Staging Splunk (port 18000) — runs alongside dev
 
 ```bash
-task stage:deploy           # package all apps + start staging
-task stage:up               # start staging (port 18000)
+task stage:deploy           # package + start + install (full pipeline)
+task stage:package          # package all apps to splunk/stage/
+task stage:up               # start staging container + health wait
+task stage:install          # install tgz into running staging
 task stage:down             # stop staging container
 task stage:clean            # stop staging + remove volumes
 task stage:logs             # follow staging container logs
@@ -158,10 +160,10 @@ task app:package APP_NAME=x # package to splunk/stage/x.tgz (for staging)
 |---|---|
 | New app just created, want it visible in Splunk | `app:create` (calls sync-links automatically) |
 | Symlinks got out of sync (e.g. after `dev:clean`) | `dev:ensure-links` |
-| Preparing a release build for staging | `app:package` → `stage:up` |
+| Preparing a release build for staging | `stage:deploy` (packages + starts + installs) |
 
 - **`dev:ensure-links`** — fastest (~1s). Makes the app *visible* via symlink. Enough for `.conf` edits, dashboards, and Python scripts (no packaging needed). Called automatically by `dev:up` and `app:create`.
-- **`package`** — produces a `.tgz` in `splunk/stage/`. Used as input for staging (`stage:up` auto-installs from there). Not needed for day-to-day dev.
+- **`package`** — produces a `.tgz` in `splunk/stage/`. Used as input for staging (`stage:install` installs from there). Not needed for day-to-day dev.
 
 ### React UI
 
@@ -181,8 +183,9 @@ task deps:install           # install Splunkbase deps from deps.yml (idempotent)
 task python:lint            # ruff check
 task python:format          # ruff format
 task python:test            # pytest
-task test:e2e               # full E2E test (devcontainer + Splunk lifecycle)
-task test:all               # lint + E2E
+task test:lifecycle          # Splunk lifecycle tests — 7 suites (any host)
+task test:devcontainer      # build devcontainer + static checks + lifecycle
+task test:all               # lint + devcontainer
 ```
 
 ## Developer Workflow
@@ -220,9 +223,9 @@ task test:all               # lint + E2E
 
 ### Staging Verification
 
-1. `task app:package APP_NAME=my_app` → package Python apps into `splunk/stage/`
-1. `task react:package` → build + package React app into `splunk/stage/`
-2. `task stage:up` → start staging on ports 18000/18089/18088 (auto-installs tgz on first start)
+1. `task stage:deploy` → packages all apps, starts staging, installs via CLI
+   - Or manually: `task stage:package` → `task stage:up` → `task stage:install`
+2. For React apps: `task react:package` first (puts tgz in `splunk/stage/`), then `task stage:deploy`
 
 ## How It Works
 
@@ -337,11 +340,11 @@ Path mapping: `splunk/config/apps/<app>/bin/` ↔ `/opt/splunk/etc/apps/<app>/bi
 
 **Production build** (for staging verification):
 1. `task react:package` → builds and packages `stage/` as tgz
-2. `task stage:up`
+2. `task stage:deploy`
 3. VSCode: Run → **"Chrome: Staging Splunk Web"**
 
 **Staging mode**:
-1. `task stage:up` → staging on `:18000`
+1. `task stage:deploy` → staging on `:18000`
 2. VSCode: Run → **"Chrome: Staging Splunk Web"**
 
 ### splunk-config-dev
@@ -385,30 +388,31 @@ This app is always bind-mounted in dev. Do not include it in staging builds.
 Requires: Docker Desktop running, `.env` configured, `task` installed on Mac.
 
 ```bash
-task test:native          # Splunk lifecycle tests (boot, app, deps, react, staging, skip-provision)
+task test:lifecycle        # Splunk lifecycle tests — 7 suites (guards, boot, app, deps, react, staging, skip-provision)
 task python:lint          # ruff lint
 ```
 
-`test:native` runs `tests/e2e/run-lifecycle.sh` directly — starts Splunk, runs all lifecycle suites, cleans up.
+`test:lifecycle` runs `tests/e2e/run-lifecycle.sh` directly — starts Splunk, runs all 7 lifecycle suites, cleans up. Works on any host with Docker + task.
 
 ### Inside devcontainer (full E2E including devcontainer build)
 
 ```bash
-task test:e2e             # devcontainer build + up + static checks + lifecycle tests
-task test:all             # python:lint + test:e2e
+task test:devcontainer    # devcontainer build + static checks + lifecycle tests
+task test:all             # python:lint + test:devcontainer
 ```
 
-`test:e2e` uses `@devcontainers/cli` to build and start the devcontainer, then runs all checks including `LOCAL_WORKSPACE_FOLDER` injection, tool availability, and compose config validation.
+`test:devcontainer` uses `@devcontainers/cli` to build and start the devcontainer, runs static checks (tool availability, `LOCAL_WORKSPACE_FOLDER`, compose config), then calls `task test:lifecycle` inside it — same test code path as running on the host.
 
 ### Test suites (in `tests/e2e/`)
 
 | Suite | Script | What it tests |
 |---|---|---|
+| guards | `test-guards.sh` | Guard tasks fail fast with clear errors (no container, no image, no APP_NAME) |
 | boot | `test-boot.sh` | `dev:up`, health, `SPLUNK_PASSWORD` auth, `splunk-config-dev` symlink |
 | app-lifecycle | `test-app-lifecycle.sh` | `app:create`, symlinks, `app:package`, REST verify |
 | deps-install | `test-deps-install.sh` | `deps:install` idempotency |
 | react-build | `test-react-build.sh` | `react:build`, `react:package`, tgz validation, idempotency |
-| staging | `test-staging.sh` | staging image build, `stage:up` |
+| staging | `test-staging.sh` | `stage:deploy` (package + start + install) |
 | skip-provision | `test-skip-provision.sh` | container restart skips Ansible |
 
 ## Troubleshooting
