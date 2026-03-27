@@ -326,6 +326,15 @@ tasks:
             esac
           done
           echo "Symlinks: $CREATED created ($REPLACED replaced), $SKIPPED existing, $CLEANED stale removed"
+
+          # Grant devcontainer user (UID 1000) write access to bind-mounted dirs via ACL.
+          # Required on Linux hosts where Splunk (UID 41812) owns the files.
+          # On Mac/OrbStack this is a harmless no-op (VirtioFS handles permissions).
+          for MNT in /opt/splunk/dev-apps /opt/splunk/react /opt/splunk/ucc-apps; do
+            [ -d "$MNT" ] || continue
+            setfacl -R -m u:1000:rwX "$MNT" 2>/dev/null || true
+            setfacl -R -d -m u:1000:rwX "$MNT" 2>/dev/null || true
+          done
         '
     desc: Sync symlinks in Splunk etc/apps/ for each app in dev-apps/ (idempotent)
 
