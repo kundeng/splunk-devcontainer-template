@@ -16,6 +16,8 @@ vars:
   STAGING_CONTAINER: 'splunk-staging'
   STAGING_SERVICE: 'splunk-staging'
   REACT_PACKAGES_DIR: 'react'
+  UCC_SRC_DIR: 'ucc'
+  UCC_OUTPUT_DIR: 'ucc/output'
 
 tasks:
   default:
@@ -53,6 +55,13 @@ tasks:
         echo "  task react:start            # webpack watch (stage/ updates live via symlink)"
         echo "  task react:build            # production webpack build (rebuilds stage/)"
         echo "  task react:package          # build + package React app into splunk/stage/<APP>.tgz"
+        echo ""
+        echo "UCC add-on development:"
+        echo "  task ucc:init APP_NAME=x    # scaffold UCC add-on (globalConfig.json + package/)"
+        echo "  task ucc:build              # run ucc-gen build (generates UI, REST, conf)"
+        echo "  task ucc:link               # symlink build output into dev Splunk"
+        echo "  task ucc:dev                # build + link + refresh (fast iteration loop)"
+        echo "  task ucc:package            # build + package to splunk/stage/"
         echo ""
         echo "Staging environment (port 18000):"
         echo "  task stage:deploy           # package + start + install (full pipeline)"
@@ -245,12 +254,12 @@ tasks:
       - |
         echo "Installing apps from {{.STAGE_DIR}}/ into staging..."
         INSTALLED=0; SKIPPED=0
-        for TGZ in {{.STAGE_DIR}}/*.tgz; do
+        for TGZ in {{.STAGE_DIR}}/*.tgz {{.STAGE_DIR}}/*.tar.gz; do
           [ -f "$TGZ" ] || continue
-          APP=$(basename "$TGZ" .tgz)
-          echo "  Installing $APP..."
+          FILENAME=$(basename "$TGZ")
+          echo "  Installing $FILENAME..."
           docker exec --user splunk {{.STAGING_CONTAINER}} bash -lc \
-            "{{.SPLUNK_BIN}} install app /tmp/apps/${APP}.tgz -update true -auth admin:\$SPLUNK_PASSWORD" \
+            "{{.SPLUNK_BIN}} install app /tmp/apps/${FILENAME} -update true -auth admin:\$SPLUNK_PASSWORD" \
             2>&1 && INSTALLED=$((INSTALLED + 1)) || SKIPPED=$((SKIPPED + 1))
         done
         echo "Install complete: $INSTALLED installed, $SKIPPED failed"
@@ -518,6 +527,155 @@ tasks:
         echo "Deploy: task stage:up (auto-installs from splunk/stage/)"
     desc: Build + package stage/ as splunk/stage/<APP_NAME>.tgz for staging
 
+  # ── UCC Add-on Development ────────────────────────────────────────────
+  #
+  # UCC (Universal Configuration Console) convention:
+  #   ucc/<addon>/globalConfig.json  ← single source of truth for UI/config/inputs
+  #   ucc/<addon>/package/           ← source: bin/, lib/, default/, app.manifest
+  #   ucc/output/<addon>/            ← ucc-gen build output (generated, gitignored)
+  #
+  # Dev loop: ucc:init → ucc:build → ucc:link → ucc:dev (build+link+refresh)
+  # Staging:  ucc:package → stage:deploy (tgz auto-installed from splunk/stage/)
+
+  # ── Internal: resolve UCC addon path ────────────────────────────────
+  __ucc:resolve:
+    internal: true
+    deps: [__ensure-app-name]
+    cmds:
+      - |
+        UCC_PATH=""
+        if [ -d "{{.UCC_SRC_DIR}}/{{.APP_NAME}}" ]; then
+          UCC_PATH="{{.UCC_SRC_DIR}}/{{.APP_NAME}}"
+        else
+          # Auto-detect: find first dir with globalConfig.json
+          for d in "{{.UCC_SRC_DIR}}"/*/; do
+            [ -f "${d}globalConfig.json" ] && UCC_PATH="${d%/}" && break
+          done
+        fi
+        if [ -z "${UCC_PATH}" ]; then
+          echo "Cannot resolve UCC addon — set APP_NAME in .env or run ucc:init"; exit 1
+        fi
+        UCC_ADDON=$(basename "${UCC_PATH}")
+        mkdir -p .task
+        printf 'UCC_ADDON=%s\nUCC_PATH=%s\n' "${UCC_ADDON}" "${UCC_PATH}" > .task/ucc-env
+
+  ucc:init:
+    cmds:
+      - |
+        if [ -z "{{.APP_NAME}}" ]; then
+          echo "ERROR: APP_NAME is required (pass APP_NAME=x or set in .env)"
+          exit 1
+        fi
+        ADDON_DIR="{{.UCC_SRC_DIR}}/{{.APP_NAME}}"
+        if [ -d "${ADDON_DIR}" ]; then
+          echo "UCC addon already exists: ${ADDON_DIR} (skipping)"
+          exit 0
+        fi
+        DISPLAY_NAME=$(echo "{{.APP_NAME}}" | tr '_-' '  ')
+        INPUT_NAME=$(echo "{{.APP_NAME}}" | tr '-' '_' | sed 's/_input$//')_input
+        REST_ROOT=$(echo "{{.APP_NAME}}" | tr '-' '_')
+
+        echo "Scaffolding UCC add-on: {{.APP_NAME}} ..."
+        mkdir -p "{{.UCC_SRC_DIR}}"
+        cd "{{.UCC_SRC_DIR}}" && ucc-gen init \
+          --addon-name "{{.APP_NAME}}" \
+          --addon-display-name "${DISPLAY_NAME}" \
+          --addon-input-name "${INPUT_NAME}" \
+          --addon-rest-root "${REST_ROOT}" \
+          --need-proxy \
+          --overwrite
+
+        echo ""
+        echo "UCC add-on scaffolded at: ${ADDON_DIR}"
+        echo "Key files:"
+        echo "  ${ADDON_DIR}/globalConfig.json  — configuration (edit this)"
+        echo "  ${ADDON_DIR}/package/            — source code"
+        echo ""
+        echo "Next: edit globalConfig.json, then run 'task ucc:dev'"
+      - |
+        # Sync APP_NAME in .env
+        if [ -f "{{.ENV_FILE}}" ]; then
+          if grep -q '^APP_NAME=' "{{.ENV_FILE}}"; then
+            sed -i.bak "s|^APP_NAME=.*|APP_NAME={{.APP_NAME}}|" "{{.ENV_FILE}}" && rm -f "{{.ENV_FILE}}.bak"
+          else
+            echo "APP_NAME={{.APP_NAME}}" >> "{{.ENV_FILE}}"
+          fi
+        fi
+    desc: Scaffold a new UCC add-on (creates globalConfig.json + package/)
+
+  ucc:build:
+    deps: [__ucc:resolve]
+    cmds:
+      - |
+        . .task/ucc-env
+        echo "Building UCC add-on: ${UCC_ADDON} ..."
+        mkdir -p "{{.UCC_OUTPUT_DIR}}"
+
+        # Determine version from git tag or default
+        VERSION=$(git describe --tags --abbrev=0 2>/dev/null | sed 's/^v//' || echo "1.0.0")
+
+        ucc-gen build \
+          --source "${UCC_PATH}/package" \
+          --config "${UCC_PATH}/globalConfig.json" \
+          --ta-version "${VERSION}" \
+          -o "{{.UCC_OUTPUT_DIR}}" \
+          --overwrite
+
+        echo "Build complete → {{.UCC_OUTPUT_DIR}}/${UCC_ADDON}/"
+    desc: Build UCC add-on (generates REST handlers, UI, conf files)
+
+  ucc:link:
+    deps: [__ucc:resolve, __dev:ensure-running]
+    cmds:
+      - |
+        . .task/ucc-env
+        OUTPUT_APP="{{.UCC_OUTPUT_DIR}}/${UCC_ADDON}"
+        if [ ! -d "${OUTPUT_APP}" ]; then
+          echo "ERROR: Build output not found at ${OUTPUT_APP}. Run: task ucc:build"
+          exit 1
+        fi
+        # UCC output is bind-mounted at /opt/splunk/ucc-apps/ in the Splunk container
+        CONTAINER_PATH="/opt/splunk/ucc-apps/${UCC_ADDON}"
+        echo "Linking ${CONTAINER_PATH} → /opt/splunk/etc/apps/${UCC_ADDON} ..."
+        docker exec --user root {{.SPLUNK_CONTAINER}} bash -c "
+          LINK=/opt/splunk/etc/apps/${UCC_ADDON}
+          [ -L \"\$LINK\" ] && rm -f \"\$LINK\"
+          [ -e \"\$LINK\" ] && rm -rf \"\$LINK\"
+          ln -s ${CONTAINER_PATH} \"\$LINK\"
+          echo \"Linked: \$LINK → ${CONTAINER_PATH}\"
+        "
+    desc: Symlink UCC build output into dev Splunk
+
+  ucc:dev:
+    deps: [__ucc:resolve]
+    cmds:
+      - task: ucc:build
+      - task: ucc:link
+      - task: dev:refresh
+        ignore_error: true
+      - |
+        . .task/ucc-env
+        echo ""
+        echo "UCC add-on ${UCC_ADDON} deployed to dev Splunk."
+        echo "Open: http://localhost:8000/en-US/app/${UCC_ADDON}/inputs"
+    desc: Build + link + refresh — full UCC dev iteration loop
+
+  ucc:package:
+    deps: [__ucc:resolve]
+    cmds:
+      - task: ucc:build
+      - |
+        . .task/ucc-env
+        OUTPUT_APP="{{.UCC_OUTPUT_DIR}}/${UCC_ADDON}"
+        mkdir -p "{{.STAGE_DIR}}"
+        echo "Packaging UCC add-on: ${UCC_ADDON} ..."
+        ucc-gen package --path "${OUTPUT_APP}" -o "{{.STAGE_DIR}}"
+        echo ""
+        ls -la "{{.STAGE_DIR}}"/${UCC_ADDON}*.tar.gz 2>/dev/null || ls -la "{{.STAGE_DIR}}"/${UCC_ADDON}*.tgz 2>/dev/null
+        echo ""
+        echo "Deploy: task stage:deploy"
+    desc: Build + package UCC add-on to splunk/stage/ for staging
+
   # ── Python Tooling ───────────────────────────────────────────────────
 
   python:lint:
@@ -542,7 +700,7 @@ tasks:
       - |
         echo "Running lifecycle tests (guards, boot, app, deps, react, staging, skip-provision)..."
         bash tests/e2e/run-lifecycle.sh
-    desc: Splunk lifecycle tests — 7 suites (works on any host with Docker + task)
+    desc: Splunk lifecycle tests — 8 suites (works on any host with Docker + task)
 
   test:devcontainer:
     cmds:

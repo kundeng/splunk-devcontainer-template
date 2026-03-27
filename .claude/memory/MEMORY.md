@@ -1,0 +1,7 @@
+- [Project goals](project_goals.md) — UCC alignment, cross-platform template, generic REST API connector app
+- [User profile](user_profile.md) — Splunk app developer using remote dev containers
+- [Feedback: persist memory in project](feedback_persist_memory.md) — Keep memory inside /workspace so it survives rebuilds
+- [Feedback: use worktrees](feedback_worktrees.md) — Separate branches/worktrees for template vs app work
+- [Research: UCC framework](research_ucc_framework.md) — UCC generator, globalConfig schema, project structure, template gaps
+- [Research: UCC generator details](research_ucc_generator_details.md) — CLI commands, build pipeline, import_declare_test, reference app patterns
+- [Research: REST connector](research_rest_connector.md) — Architecture for generic REST API connector using UCC SDK

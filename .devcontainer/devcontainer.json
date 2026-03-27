@@ -23,7 +23,9 @@
         "esbenp.prettier-vscode",
         "dbaeumer.vscode-eslint",
         "redhat.vscode-yaml",
-        "task.vscode-task"
+        "task.vscode-task",
+        "anthropic.claude-code",
+        "mutantdino.resourcemonitor"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",

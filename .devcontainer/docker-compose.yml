@@ -41,6 +41,8 @@ services:
       - ${LOCAL_WORKSPACE_FOLDER:-..}/splunk/config/apps:/opt/splunk/dev-apps
       # React source — mounted so stage/ symlinks resolve inside container (react:link)
       - ${LOCAL_WORKSPACE_FOLDER:-..}/react:/opt/splunk/react
+      # UCC build output — symlinked into etc/apps/ by ucc:link (same pattern as dev-apps, react)
+      - ${LOCAL_WORKSPACE_FOLDER:-..}/ucc/output:/opt/splunk/ucc-apps
     restart: unless-stopped
 
   ## ── Optional sidecars (uncomment as needed) ──────────────────────

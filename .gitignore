@@ -81,10 +81,14 @@ logs/
 project_rules/**
 memory/**
 /.windsurf/
-/.claude/
+/.claude/*
+!/.claude/memory/
 
 splunk/stage/*
 !splunk/stage/.gitkeep
+
+# UCC build output (generated, rebuild from source)
+ucc/output/
 
 # Reference repos (cloned for study, not committed)
 .ref/
