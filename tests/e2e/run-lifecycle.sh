@@ -21,7 +21,7 @@ task dev:down 2>/dev/null || true
 task stage:clean 2>/dev/null || true
 rm -rf splunk/config/apps/test_cmd_app splunk/config/apps/test-react-app splunk/config/apps/testReactApp
 rm -rf react/packages react/package.json react/node_modules react/yarn.lock
-rm -rf ucc/test_ucc_addon ucc/output
+rm -rf ucc/test_ucc_addon ucc/output/*
 rm -f splunk/stage/*.tgz splunk/stage/*.tar.gz
 rm -rf ".task"
 # Clear APP_NAME from .env so guards test works cleanly
@@ -35,7 +35,7 @@ cleanup_all() {
     task stage:clean 2>/dev/null || true
     rm -rf splunk/config/apps/test_cmd_app splunk/config/apps/test-react-app splunk/config/apps/testReactApp
     rm -rf react/packages react/package.json react/node_modules react/yarn.lock
-    rm -rf ucc/test_ucc_addon ucc/output
+    rm -rf ucc/test_ucc_addon ucc/output/*
     rm -f splunk/stage/*.tgz splunk/stage/*.tar.gz
     rm -rf ".task"
     # Clear APP_NAME from .env so next run starts clean
