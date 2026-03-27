@@ -25,7 +25,9 @@
         "redhat.vscode-yaml",
         "task.vscode-task",
         "anthropic.claude-code",
-        "mutantdino.resourcemonitor"
+        "mutantdino.resourcemonitor",
+        "automatalabs.copilot-mcp",
+        "pimzino.spec-workflow-mcp"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/usr/local/bin/python",
@@ -45,7 +47,7 @@
 
   "postCreateCommand": "bash .devcontainer/post-create.sh",
 
-  "forwardPorts": [8000, 8089, 8088, 3000],
+  "forwardPorts": [8000, 8089, 8088, 3000, 5000],
 
   "remoteUser": "vscode",
 

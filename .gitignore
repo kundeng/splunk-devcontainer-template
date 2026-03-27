@@ -83,6 +83,7 @@ memory/**
 /.windsurf/
 /.claude/*
 !/.claude/memory/
+!/.claude/settings.local.json
 
 splunk/stage/*
 !splunk/stage/.gitkeep
