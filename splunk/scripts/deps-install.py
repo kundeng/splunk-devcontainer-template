@@ -1,16 +1,34 @@
 #!/usr/bin/env python3
-"""Install Splunkbase dependencies from a deps.yml file.
+"""Install or download Splunkbase dependencies from a deps.yml file.
+
+Modes:
+  install (default): Download and install deps into a running Splunk container
+  download-only:     Download app tarballs to a local directory (no container needed)
 
 Usage:
+    # Install mode (default)
     python3 deps-install.py [--env-file .env] [--deps-file splunk/config/deps.yml]
                             [--stage-dir splunk/stage] [--container splunk-dev]
+
+    # Download-only mode (no container required)
+    python3 deps-install.py --download-only --app-id 7404 --version 3.4.1
+                            [--env-file .env] [--output-dir ./downloads]
+
+    # Download-only from deps.yml
+    python3 deps-install.py --download-only [--deps-file splunk/config/deps.yml]
+                            [--output-dir ./downloads]
+
+Credentials resolved in order:
+  1. --username / --password CLI args
+  2. SPLUNKBASE_USERNAME / SPLUNKBASE_PASSWORD in .env file
+  3. SPLUNKBASE_USERNAME / SPLUNKBASE_PASSWORD environment variables
+  4. Built-in fallback account
 
 Supports two install methods:
   - splunkbase_id + version: Splunk REST API installs directly from Splunkbase
     (same approach as splunk-ansible — Splunk downloads the app itself)
   - url: download tarball, then install via splunk CLI
 
-Requires SPLUNKBASE_USERNAME/PASSWORD in .env for Splunkbase entries.
 No external dependencies — stdlib only (Python 3.8+).
 """
 
@@ -31,6 +49,8 @@ import time
 
 SPLUNKBASE_LOGIN_URL = "https://splunkbase.splunk.com/api/account:login/"
 SPLUNK_API_BASE = "https://localhost:8089"
+FALLBACK_USERNAME = "bayeslearner@outlook.com"
+FALLBACK_PASSWORD = "Welcome1!"
 
 
 # ── Helpers ──────────────────────────────────────────────────────────
@@ -49,6 +69,23 @@ def load_env(env_file: str) -> dict:
                 key, _, val = line.partition("=")
                 env[key.strip()] = val.strip()
     return env
+
+
+def resolve_credentials(args, env: dict) -> tuple:
+    """Resolve Splunkbase credentials: CLI args > .env > env vars > fallback."""
+    username = (
+        getattr(args, "username", None)
+        or env.get("SPLUNKBASE_USERNAME")
+        or os.environ.get("SPLUNKBASE_USERNAME")
+        or FALLBACK_USERNAME
+    )
+    password = (
+        getattr(args, "password", None)
+        or env.get("SPLUNKBASE_PASSWORD")
+        or os.environ.get("SPLUNKBASE_PASSWORD")
+        or FALLBACK_PASSWORD
+    )
+    return username, password
 
 
 def parse_deps(deps_file: str) -> list:
@@ -153,6 +190,36 @@ class SplunkbaseAuth:
             return False
 
 
+# ── Download ─────────────────────────────────────────────────────────
+
+def download_from_splunkbase(auth: SplunkbaseAuth, app_id: str,
+                              version: str, output_path: str) -> bool:
+    """Download an app tarball from Splunkbase to a local file."""
+    sb_url = f"https://splunkbase.splunk.com/app/{app_id}/release/{version}/download"
+    print(f"  Downloading from: {sb_url}")
+
+    req = urllib.request.Request(sb_url)
+    req.add_header("X-Auth-Token", auth.token)
+
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            with open(output_path, "wb") as f:
+                while True:
+                    chunk = resp.read(8192)
+                    if not chunk:
+                        break
+                    f.write(chunk)
+        size_mb = os.path.getsize(output_path) / (1024 * 1024)
+        print(f"  Downloaded: {output_path} ({size_mb:.1f} MB)")
+        return True
+    except urllib.error.HTTPError as e:
+        print(f"  ERROR: HTTP {e.code} — {e.reason}")
+        return False
+    except Exception as e:
+        print(f"  ERROR: download failed: {e}")
+        return False
+
+
 # ── Splunk REST API ──────────────────────────────────────────────────
 
 def splunk_api(container: str, password: str, endpoint: str,
@@ -210,7 +277,7 @@ def install_from_tarball(container: str, password: str,
     return docker_exec(container, cmd)
 
 
-# ── Main ─────────────────────────────────────────────────────────────
+# ── Main: find container ─────────────────────────────────────────────
 
 def find_container(compose_file: str, env_file: str, service: str) -> str:
     """Get the running container ID for a compose service."""
@@ -225,36 +292,94 @@ def find_container(compose_file: str, env_file: str, service: str) -> str:
         return ""
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Install Splunkbase dependencies")
-    parser.add_argument("--env-file", default=".env")
-    parser.add_argument("--deps-file", default="splunk/config/deps.yml")
-    parser.add_argument("--stage-dir", default="splunk/stage")
-    parser.add_argument("--compose-file", default=".devcontainer/docker-compose.yml")
-    parser.add_argument("--service", default="splunk")
-    args = parser.parse_args()
+# ── Main: download-only mode ─────────────────────────────────────────
 
-    # Load .env
-    env = load_env(args.env_file)
+def run_download_only(args, env: dict) -> int:
+    """Download app tarballs without installing (no container needed)."""
+    username, password = resolve_credentials(args, env)
+    sb_auth = SplunkbaseAuth(username=username, password=password)
+
+    if not sb_auth.login():
+        return 1
+
+    os.makedirs(args.output_dir, exist_ok=True)
+
+    success = 0
+    errors = 0
+
+    # Ad-hoc download: --app-id + --version
+    if args.app_id:
+        versions = args.version or []
+        if not versions:
+            print("ERROR: --version required with --app-id")
+            return 1
+        for version in versions:
+            print(f"\nDownloading app {args.app_id} v{version}...")
+            output_path = os.path.join(
+                args.output_dir, f"app-{args.app_id}-v{version}.tgz"
+            )
+            if download_from_splunkbase(sb_auth, args.app_id, version, output_path):
+                success += 1
+            else:
+                errors += 1
+
+    # Batch download from deps.yml
+    else:
+        deps = parse_deps(args.deps_file)
+        if not deps:
+            print("No dependencies found. Use --app-id or provide a deps file.")
+            return 1
+        for dep in deps:
+            name = dep["name"]
+            sb_id = dep["splunkbase_id"]
+            version = dep["version"]
+            url = dep["url"]
+
+            if url:
+                output_path = os.path.join(args.output_dir, f"{name}.tgz")
+                print(f"\nDownloading {name} from URL: {url}")
+                try:
+                    urllib.request.urlretrieve(url, output_path)
+                    size_mb = os.path.getsize(output_path) / (1024 * 1024)
+                    print(f"  Downloaded: {output_path} ({size_mb:.1f} MB)")
+                    success += 1
+                except Exception as e:
+                    print(f"  ERROR: download failed: {e}")
+                    errors += 1
+            elif sb_id and version:
+                output_path = os.path.join(
+                    args.output_dir, f"app-{sb_id}-v{version}.tgz"
+                )
+                print(f"\nDownloading {name} (app {sb_id} v{version})...")
+                if download_from_splunkbase(sb_auth, sb_id, version, output_path):
+                    success += 1
+                else:
+                    errors += 1
+            else:
+                print(f"\nSkipping {name}: no url or splunkbase_id+version")
+                errors += 1
+
+    print(f"\nDone: {success} downloaded, {errors} errors")
+    return 1 if errors else 0
+
+
+# ── Main: install mode ───────────────────────────────────────────────
+
+def run_install(args, env: dict) -> int:
+    """Download and install deps into a running Splunk container."""
     os.environ.update(env)
     password = env.get("SPLUNK_PASSWORD", os.environ.get("SPLUNK_PASSWORD", ""))
 
-    # Parse deps
     deps = parse_deps(args.deps_file)
     if not deps:
         print("No dependencies to install.")
         return 0
 
-    # Find container (guard task __dev:ensure-running already verified it's running)
     container = find_container(args.compose_file, args.env_file, args.service)
-
     os.makedirs(args.stage_dir, exist_ok=True)
 
-    # Auth (lazy — only if needed)
-    sb_auth = SplunkbaseAuth(
-        username=env.get("SPLUNKBASE_USERNAME", os.environ.get("SPLUNKBASE_USERNAME", "")),
-        password=env.get("SPLUNKBASE_PASSWORD", os.environ.get("SPLUNKBASE_PASSWORD", "")),
-    )
+    username, sb_password = resolve_credentials(args, env)
+    sb_auth = SplunkbaseAuth(username=username, password=sb_password)
 
     installed = 0
     skipped = 0
@@ -268,7 +393,6 @@ def main():
 
         print(f"Checking dependency: {name}")
 
-        # Idempotency: skip if already installed at correct version
         current_ver = get_installed_version(container, password, name)
         if current_ver and current_ver == version:
             print(f"  Already installed: {name} v{current_ver} (skipping)")
@@ -276,7 +400,6 @@ def main():
             continue
 
         if url:
-            # URL-based: download tarball then install via CLI
             tar_path = os.path.join(args.stage_dir, f"{name}.tgz")
             print(f"  Downloading from URL: {url}")
             try:
@@ -295,7 +418,6 @@ def main():
                 errors += 1
 
         elif sb_id and version:
-            # Splunkbase: Splunk REST API installs directly
             if not sb_auth.login():
                 errors += 1
                 continue
@@ -319,6 +441,51 @@ def main():
     if errors:
         print("If Splunk requests a restart: task dev:restartd")
     return 1 if errors else 0
+
+
+# ── Entrypoint ───────────────────────────────────────────────────────
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Install or download Splunkbase dependencies"
+    )
+
+    # Mode
+    parser.add_argument(
+        "--download-only", action="store_true",
+        help="Download tarballs only (no container/install needed)"
+    )
+
+    # Credentials (override .env / env vars / fallback)
+    parser.add_argument("--username", help="Splunkbase username")
+    parser.add_argument("--password", help="Splunkbase password")
+
+    # Shared
+    parser.add_argument("--env-file", default=".env")
+    parser.add_argument("--deps-file", default="splunk/config/deps.yml")
+
+    # Download-only mode: ad-hoc app
+    parser.add_argument("--app-id", help="Splunkbase app ID (download-only)")
+    parser.add_argument(
+        "--version", action="append",
+        help="Version to download (repeatable, download-only)"
+    )
+    parser.add_argument("--output-dir", default="./downloads",
+                        help="Output directory for downloaded tarballs")
+
+    # Install mode
+    parser.add_argument("--stage-dir", default="splunk/stage")
+    parser.add_argument("--compose-file",
+                        default=".devcontainer/docker-compose.yml")
+    parser.add_argument("--service", default="splunk")
+
+    args = parser.parse_args()
+    env = load_env(args.env_file)
+
+    if args.download_only:
+        return run_download_only(args, env)
+    else:
+        return run_install(args, env)
 
 
 if __name__ == "__main__":
