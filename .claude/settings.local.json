@@ -5,15 +5,5 @@
       "Bash(git add:*)",
       "Bash(git commit:*)"
     ]
-  },
-  "mcpServers": {
-    "spec-workflow": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@pimzino/spec-workflow-mcp@latest",
-        "/workspace"
-      ]
-    }
   }
 }
