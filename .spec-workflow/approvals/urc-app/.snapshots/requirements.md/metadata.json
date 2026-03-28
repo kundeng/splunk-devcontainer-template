@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/urc-app/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-03-27T22:50:02.346Z",
+      "trigger": "initial",
+      "approvalId": "approval_1774651802344_hzxowgfz6",
+      "approvalTitle": "URC App Requirements"
+    }
+  ]
+}

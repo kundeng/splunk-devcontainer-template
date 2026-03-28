@@ -1,0 +1,16 @@
+{
+  "id": "snapshot_1774651802346_24seskczt",
+  "approvalId": "approval_1774651802344_hzxowgfz6",
+  "approvalTitle": "URC App Requirements",
+  "version": 1,
+  "timestamp": "2026-03-27T22:50:02.346Z",
+  "trigger": "initial",
+  "status": "pending",
+  "content": "# Universal REST Client (URC) App — Requirements\n\n## Overview\n\nA Splunk add-on built with UCC SDK that provides a declarative, config-driven way to ingest data from any REST API into Splunk. Uses the Airbyte CDK's declarative framework (vendored) for connector logic, with KV Store checkpointing for incremental collection.\n\n## Goals\n\n- **Zero-code REST API connectors**: Users define API connections via YAML/JSON manifests (Airbyte declarative format) — no Python required per-connector\n- **UCC-managed configuration**: Accounts, inputs, proxy, and logging managed through UCC's standard configuration UI\n- **Reliable incremental ingestion**: Checkpoint-based state tracking via Splunk KV Store so collection resumes where it left off\n- **Template dogfooding**: Built using the splunk-devcontainer-template's Taskfile primitives to validate the developer experience\n\n## Functional Requirements\n\n### FR-1: UCC Configuration Layer\n- Account management (REST API credentials, OAuth tokens)\n- Input definitions (API endpoint, collection interval, index, sourcetype)\n- Proxy and logging configuration via UCC standard pages\n\n### FR-2: Declarative Connector Engine\n- Parse Airbyte-format YAML manifests defining streams, auth, pagination, record extraction\n- Support auth types: API key, Bearer token, Basic auth, OAuth2\n- Support pagination: offset, cursor, page-number, next-link\n- Support record extraction via dpath expressions\n\n### FR-3: Checkpointing & State\n- KV Store-backed checkpointer (compatible with UCC's KVStoreCheckpointer API)\n- Map Airbyte state messages to KV Store entries\n- Resume collection from last checkpoint on restart\n\n### FR-4: Data Output\n- Write extracted records to Splunk events with configurable index/sourcetype\n- Preserve source record structure (JSON events)\n\n## Non-Functional Requirements\n\n### NF-1: Packaging\n- Single SPL/tgz distributable via Splunkbase\n- Hybrid UCC + vendored Airbyte CDK build pipeline (CIMplicity-style)\n\n### NF-2: Platform Support\n- Splunk Enterprise 9.x on Linux (primary)\n- Python 3.9+ (Splunk's bundled Python)\n\n### NF-3: Developer Experience\n- All build/test/stage operations via `task` commands\n- Spec-driven development with progress tracking\n",
+  "fileStats": {
+    "size": 2210,
+    "lines": 49,
+    "lastModified": "2026-03-27T22:27:29.505Z"
+  },
+  "comments": []
+}

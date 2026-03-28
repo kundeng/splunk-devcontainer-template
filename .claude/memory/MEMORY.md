@@ -13,3 +13,4 @@
 - [Research: CIMplicity app](research_cimplicity_app.md) — Hybrid UCC+React build pipeline, PersistentServerConnectionApplication, credential access
 - [Research: OrbStack permissions](research_orbstack_permissions.md) — VirtioFS UID mapping, bind mount ownership in Mac->devcontainer->Splunk chain, OrbStack vs Docker Desktop
 - [Project: REST connector plan](project_rest_connector_plan.md) — Architecture decisions: hybrid UCC+React, vendored Airbyte CDK (Option B), CIMplicity-style build, KV checkpointing, ACL permissions
+- [Feedback: use task primitives](feedback_use_task_primitives.md) — Dogfood Taskfile tasks as primary dev interface; fix/add tasks instead of working around them

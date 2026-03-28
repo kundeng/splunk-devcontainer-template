@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/urc-scaffold/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-03-27T23:51:55.938Z",
+      "trigger": "initial",
+      "approvalId": "approval_1774655515935_5wg8rk5tl",
+      "approvalTitle": "URC Scaffold Design"
+    }
+  ]
+}
