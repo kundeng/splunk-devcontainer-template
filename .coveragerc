@@ -1,0 +1,21 @@
+[report]
+# show lines missing coverage
+show_missing = true
+
+[run]
+omit =
+    # omit the models package as it's auto-generated
+    airbyte_cdk/models/*
+
+    # omit as unimplemented
+    airbyte_cdk/base_python/cdk/streams/auth/jwt.py
+
+    # omit temporary files and test files
+    /tmp/tmp*.py
+    unit_tests/*
+
+[paths]
+# Reconcile file paths
+source =
+    ./
+    /tmp/
