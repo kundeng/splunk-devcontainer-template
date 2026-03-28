@@ -14,6 +14,10 @@
                             {
                                 "label": "Name",
                                 "field": "name"
+                            },
+                            {
+                                "label": "Auth Type",
+                                "field": "auth_type"
                             }
                         ]
                     },
@@ -39,20 +43,308 @@
                             "required": true
                         },
                         {
-                            "type": "text",
-                            "label": "API key",
-                            "field": "api_key",
-                            "help": "API key",
+                            "type": "singleSelect",
+                            "label": "Auth Type",
+                            "field": "auth_type",
+                            "help": "Authentication method for the API.",
                             "required": true,
+                            "defaultValue": "api_key",
+                            "options": {
+                                "disableSearch": true,
+                                "autoCompleteFields": [
+                                    {
+                                        "value": "api_key",
+                                        "label": "API Key"
+                                    },
+                                    {
+                                        "value": "bearer",
+                                        "label": "Bearer Token"
+                                    },
+                                    {
+                                        "value": "basic",
+                                        "label": "Basic Auth"
+                                    },
+                                    {
+                                        "value": "oauth2",
+                                        "label": "OAuth2 Client Credentials"
+                                    },
+                                    {
+                                        "value": "none",
+                                        "label": "No Auth"
+                                    }
+                                ]
+                            },
+                            "modifyFieldsOnValue": [
+                                {
+                                    "fieldValue": "api_key",
+                                    "fieldsToModify": [
+                                        {
+                                            "fieldId": "api_key",
+                                            "display": true,
+                                            "required": true
+                                        },
+                                        {
+                                            "fieldId": "api_key_header",
+                                            "display": true
+                                        },
+                                        {
+                                            "fieldId": "bearer_token",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "username",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "password",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "client_id",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "client_secret",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "token_url",
+                                            "display": false
+                                        }
+                                    ]
+                                },
+                                {
+                                    "fieldValue": "bearer",
+                                    "fieldsToModify": [
+                                        {
+                                            "fieldId": "api_key",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "api_key_header",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "bearer_token",
+                                            "display": true,
+                                            "required": true
+                                        },
+                                        {
+                                            "fieldId": "username",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "password",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "client_id",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "client_secret",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "token_url",
+                                            "display": false
+                                        }
+                                    ]
+                                },
+                                {
+                                    "fieldValue": "basic",
+                                    "fieldsToModify": [
+                                        {
+                                            "fieldId": "api_key",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "api_key_header",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "bearer_token",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "username",
+                                            "display": true,
+                                            "required": true
+                                        },
+                                        {
+                                            "fieldId": "password",
+                                            "display": true,
+                                            "required": true
+                                        },
+                                        {
+                                            "fieldId": "client_id",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "client_secret",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "token_url",
+                                            "display": false
+                                        }
+                                    ]
+                                },
+                                {
+                                    "fieldValue": "oauth2",
+                                    "fieldsToModify": [
+                                        {
+                                            "fieldId": "api_key",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "api_key_header",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "bearer_token",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "username",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "password",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "client_id",
+                                            "display": true,
+                                            "required": true
+                                        },
+                                        {
+                                            "fieldId": "client_secret",
+                                            "display": true,
+                                            "required": true
+                                        },
+                                        {
+                                            "fieldId": "token_url",
+                                            "display": true,
+                                            "required": true
+                                        }
+                                    ]
+                                },
+                                {
+                                    "fieldValue": "none",
+                                    "fieldsToModify": [
+                                        {
+                                            "fieldId": "api_key",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "api_key_header",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "bearer_token",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "username",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "password",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "client_id",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "client_secret",
+                                            "display": false
+                                        },
+                                        {
+                                            "fieldId": "token_url",
+                                            "display": false
+                                        }
+                                    ]
+                                }
+                            ]
+                        },
+                        {
+                            "type": "text",
+                            "label": "API Key",
+                            "field": "api_key",
+                            "help": "API key for authentication.",
                             "encrypted": true,
+                            "required": false,
                             "validators": [
                                 {
                                     "type": "string",
-                                    "errorMsg": "Length of API key should be between 1 and 50",
+                                    "errorMsg": "Length of API key should be between 1 and 8192",
                                     "minLength": 1,
-                                    "maxLength": 50
+                                    "maxLength": 8192
                                 }
                             ]
+                        },
+                        {
+                            "type": "text",
+                            "label": "API Key Header",
+                            "field": "api_key_header",
+                            "help": "Header name for the API key (default: X-API-Key).",
+                            "required": false,
+                            "defaultValue": "X-API-Key"
+                        },
+                        {
+                            "type": "text",
+                            "label": "Bearer Token",
+                            "field": "bearer_token",
+                            "help": "Bearer token for authentication.",
+                            "encrypted": true,
+                            "required": false,
+                            "validators": [
+                                {
+                                    "type": "string",
+                                    "errorMsg": "Length of bearer token should be between 1 and 8192",
+                                    "minLength": 1,
+                                    "maxLength": 8192
+                                }
+                            ]
+                        },
+                        {
+                            "type": "text",
+                            "label": "Username",
+                            "field": "username",
+                            "help": "Username for Basic authentication.",
+                            "required": false
+                        },
+                        {
+                            "type": "text",
+                            "label": "Password",
+                            "field": "password",
+                            "help": "Password for Basic authentication.",
+                            "encrypted": true,
+                            "required": false
+                        },
+                        {
+                            "type": "text",
+                            "label": "Client ID",
+                            "field": "client_id",
+                            "help": "OAuth2 client ID.",
+                            "required": false
+                        },
+                        {
+                            "type": "text",
+                            "label": "Client Secret",
+                            "field": "client_secret",
+                            "help": "OAuth2 client secret.",
+                            "encrypted": true,
+                            "required": false
+                        },
+                        {
+                            "type": "text",
+                            "label": "Token URL",
+                            "field": "token_url",
+                            "help": "OAuth2 token endpoint URL.",
+                            "required": false
                         }
                     ],
                     "title": "Accounts"
@@ -93,6 +385,41 @@
                             "required": true
                         },
                         {
+                            "type": "singleSelect",
+                            "label": "Account",
+                            "options": {
+                                "referenceName": "account"
+                            },
+                            "help": "Account to use for this input.",
+                            "field": "account",
+                            "required": true
+                        },
+                        {
+                            "type": "text",
+                            "label": "Base URL",
+                            "field": "base_url",
+                            "help": "API base URL (e.g., https://api.example.com/v1). Used in manifest as {{ config['base_url'] }}.",
+                            "required": true,
+                            "validators": [
+                                {
+                                    "type": "regex",
+                                    "errorMsg": "Must be a valid URL starting with http:// or https://",
+                                    "pattern": "^https?://.+"
+                                }
+                            ]
+                        },
+                        {
+                            "type": "textarea",
+                            "label": "Manifest",
+                            "field": "manifest",
+                            "help": "Airbyte declarative manifest YAML defining streams, pagination, record extraction, and incremental sync.",
+                            "required": true,
+                            "options": {
+                                "rowsMin": 10,
+                                "rowsMax": 50
+                            }
+                        },
+                        {
                             "type": "interval",
                             "label": "Interval",
                             "defaultValue": "300",
@@ -100,10 +427,10 @@
                             "options": {
                                 "range": [
                                     10,
-                                    301
+                                    86400
                                 ]
                             },
-                            "help": "Time interval of the data input, in seconds.",
+                            "help": "Collection interval in seconds.",
                             "required": true
                         },
                         {
@@ -112,26 +439,16 @@
                             "label": "Index"
                         },
                         {
-                            "type": "singleSelect",
-                            "label": "Account to use",
-                            "options": {
-                                "referenceName": "account"
-                            },
-                            "help": "Account to use for this input.",
-                            "field": "account",
-                            "required": true,
-                            "validators": [
-                                {
-                                    "type": "string",
-                                    "errorMsg": "Length of account name should be between 1 and 100",
-                                    "minLength": 1,
-                                    "maxLength": 100
-                                }
-                            ]
+                            "type": "text",
+                            "label": "Sourcetype",
+                            "field": "sourcetype",
+                            "help": "Event sourcetype.",
+                            "defaultValue": "urc:api:json",
+                            "required": false
                         }
                     ],
                     "inputHelperModule": "urc_app_input_helper",
-                    "title": "urc_app_input"
+                    "title": "REST API Input"
                 }
             ],
             "title": "Inputs",
@@ -146,6 +463,10 @@
                     {
                         "label": "Name",
                         "field": "name"
+                    },
+                    {
+                        "label": "Base URL",
+                        "field": "base_url"
                     },
                     {
                         "label": "Interval",
@@ -166,12 +487,20 @@
                         "field": "name"
                     },
                     {
+                        "label": "Base URL",
+                        "field": "base_url"
+                    },
+                    {
                         "label": "Interval",
                         "field": "interval"
                     },
                     {
                         "label": "Index",
                         "field": "index"
+                    },
+                    {
+                        "label": "Sourcetype",
+                        "field": "sourcetype"
                     },
                     {
                         "label": "Status",
@@ -195,8 +524,8 @@
     "meta": {
         "name": "urc_app",
         "restRoot": "urc_app",
-        "version": "0.0.0+22283ff",
-        "displayName": "urc app",
+        "version": "0.0.0+095f3e27",
+        "displayName": "Universal REST Client",
         "schemaVersion": "0.0.10",
         "supportedThemes": [
             "light",

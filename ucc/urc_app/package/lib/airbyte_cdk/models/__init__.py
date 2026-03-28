@@ -49,14 +49,23 @@ from .airbyte_protocol import (
     TraceType,
     Type,
 )
-from .airbyte_protocol_serializers import (
-    AirbyteMessageSerializer,
-    AirbyteStateMessageSerializer,
-    AirbyteStreamStateSerializer,
-    ConfiguredAirbyteCatalogSerializer,
-    ConfiguredAirbyteStreamSerializer,
-    ConnectorSpecificationSerializer,
-)
+try:
+    from .airbyte_protocol_serializers import (
+        AirbyteMessageSerializer,
+        AirbyteStateMessageSerializer,
+        AirbyteStreamStateSerializer,
+        ConfiguredAirbyteCatalogSerializer,
+        ConfiguredAirbyteStreamSerializer,
+        ConnectorSpecificationSerializer,
+    )
+except (ImportError, TypeError):
+    # serpyco-rs not available — serializers are not needed for Splunk runtime
+    AirbyteMessageSerializer = None  # type: ignore[assignment,misc]
+    AirbyteStateMessageSerializer = None  # type: ignore[assignment,misc]
+    AirbyteStreamStateSerializer = None  # type: ignore[assignment,misc]
+    ConfiguredAirbyteCatalogSerializer = None  # type: ignore[assignment,misc]
+    ConfiguredAirbyteStreamSerializer = None  # type: ignore[assignment,misc]
+    ConnectorSpecificationSerializer = None  # type: ignore[assignment,misc]
 from .well_known_types import (
     BinaryData,
     Boolean,

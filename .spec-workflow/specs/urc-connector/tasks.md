@@ -1,0 +1,42 @@
+# URC Connector Implementation — Tasks
+
+- [x] 1. Update globalConfig.json with auth types and manifest field
+  - Modify account entity: add auth_type singleSelect with conditional field visibility
+  - Modify input entity: add base_url, sourcetype, manifest (textarea) fields
+  - Verify: `task ucc:build APP_NAME=urc_app` succeeds, UI renders correctly
+  - _Leverage: ucc/urc_app/globalConfig.json, UCC entity schema_
+  - _Requirements: R1, R2_
+  - _Prompt: Implement the task for spec urc-connector, first run spec-workflow-guide to get the workflow guide then implement the task. Role: UCC Configuration Specialist | Task: Update globalConfig.json to add auth_type singleSelect on the account entity with conditional fields (api_key shown for api_key type, bearer_token for bearer, username+password for basic, client_id+client_secret+token_url for oauth2). Add base_url (text), sourcetype (text, default urc:api:json), and manifest (textarea) to the input entity. Use UCC options.dependencies for conditional visibility. Build with `task ucc:build APP_NAME=urc_app` and verify. | Restrictions: Keep existing account name and input name/interval/index/account fields. Do not change the meta section except version. Sensitive fields must have encrypted:true. | Success: Build succeeds. Account form shows auth_type dropdown that toggles field visibility. Input form shows base_url, sourcetype, and manifest textarea. Mark task [-] when starting and [x] when complete in tasks.md, and log implementation with log-implementation tool._
+
+- [x] 2. Add KV Store collection for checkpoints
+  - Create `package/default/collections.conf` defining `urc_checkpoints` collection
+  - Create `package/default/transforms.conf` for the collection lookup definition
+  - _Leverage: solnlib.KVStoreCheckpointer docs_
+  - _Requirements: R4_
+  - _Prompt: Implement the task for spec urc-connector, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Splunk Add-on Developer | Task: Create collections.conf at ucc/urc_app/package/default/collections.conf defining a KV Store collection named `urc_checkpoints` with fields `_key` (string) and `state` (string). Also create transforms.conf with the lookup definition. These files go in package/default/ so ucc-gen build copies them to the output. | Restrictions: Follow Splunk KV Store collection naming conventions. Keep it minimal. | Success: After ucc:build, the output contains collections.conf and transforms.conf. Mark task [-] when starting and [x] when complete in tasks.md, and log implementation with log-implementation tool._
+
+- [x] 3. Rewrite urc_app_input_helper.py with CDK integration
+  - Replace dummy data logic with ConcurrentDeclarativeSource execution
+  - Implement build_config_dict() to merge account + input config
+  - Implement build_catalog() to create ConfiguredAirbyteCatalog from manifest
+  - Implement CheckpointManager class for KV Store state persistence
+  - Handle AirbyteMessage RECORD and STATE types
+  - _Leverage: package/bin/urc_app_input_helper.py (existing scaffold), airbyte_cdk vendored runtime, PyAirbyte DeclarativeExecutor pattern_
+  - _Requirements: R3, R4_
+  - _Prompt: Implement the task for spec urc-connector, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Senior Python Developer with Splunk and Airbyte CDK experience | Task: Rewrite urc_app_input_helper.py to integrate the vendored Airbyte CDK declarative runtime. The stream_events() function should: (1) read account config via ConfManager including all auth fields, (2) build a config dict merging account creds and input fields so CDK interpolation works, (3) parse the manifest YAML from the input config, (4) build a ConfiguredAirbyteCatalog from the manifest streams, (5) load checkpoint state from KV Store, (6) create ConcurrentDeclarativeSource and call read(), (7) for RECORD messages write JSON events via EventWriter, (8) for STATE messages save to KV Store via CheckpointManager. Include a CheckpointManager class wrapping KVStoreCheckpointer. | Restrictions: Must import import_declare_test first. Must handle errors gracefully (log and continue, don't crash the input). Must work with Splunk Python 3.9. Use the existing UCC patterns from the scaffold. The CDK ConcurrentDeclarativeSource may have import issues from the trimmed fork — if so, document and work around them. | Success: The input handler compiles without syntax errors. The CDK source is instantiated with manifest and config. Records are written as events. State is checkpointed. All errors are caught and logged. Mark task [-] when starting and [x] when complete in tasks.md, and log implementation with log-implementation tool._
+
+- [-] 4. Fix vendored CDK import issues
+  - Build and test: `task ucc:build APP_NAME=urc_app` then load in Splunk
+  - Identify and fix any import errors from the trimmed fork (missing modules, doubled patches, deleted connector_builder refs)
+  - Test that ConcurrentDeclarativeSource can be instantiated from Splunk Python
+  - _Leverage: AUDIT.md, trimmed fork at package/lib/airbyte_cdk/_
+  - _Requirements: R3_
+  - _Prompt: Implement the task for spec urc-connector, first run spec-workflow-guide to get the workflow guide then implement the task. Role: Python Debugging Specialist | Task: Build the URC app with `task ucc:build APP_NAME=urc_app`, link into Splunk with `task ucc:link APP_NAME=urc_app`, and test that the CDK can be imported from Splunk Python. Run `docker exec splunk-dev /opt/splunk/bin/splunk cmd python3 -c "..."` to test imports. Fix any issues found: missing modules from the trimmed fork, doubled orjson patch, connector_builder references, jsonschema dependency. Document all fixes. | Restrictions: Only patch files in the vendored airbyte_cdk subtree. Do not change the CDK's public API. Push fixes to the fork when done. | Success: `from airbyte_cdk.sources.declarative.concurrent_declarative_source import ConcurrentDeclarativeSource` works from Splunk Python 3.9. All import chain errors resolved. Mark task [-] when starting and [x] when complete in tasks.md, and log implementation with log-implementation tool._
+
+- [ ] 5. End-to-end test with JSONPlaceholder API
+  - Create a test manifest YAML for JSONPlaceholder /posts endpoint
+  - Configure account + input via Splunk Web UCC UI (or conf files)
+  - Verify events appear in the target index
+  - Test stop/restart to verify checkpoint resume
+  - _Requirements: R5_
+  - _Prompt: Implement the task for spec urc-connector, first run spec-workflow-guide to get the workflow guide then implement the task. Role: QA Engineer with Splunk experience | Task: Create a test Airbyte declarative manifest for JSONPlaceholder API (https://jsonplaceholder.typicode.com/posts). Configure an input in Splunk using the UCC UI or by writing directly to inputs.conf. The manifest should define a single stream that fetches /posts with no auth (NoAuth). Verify events appear in the target Splunk index by searching `index=main sourcetype=urc:api:json`. Document the full test flow and results. If checkpoint/incremental isn't applicable for this simple API, note that and test with a full refresh. | Restrictions: Use a public API only — no credentials needed. Do not modify the app code for this task, only configure it. | Success: Events from JSONPlaceholder /posts appear in Splunk. The full flow works end-to-end: UCC UI config to indexed events. Mark task [-] when starting and [x] when complete in tasks.md, and log implementation with log-implementation tool._
