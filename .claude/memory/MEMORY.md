@@ -14,3 +14,5 @@
 - [Research: OrbStack permissions](research_orbstack_permissions.md) — VirtioFS UID mapping, bind mount ownership in Mac->devcontainer->Splunk chain, OrbStack vs Docker Desktop
 - [Project: REST connector plan](project_rest_connector_plan.md) — Architecture decisions: hybrid UCC+React, vendored Airbyte CDK (Option B), CIMplicity-style build, KV checkpointing, ACL permissions
 - [Feedback: use task primitives](feedback_use_task_primitives.md) — Dogfood Taskfile tasks as primary dev interface; fix/add tasks instead of working around them
+- [Feedback: push often](feedback_push_often.md) — Push to origin frequently; workspace is in Dropbox, prevent corruption
+- [Project: URC architecture](project_urc_architecture.md) — No CDK vendoring, Pydantic v1 + @component registry, no DI framework
