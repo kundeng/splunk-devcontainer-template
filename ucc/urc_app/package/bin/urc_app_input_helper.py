@@ -8,6 +8,10 @@ from solnlib import conf_manager, log
 from solnlib.modular_input import checkpointer
 from splunklib import modularinput as smi
 
+from urc.manifest import process_manifest
+from urc.validate import validate_manifest, ManifestValidationError
+from urc.engine import collect
+
 ADDON_NAME = "urc_app"
 
 
@@ -27,15 +31,11 @@ def get_account_config(session_key: str, account_name: str) -> dict:
 
 
 def build_config_dict(account_config: dict, input_item: dict) -> dict:
-    """Merge account credentials + input fields into CDK config dict.
-
-    The returned dict is what Airbyte manifest interpolation sees as
-    {{ config['base_url'] }}, {{ config['api_key'] }}, etc.
+    """Merge account credentials + input fields into the config dict
+    that manifest interpolation sees as {{ config['api_key'] }}, etc.
     """
     return {
-        # From input
         "base_url": input_item.get("base_url", ""),
-        # From account
         "auth_type": account_config.get("auth_type", "none"),
         "api_key": account_config.get("api_key", ""),
         "api_key_header": account_config.get("api_key_header", "X-API-Key"),
@@ -48,37 +48,8 @@ def build_config_dict(account_config: dict, input_item: dict) -> dict:
     }
 
 
-def build_catalog(manifest: dict) -> "ConfiguredAirbyteCatalog":
-    """Build a ConfiguredAirbyteCatalog from manifest stream definitions."""
-    from airbyte_protocol_dataclasses.models import (
-        AirbyteStream,
-        ConfiguredAirbyteCatalog,
-        ConfiguredAirbyteStream,
-        DestinationSyncMode,
-        SyncMode,
-    )
-
-    streams = []
-    for stream_def in manifest.get("streams", []):
-        has_incremental = "incremental_sync" in stream_def
-        streams.append(
-            ConfiguredAirbyteStream(
-                stream=AirbyteStream(
-                    name=stream_def.get("name", "default"),
-                    json_schema={},
-                    supported_sync_modes=[
-                        SyncMode.incremental if has_incremental else SyncMode.full_refresh
-                    ],
-                ),
-                sync_mode=SyncMode.incremental if has_incremental else SyncMode.full_refresh,
-                destination_sync_mode=DestinationSyncMode.append,
-            )
-        )
-    return ConfiguredAirbyteCatalog(streams=streams)
-
-
 class CheckpointManager:
-    """Bridge between Airbyte state messages and Splunk KV Store."""
+    """Bridge between URC engine state and Splunk KV Store."""
 
     def __init__(self, session_key: str, input_name: str):
         self._ckpt = checkpointer.KVStoreCheckpointer(
@@ -88,44 +59,46 @@ class CheckpointManager:
         )
         self._key = input_name
 
-    def load(self):
-        """Load last state as list of AirbyteStateMessage dicts."""
+    def load(self) -> dict:
+        """Load last checkpoint as {stream_name: state_dict}."""
         try:
             data = self._ckpt.get(self._key)
             if data and "state" in data:
                 return data["state"]
         except Exception:
             pass
-        return []
+        return {}
 
-    def save(self, state_message):
-        """Save state message to KV Store."""
+    def save(self, stream_name: str, state: dict) -> None:
+        """Save stream state to KV Store."""
         try:
-            state_data = state_message
-            if hasattr(state_message, "dict"):
-                state_data = state_message.dict()
-            elif hasattr(state_message, "__dict__"):
-                state_data = state_message.__dict__
+            current = self.load()
+            if not isinstance(current, dict):
+                current = {}
+            current[stream_name] = state
             self._ckpt.update(
                 self._key,
                 {
-                    "state": [state_data],
+                    "state": current,
                     "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                 },
             )
         except Exception as e:
-            # Don't crash on checkpoint failure — log and continue
             logging.getLogger(ADDON_NAME).warning(f"Checkpoint save failed: {e}")
 
 
 def validate_input(definition: smi.ValidationDefinition):
-    """Validate input configuration before saving."""
+    """Validate input configuration before saving (called by UCC on save)."""
     manifest_yaml = definition.parameters.get("manifest", "")
-    if manifest_yaml:
-        try:
-            yaml.safe_load(manifest_yaml)
-        except yaml.YAMLError as e:
-            raise ValueError(f"Invalid manifest YAML: {e}")
+    if not manifest_yaml:
+        raise ValueError("Manifest YAML is required")
+    try:
+        processed = process_manifest(manifest_yaml)
+        validate_manifest(processed)
+    except ManifestValidationError as e:
+        raise ValueError(f"Invalid manifest: {e}")
+    except yaml.YAMLError as e:
+        raise ValueError(f"Invalid YAML syntax: {e}")
 
 
 def stream_events(inputs: smi.InputDefinition, event_writer: smi.EventWriter):
@@ -149,57 +122,43 @@ def stream_events(inputs: smi.InputDefinition, event_writer: smi.EventWriter):
             account_config = get_account_config(session_key, input_item.get("account"))
             config_dict = build_config_dict(account_config, input_item)
 
-            # 2. Parse manifest
+            # 2. Get manifest
             manifest_yaml = input_item.get("manifest", "")
             if not manifest_yaml:
                 logger.error(f"No manifest configured for input {normalized_input_name}")
                 continue
+
+            # 3. Validate manifest
             try:
-                manifest = yaml.safe_load(manifest_yaml)
-            except yaml.YAMLError as e:
-                logger.error(f"Invalid manifest YAML for {normalized_input_name}: {e}")
+                processed = process_manifest(manifest_yaml)
+                validate_manifest(processed)
+            except ManifestValidationError as e:
+                logger.error(f"Invalid manifest for {normalized_input_name}: {e}")
                 continue
 
-            # 3. Load checkpoint
+            # 4. Load checkpoint
             ckpt = CheckpointManager(session_key, normalized_input_name)
-            state = ckpt.load()
+            checkpoint = ckpt.load()
 
-            # 4. Build catalog from manifest
-            catalog = build_catalog(manifest)
-
-            # 5. Create and run declarative source
-            from airbyte_cdk.sources.declarative.concurrent_declarative_source import (
-                ConcurrentDeclarativeSource,
-            )
-
-            source = ConcurrentDeclarativeSource(
-                source_config=manifest,
-                config=config_dict,
-            )
-
+            # 5. Collect records using URC engine
             sourcetype = input_item.get("sourcetype", "urc:api:json")
             index = input_item.get("index", "main")
             record_count = 0
 
-            for message in source.read(logger, config_dict, catalog, state or None):
-                msg_type = getattr(message, "type", None)
-                msg_type_str = str(msg_type) if msg_type else ""
-
-                if "RECORD" in msg_type_str:
-                    record = message.record
-                    data = record.data if hasattr(record, "data") else record
+            for stream_name, record, state in collect(manifest_yaml, config_dict, checkpoint):
+                if record:
                     event_writer.write_event(
                         smi.Event(
-                            data=json.dumps(data, ensure_ascii=False, default=str),
+                            data=json.dumps(record, ensure_ascii=False, default=str),
                             index=index,
                             sourcetype=sourcetype,
-                            source=f"urc:{normalized_input_name}",
+                            source=f"urc:{normalized_input_name}:{stream_name}",
                         )
                     )
                     record_count += 1
 
-                elif "STATE" in msg_type_str:
-                    ckpt.save(message.state)
+                if state:
+                    ckpt.save(stream_name, state)
 
             log.events_ingested(
                 logger,
