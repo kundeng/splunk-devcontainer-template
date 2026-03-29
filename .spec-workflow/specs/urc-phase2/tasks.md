@@ -41,7 +41,7 @@
 
 ## Group C: Stream Orchestration
 
-- [-] 6. Add partition routers (R4)
+- [x] 6. Add partition routers (R4)
   - Create `urc/components/partition_router.py`
   - SubstreamPartitionRouter: collect parent stream, iterate partitions for child
   - ListPartitionRouter: iterate over static or config-driven list
@@ -56,7 +56,7 @@
 
 ## Group D: UI Enhancements
 
-- [-] 8. Add Test Connection REST endpoint (R8)
+- [x] 8. Add Test Connection REST endpoint (R8)
   - Create custom REST handler: PersistentServerConnectionApplication
   - Endpoint accepts manifest + account config, runs dry-run collection (1 page)
   - Returns sample records or error with details
