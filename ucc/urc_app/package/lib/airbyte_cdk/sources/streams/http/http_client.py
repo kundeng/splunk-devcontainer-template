@@ -13,7 +13,10 @@ try:
 except ImportError:
     orjson = None  # type: ignore[assignment]
 import requests
-import requests_cache
+try:
+    import requests_cache
+except ImportError:
+    requests_cache = None  # type: ignore[assignment]
 from requests.auth import AuthBase
 
 from airbyte_cdk.models import (

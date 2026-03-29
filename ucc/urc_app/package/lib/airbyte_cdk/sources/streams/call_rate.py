@@ -14,7 +14,10 @@ from typing import TYPE_CHECKING, Any, Mapping, Optional
 from urllib import parse
 
 import requests
-import requests_cache
+try:
+    import requests_cache
+except ImportError:
+    requests_cache = None  # type: ignore[assignment]
 from pyrate_limiter import InMemoryBucket, Limiter, RateItem, TimeClock
 from pyrate_limiter import Rate as PyRateRate
 from pyrate_limiter.exceptions import BucketFullException

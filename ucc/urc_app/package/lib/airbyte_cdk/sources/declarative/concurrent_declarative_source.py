@@ -46,7 +46,10 @@ from airbyte_cdk.models import (
     FailureType,
     Status,
 )
-from airbyte_cdk.models.airbyte_protocol_serializers import AirbyteMessageSerializer
+try:
+    from airbyte_cdk.models.airbyte_protocol_serializers import AirbyteMessageSerializer
+except (ImportError, TypeError):
+    AirbyteMessageSerializer = None  # type: ignore[assignment,misc]
 from airbyte_cdk.sources import Source
 from airbyte_cdk.sources.concurrent_source.concurrent_source import ConcurrentSource
 from airbyte_cdk.sources.connector_state_manager import ConnectorStateManager
