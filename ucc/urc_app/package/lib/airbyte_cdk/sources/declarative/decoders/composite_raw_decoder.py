@@ -12,10 +12,7 @@ from io import BufferedIOBase, TextIOWrapper
 from typing import Any, List, Optional
 
 try:
-    try:
     import orjson
-except ImportError:
-    orjson = None  # type: ignore[assignment]
 except ImportError:
     orjson = None  # type: ignore[assignment]
 import requests

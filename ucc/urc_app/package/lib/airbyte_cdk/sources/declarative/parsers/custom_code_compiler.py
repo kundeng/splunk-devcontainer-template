@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Contains functions to compile custom code from text."""
 
 import hashlib

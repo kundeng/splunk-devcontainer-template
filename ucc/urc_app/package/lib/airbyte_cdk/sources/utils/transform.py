@@ -7,7 +7,10 @@ from enum import Flag, auto
 from typing import Any, Callable, Dict, Generator, Mapping, Optional, cast
 
 from jsonschema import Draft7Validator, ValidationError, validators
-from jsonschema.protocols import Validator
+try:
+    from jsonschema.protocols import Validator
+except ImportError:
+    Validator = None  # type: ignore[assignment]
 
 MAX_NESTING_DEPTH = 3
 json_to_python_simple = {

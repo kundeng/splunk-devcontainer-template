@@ -2,6 +2,8 @@
 # Copyright (c) 2023 Airbyte, Inc., all rights reserved.
 #
 
+from __future__ import annotations
+
 import datetime as dt
 from dataclasses import InitVar, dataclass, field
 from typing import Any, Mapping, Optional, Union

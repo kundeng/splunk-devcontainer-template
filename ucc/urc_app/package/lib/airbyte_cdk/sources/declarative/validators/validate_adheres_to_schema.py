@@ -6,7 +6,10 @@ import json
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-import jsonschema
+try:
+    import jsonschema
+except ImportError:
+    pass  # jsonschema not available
 
 from airbyte_cdk.sources.declarative.validators.validation_strategy import ValidationStrategy
 

@@ -9,10 +9,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Mapping, Optional, Tuple, Union
 
 try:
-    try:
     import orjson
-except ImportError:
-    orjson = None  # type: ignore[assignment]
 except ImportError:
     orjson = None  # type: ignore[assignment]
 import requests

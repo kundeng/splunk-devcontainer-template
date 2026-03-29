@@ -1,4 +1,6 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
+from __future__ import annotations
+
 """Resources and utilities for locating Airbyte Connectors."""
 
 from contextlib import suppress

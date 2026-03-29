@@ -8,10 +8,7 @@ import os
 from typing import Any, Callable, Mapping, Optional, Tuple
 
 try:
-    try:
     import orjson
-except ImportError:
-    orjson = None  # type: ignore[assignment]
 except ImportError:
     orjson = None  # type: ignore[assignment]
 

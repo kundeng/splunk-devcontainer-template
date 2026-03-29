@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/urc-connector/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-03-28T03:03:22.788Z",
+      "trigger": "initial",
+      "approvalId": "approval_1774667002785_1t4cqxtzh",
+      "approvalTitle": "URC Connector Implementation Requirements"
+    }
+  ]
+}

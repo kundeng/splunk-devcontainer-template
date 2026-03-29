@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """Provides consistent datetime handling across Airbyte with ISO8601/RFC3339 compliance.
 
 Copyright (c) 2023 Airbyte, Inc., all rights reserved.

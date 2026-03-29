@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/urc-connector/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-03-28T16:04:33.031Z",
+      "trigger": "initial",
+      "approvalId": "approval_1774713873029_qkbmb1wek",
+      "approvalTitle": "URC Connector Tasks"
+    }
+  ]
+}

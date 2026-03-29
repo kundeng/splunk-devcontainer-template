@@ -27,27 +27,22 @@ def stream_data_to_airbyte_message(
     if schema is None:
         schema = {}
 
-    match data_or_message:
-        case ABCMapping():
-            data = dict(data_or_message)
-            now_millis = time.time_ns() // 1_000_000
-            # Transform object fields according to config. Most likely you will
-            # need it to normalize values against json schema. By default no action
-            # taken unless configured. See
-            # docs/connector-development/cdk-python/schemas.md for details.
-            transformer.transform(data, schema)
-            message = AirbyteRecordMessage(
-                stream=stream_name,
-                data=data,
-                emitted_at=now_millis,
-                file_reference=file_reference,
-            )
-            return AirbyteMessage(type=MessageType.RECORD, record=message)
-        case AirbyteTraceMessage():
-            return AirbyteMessage(type=MessageType.TRACE, trace=data_or_message)
-        case AirbyteLogMessage():
-            return AirbyteMessage(type=MessageType.LOG, log=data_or_message)
-        case _:
-            raise ValueError(
-                f"Unexpected type for data_or_message: {type(data_or_message)}: {data_or_message}"
-            )
+    if isinstance(data_or_message, ABCMapping):
+        data = dict(data_or_message)
+        now_millis = time.time_ns() // 1_000_000
+        transformer.transform(data, schema)
+        message = AirbyteRecordMessage(
+            stream=stream_name,
+            data=data,
+            emitted_at=now_millis,
+            file_reference=file_reference,
+        )
+        return AirbyteMessage(type=MessageType.RECORD, record=message)
+    elif isinstance(data_or_message, AirbyteTraceMessage):
+        return AirbyteMessage(type=MessageType.TRACE, trace=data_or_message)
+    elif isinstance(data_or_message, AirbyteLogMessage):
+        return AirbyteMessage(type=MessageType.LOG, log=data_or_message)
+    else:
+        raise ValueError(
+            f"Unexpected type for data_or_message: {type(data_or_message)}: {data_or_message}"
+        )

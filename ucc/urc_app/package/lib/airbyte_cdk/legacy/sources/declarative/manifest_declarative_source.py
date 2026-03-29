@@ -2,6 +2,8 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 #
 
+from __future__ import annotations
+
 import json
 import logging
 import pkgutil
@@ -11,10 +13,7 @@ from types import ModuleType
 from typing import Any, Dict, Iterator, List, Mapping, Optional, Set, Union
 
 try:
-    try:
     import orjson
-except ImportError:
-    orjson = None  # type: ignore[assignment]
 except ImportError:
     orjson = None  # type: ignore[assignment]
 import yaml

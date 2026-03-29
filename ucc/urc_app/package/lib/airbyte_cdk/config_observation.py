@@ -11,10 +11,7 @@ from copy import copy
 from typing import Any, List, MutableMapping
 
 try:
-    try:
     import orjson
-except ImportError:
-    orjson = None  # type: ignore[assignment]
 except ImportError:
     orjson = None  # type: ignore[assignment]
 

@@ -1493,42 +1493,41 @@ class ModelToComponentFactory:
                 parameters=model_parameters,
             )
             evaluated_target = target.eval(config=config)
-            match evaluated_target:
-                case "DAY":
-                    clamping_strategy = DayClampingStrategy()
-                    end_date_provider = ClampingEndProvider(
-                        DayClampingStrategy(is_ceiling=False),
-                        end_date_provider,  # type: ignore  # Having issues w/ inspection for GapType and CursorValueType as shown in existing tests. Confirmed functionality is working in practice
-                        granularity=cursor_granularity or datetime.timedelta(seconds=1),
-                    )
-                case "WEEK":
-                    if (
-                        not datetime_based_cursor_model.clamping.target_details
-                        or "weekday" not in datetime_based_cursor_model.clamping.target_details
-                    ):
-                        raise ValueError(
-                            "Given WEEK clamping, weekday needs to be provided as target_details"
-                        )
-                    weekday = self._assemble_weekday(
-                        datetime_based_cursor_model.clamping.target_details["weekday"]
-                    )
-                    clamping_strategy = WeekClampingStrategy(weekday)
-                    end_date_provider = ClampingEndProvider(
-                        WeekClampingStrategy(weekday, is_ceiling=False),
-                        end_date_provider,  # type: ignore  # Having issues w/ inspection for GapType and CursorValueType as shown in existing tests. Confirmed functionality is working in practice
-                        granularity=cursor_granularity or datetime.timedelta(days=1),
-                    )
-                case "MONTH":
-                    clamping_strategy = MonthClampingStrategy()
-                    end_date_provider = ClampingEndProvider(
-                        MonthClampingStrategy(is_ceiling=False),
-                        end_date_provider,  # type: ignore  # Having issues w/ inspection for GapType and CursorValueType as shown in existing tests. Confirmed functionality is working in practice
-                        granularity=cursor_granularity or datetime.timedelta(days=1),
-                    )
-                case _:
+            if evaluated_target == "DAY":
+                clamping_strategy = DayClampingStrategy()
+                end_date_provider = ClampingEndProvider(
+                    DayClampingStrategy(is_ceiling=False),
+                    end_date_provider,  # type: ignore
+                    granularity=cursor_granularity or datetime.timedelta(seconds=1),
+                )
+            elif evaluated_target == "WEEK":
+                if (
+                    not datetime_based_cursor_model.clamping.target_details
+                    or "weekday" not in datetime_based_cursor_model.clamping.target_details
+                ):
                     raise ValueError(
-                        f"Invalid clamping target {evaluated_target}, expected DAY, WEEK, MONTH"
+                        "Given WEEK clamping, weekday needs to be provided as target_details"
                     )
+                weekday = self._assemble_weekday(
+                    datetime_based_cursor_model.clamping.target_details["weekday"]
+                )
+                clamping_strategy = WeekClampingStrategy(weekday)
+                end_date_provider = ClampingEndProvider(
+                    WeekClampingStrategy(weekday, is_ceiling=False),
+                    end_date_provider,  # type: ignore
+                    granularity=cursor_granularity or datetime.timedelta(days=1),
+                )
+            elif evaluated_target == "MONTH":
+                clamping_strategy = MonthClampingStrategy()
+                end_date_provider = ClampingEndProvider(
+                    MonthClampingStrategy(is_ceiling=False),
+                    end_date_provider,  # type: ignore
+                    granularity=cursor_granularity or datetime.timedelta(days=1),
+                )
+            else:
+                raise ValueError(
+                    f"Invalid clamping target {evaluated_target}, expected DAY, WEEK, MONTH"
+                )
 
         return ConcurrentCursor(
             stream_name=stream_name,
@@ -1619,23 +1618,18 @@ class ModelToComponentFactory:
         )
 
     def _assemble_weekday(self, weekday: str) -> Weekday:
-        match weekday:
-            case "MONDAY":
-                return Weekday.MONDAY
-            case "TUESDAY":
-                return Weekday.TUESDAY
-            case "WEDNESDAY":
-                return Weekday.WEDNESDAY
-            case "THURSDAY":
-                return Weekday.THURSDAY
-            case "FRIDAY":
-                return Weekday.FRIDAY
-            case "SATURDAY":
-                return Weekday.SATURDAY
-            case "SUNDAY":
-                return Weekday.SUNDAY
-            case _:
-                raise ValueError(f"Unknown weekday {weekday}")
+        weekday_map = {
+            "MONDAY": Weekday.MONDAY,
+            "TUESDAY": Weekday.TUESDAY,
+            "WEDNESDAY": Weekday.WEDNESDAY,
+            "THURSDAY": Weekday.THURSDAY,
+            "FRIDAY": Weekday.FRIDAY,
+            "SATURDAY": Weekday.SATURDAY,
+            "SUNDAY": Weekday.SUNDAY,
+        }
+        if weekday in weekday_map:
+            return weekday_map[weekday]
+        raise ValueError(f"Unknown weekday {weekday}")
 
     def create_concurrent_cursor_from_perpartition_cursor(
         self,

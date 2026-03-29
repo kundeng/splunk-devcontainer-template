@@ -13,10 +13,16 @@ from typing import TYPE_CHECKING, Any, ClassVar, Dict, List, Mapping, MutableMap
 import jsonref
 from jsonschema import validate
 from jsonschema.exceptions import ValidationError
+try:
+    from referencing import Registry, Resource
+    from referencing._core import Resolver
+    from referencing.jsonschema import DRAFT7
+except ImportError:
+    Registry = None  # type: ignore[assignment]
+    Resource = None  # type: ignore[assignment]
+    Resolver = None  # type: ignore[assignment]
+    DRAFT7 = None  # type: ignore[assignment]
 from pydantic.v1 import BaseModel, Field
-from referencing import Registry, Resource
-from referencing._core import Resolver  # used for type hints
-from referencing.jsonschema import DRAFT7
 
 from airbyte_cdk.models import ConnectorSpecification, FailureType
 from airbyte_cdk.utils.traced_exception import AirbyteTracedException

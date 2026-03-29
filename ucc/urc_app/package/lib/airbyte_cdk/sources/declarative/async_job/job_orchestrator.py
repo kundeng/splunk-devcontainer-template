@@ -355,19 +355,18 @@ class AsyncJobOrchestrator:
         """
         current_running_partitions: List[AsyncPartition] = []
         for partition in self._running_partitions:
-            match partition.status:
-                case AsyncJobStatus.COMPLETED:
-                    self._process_completed_partition(partition)
-                    yield partition
-                case AsyncJobStatus.RUNNING:
-                    current_running_partitions.append(partition)
-                case _ if partition.has_reached_max_attempt():
-                    self._stop_partition(partition)
-                    self._process_partitions_with_errors(partition)
-                case _:
-                    self._stop_timed_out_jobs(partition)
-                    # re-allocate FAILED jobs, but TIMEOUT jobs are not re-allocated
-                    self._reallocate_partition(current_running_partitions, partition)
+            if partition.status == AsyncJobStatus.COMPLETED:
+                self._process_completed_partition(partition)
+                yield partition
+            elif partition.status == AsyncJobStatus.RUNNING:
+                current_running_partitions.append(partition)
+            elif partition.has_reached_max_attempt():
+                self._stop_partition(partition)
+                self._process_partitions_with_errors(partition)
+            else:
+                self._stop_timed_out_jobs(partition)
+                # re-allocate FAILED jobs, but TIMEOUT jobs are not re-allocated
+                self._reallocate_partition(current_running_partitions, partition)
 
             # We only remove completed / timeout jobs jobs as we want failed jobs to be re-allocated in priority
             self._remove_completed_jobs(partition)

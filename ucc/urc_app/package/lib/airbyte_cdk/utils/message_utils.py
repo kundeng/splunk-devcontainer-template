@@ -5,22 +5,21 @@ from airbyte_cdk.sources.connector_state_manager import HashableStreamDescriptor
 
 
 def get_stream_descriptor(message: AirbyteMessage) -> HashableStreamDescriptor:
-    match message.type:
-        case Type.RECORD:
-            return HashableStreamDescriptor(
-                name=message.record.stream,  # type: ignore[union-attr] # record has `stream`
-                namespace=message.record.namespace,  # type: ignore[union-attr] # record has `namespace`
+    if message.type == Type.RECORD:
+        return HashableStreamDescriptor(
+            name=message.record.stream,  # type: ignore[union-attr]
+            namespace=message.record.namespace,  # type: ignore[union-attr]
+        )
+    elif message.type == Type.STATE:
+        if not message.state.stream or not message.state.stream.stream_descriptor:  # type: ignore[union-attr]
+            raise ValueError(
+                "State message was not in per-stream state format, which is required for record counts."
             )
-        case Type.STATE:
-            if not message.state.stream or not message.state.stream.stream_descriptor:  # type: ignore[union-attr] # state has `stream`
-                raise ValueError(
-                    "State message was not in per-stream state format, which is required for record counts."
-                )
-            return HashableStreamDescriptor(
-                name=message.state.stream.stream_descriptor.name,  # type: ignore[union-attr] # state has `stream`
-                namespace=message.state.stream.stream_descriptor.namespace,  # type: ignore[union-attr] # state has `stream`
-            )
-        case _:
-            raise NotImplementedError(
-                f"get_stream_descriptor is not implemented for message type '{message.type}'."
-            )
+        return HashableStreamDescriptor(
+            name=message.state.stream.stream_descriptor.name,  # type: ignore[union-attr]
+            namespace=message.state.stream.stream_descriptor.namespace,  # type: ignore[union-attr]
+        )
+    else:
+        raise NotImplementedError(
+            f"get_stream_descriptor is not implemented for message type '{message.type}'."
+        )

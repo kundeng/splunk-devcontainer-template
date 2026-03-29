@@ -1,5 +1,7 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 
+from __future__ import annotations
+
 import json
 import logging
 import pkgutil
@@ -19,10 +21,7 @@ from typing import (
 )
 
 try:
-    try:
     import orjson
-except ImportError:
-    orjson = None  # type: ignore[assignment]
 except ImportError:
     orjson = None  # type: ignore[assignment]
 import yaml

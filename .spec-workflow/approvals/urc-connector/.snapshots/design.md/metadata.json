@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/urc-connector/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-03-28T15:59:06.630Z",
+      "trigger": "initial",
+      "approvalId": "approval_1774713546627_aks3xvqa1",
+      "approvalTitle": "URC Connector Design"
+    }
+  ]
+}

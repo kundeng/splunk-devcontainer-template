@@ -2,6 +2,8 @@
 # Copyright (c) 2023 Airbyte, Inc., all rights reserved.
 #
 
+from __future__ import annotations
+
 from datetime import timedelta
 from typing import Any, List, Mapping, Optional, Sequence, Tuple, Union
 

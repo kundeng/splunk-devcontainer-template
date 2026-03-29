@@ -6,10 +6,7 @@ import traceback
 from typing import Any, Optional
 
 try:
-    try:
     import orjson
-except ImportError:
-    orjson = None  # type: ignore[assignment]
 except ImportError:
     orjson = None  # type: ignore[assignment]
 
