@@ -2,19 +2,19 @@
 
 ## Group A: New Components (independent, parallelizable)
 
-- [-] 1. Add transformations module (R3)
+- [x] 1. Add transformations module (R3)
   - Create `urc/components/transformations.py`
   - Implement: AddFields, RemoveFields, KeysToLower, KeysToSnakeCase, FlattenFields
   - Wire into engine.py: apply stream's `transformations` list after record extraction
   - _Requirements: R3_
 
-- [-] 2. Add decoders module (R5)
+- [x] 2. Add decoders module (R5)
   - Create `urc/components/decoders.py`
   - Implement: JsonDecoder, JsonlDecoder, CsvDecoder, XmlDecoder, GzipDecoder
   - Wire into retriever.py: use decoder instead of hardcoded response.json()
   - _Requirements: R5_
 
-- [-] 3. Add new auth types (R2)
+- [x] 3. Add new auth types (R2)
   - Add to `urc/components/auth.py`: DigestAuth, JwtAuth, SessionTokenAuth
   - DigestAuth: use requests.auth.HTTPDigestAuth
   - JwtAuth: sign JWT with configurable algorithm/headers/payload (use PyJWT if available, fallback to manual)
@@ -23,7 +23,7 @@
 
 ## Group B: Enhance Existing Components
 
-- [-] 4. Enhance requester with full HTTP support (R1)
+- [x] 4. Enhance requester with full HTTP support (R1)
   - All HTTP methods: GET, POST, PUT, PATCH, DELETE, HEAD
   - Proxy support: read from UCC proxy settings tab via ConfManager
   - SSL: verify toggle + custom CA bundle path
@@ -31,7 +31,7 @@
   - Configurable timeout from manifest or input config
   - _Requirements: R1_
 
-- [-] 5. Enhance error handling (R6)
+- [x] 5. Enhance error handling (R6)
   - Add CompositeErrorHandler: chain multiple handlers
   - Add HttpResponseFilter: match by status code, error message, predicate
   - Add WaitTimeFromHeader: extract retry timing from Retry-After or custom headers
@@ -41,7 +41,7 @@
 
 ## Group C: Stream Orchestration
 
-- [ ] 6. Add partition routers (R4)
+- [-] 6. Add partition routers (R4)
   - Create `urc/components/partition_router.py`
   - SubstreamPartitionRouter: collect parent stream, iterate partitions for child
   - ListPartitionRouter: iterate over static or config-driven list
@@ -56,7 +56,7 @@
 
 ## Group D: UI Enhancements
 
-- [ ] 8. Add Test Connection REST endpoint (R8)
+- [-] 8. Add Test Connection REST endpoint (R8)
   - Create custom REST handler: PersistentServerConnectionApplication
   - Endpoint accepts manifest + account config, runs dry-run collection (1 page)
   - Returns sample records or error with details

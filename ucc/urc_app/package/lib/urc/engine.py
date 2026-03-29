@@ -72,31 +72,48 @@ def _collect_stream(
     else:
         slices = [{}]  # Single full-refresh slice
 
+    # Build partition router if defined on the retriever
+    partition_router_def = retriever_def.get("partition_router")
+    partitions: List[dict] = [{}]  # default: single empty partition
+    if partition_router_def and partition_router_def.get("type"):
+        router = registry.create(partition_router_def, config)
+        # SubstreamPartitionRouter.get_partitions accepts checkpoint;
+        # ListPartitionRouter.get_partitions does not — use try/except to
+        # handle both signatures simply.
+        try:
+            partitions = list(router.get_partitions(config, checkpoint=checkpoint))
+        except TypeError:
+            partitions = list(router.get_partitions(config))
+        if not partitions:
+            partitions = [{}]
+
     # Build transformation pipeline if defined
     transformations = []
     for t_def in stream_def.get("transformations", []):
         transformations.append(registry.create(t_def, config))
 
     record_count = 0
-    for stream_slice in slices:
-        for record in retriever.read_records(config, stream_slice=stream_slice):
-            # Apply transformations in order
-            for t in transformations:
-                record = t.transform(
-                    record, config,
-                    stream_partition=stream_slice,
-                    stream_name=stream_name,
-                )
+    for partition in partitions:
+        for stream_slice in slices:
+            merged_slice = {**stream_slice, **partition}
+            for record in retriever.read_records(config, stream_slice=merged_slice):
+                # Apply transformations in order
+                for t in transformations:
+                    record = t.transform(
+                        record, config,
+                        stream_partition=merged_slice,
+                        stream_name=stream_name,
+                    )
 
-            record_count += 1
+                record_count += 1
 
-            # Update cursor state if incremental
-            state = None
-            if cursor:
-                cursor.observe(record)
-                state = cursor.get_state()
+                # Update cursor state if incremental
+                state = None
+                if cursor:
+                    cursor.observe(record)
+                    state = cursor.get_state()
 
-            yield (stream_name, record, state)
+                yield (stream_name, record, state)
 
     # Emit final state after all records
     if cursor:
