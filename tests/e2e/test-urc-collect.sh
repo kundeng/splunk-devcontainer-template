@@ -3,6 +3,7 @@
 # No Splunk Web UI interaction needed.
 set -euo pipefail
 
+SPLUNK_CONTAINER="${SPLUNK_CONTAINER:-splunk-dev}"
 SPLUNK_URL="https://localhost:8089"
 SPLUNK_USER="admin"
 SPLUNK_PASS="${SPLUNK_PASSWORD:-admin123}"
@@ -18,11 +19,11 @@ pass() { echo -e "${GREEN}✓ $1${NC}"; }
 fail() { echo -e "${RED}✗ $1${NC}"; exit 1; }
 info() { echo -e "${YELLOW}→ $1${NC}"; }
 
-# ── Helper: Splunk REST API call ──
+# ── Helper: Splunk REST API call (via docker exec) ──
 splunk_api() {
     local method=$1 endpoint=$2
     shift 2
-    curl -sk -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
+    docker exec "$SPLUNK_CONTAINER" curl -sk -u "${SPLUNK_USER}:${SPLUNK_PASS}" \
         -X "$method" \
         "${SPLUNK_URL}${endpoint}" \
         "$@" 2>/dev/null
