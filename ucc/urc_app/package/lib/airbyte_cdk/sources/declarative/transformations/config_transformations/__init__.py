@@ -2,8 +2,15 @@
 # Copyright (c) 2025 Airbyte, Inc., all rights reserved.
 #
 
-from .add_fields import ConfigAddFields
-from .remap_field import ConfigRemapField
-from .remove_fields import ConfigRemoveFields
 
-__all__ = ["ConfigRemapField", "ConfigAddFields", "ConfigRemoveFields"]
+def __getattr__(name):
+    _imports = {
+        "ConfigAddFields": ".add_fields",
+        "ConfigRemapField": ".remap_field",
+        "ConfigRemoveFields": ".remove_fields",
+    }
+    if name in _imports:
+        import importlib
+        mod = importlib.import_module(_imports[name], package=__name__)
+        return getattr(mod, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

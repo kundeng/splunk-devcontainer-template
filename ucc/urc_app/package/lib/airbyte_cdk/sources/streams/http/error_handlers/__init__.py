@@ -2,21 +2,19 @@
 # Copyright (c) 2023 Airbyte, Inc., all rights reserved.
 #
 
-from .backoff_strategy import BackoffStrategy
-from .default_backoff_strategy import DefaultBackoffStrategy
-from .error_handler import ErrorHandler
-from .error_message_parser import ErrorMessageParser
-from .http_status_error_handler import HttpStatusErrorHandler
-from .json_error_message_parser import JsonErrorMessageParser
-from .response_models import ErrorResolution, ResponseAction
-
-__all__ = [
-    "BackoffStrategy",
-    "DefaultBackoffStrategy",
-    "ErrorHandler",
-    "ErrorMessageParser",
-    "HttpStatusErrorHandler",
-    "JsonErrorMessageParser",
-    "ResponseAction",
-    "ErrorResolution",
-]
+def __getattr__(name):
+    _imports = {
+        "BackoffStrategy": ".backoff_strategy",
+        "DefaultBackoffStrategy": ".default_backoff_strategy",
+        "ErrorHandler": ".error_handler",
+        "ErrorMessageParser": ".error_message_parser",
+        "ErrorResolution": ".response_models",
+        "HttpStatusErrorHandler": ".http_status_error_handler",
+        "JsonErrorMessageParser": ".json_error_message_parser",
+        "ResponseAction": ".response_models",
+    }
+    if name in _imports:
+        import importlib
+        mod = importlib.import_module(_imports[name], package=__name__)
+        return getattr(mod, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

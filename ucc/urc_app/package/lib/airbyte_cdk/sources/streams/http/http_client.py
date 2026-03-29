@@ -1,6 +1,7 @@
 #
 # Copyright (c) 2023 Airbyte, Inc., all rights reserved.
 #
+from __future__ import annotations
 
 import logging
 import os
@@ -85,7 +86,8 @@ def monkey_patched_get_item(self, key):  # type: ignore # this interface is a co
         return self.deserialize(key, row[0])
 
 
-requests_cache.SQLiteDict.__getitem__ = monkey_patched_get_item  # type: ignore # see the method doc for more information
+if requests_cache is not None:
+    requests_cache.SQLiteDict.__getitem__ = monkey_patched_get_item  # type: ignore
 
 
 class HttpClient:
@@ -170,22 +172,23 @@ class HttpClient:
             # * https://github.com/requests-cache/requests-cache/commit/7fa89ffda300331c37d8fad7f773348a3b5b0236#diff-f43db4a5edf931647c32dec28ea7557aae4cae8444af4b26c8ecbe88d8c925aaR238
             # * https://github.com/requests-cache/requests-cache/commit/7fa89ffda300331c37d8fad7f773348a3b5b0236#diff-2e7f95b7d7be270ff1a8118f817ea3e6663cdad273592e536a116c24e6d23c18R164-R168
             # * `If the application running SQLite crashes, the data will be safe, but the database [might become corrupted](https://www.sqlite.org/howtocorrupt.html#cfgerr) if the operating system crashes or the computer loses power before that data has been written to the disk surface.` in [this description](https://www.sqlite.org/pragma.html#pragma_synchronous).
-            backend = requests_cache.SQLiteCache(sqlite_path, fast_save=True, wal=True)
-            return CachedLimiterSession(
-                cache_name=sqlite_path,
-                backend=backend,
-                api_budget=self._api_budget,
-                match_headers=True,
-            )
-        else:
-            return LimiterSession(api_budget=self._api_budget)
+            if requests_cache is not None:
+                backend = requests_cache.SQLiteCache(sqlite_path, fast_save=True, wal=True)
+                return CachedLimiterSession(
+                    cache_name=sqlite_path,
+                    backend=backend,
+                    api_budget=self._api_budget,
+                    match_headers=True,
+                )
+            # Fall through to non-cached session if requests_cache unavailable
+        return LimiterSession(api_budget=self._api_budget)
 
     def clear_cache(self) -> None:
         """
         Clear cached requests for current session, can be called any time
         """
-        if isinstance(self._session, requests_cache.CachedSession):
-            self._session.cache.clear()  # type: ignore # cache.clear is not typed
+        if requests_cache is not None and isinstance(self._session, requests_cache.CachedSession):
+            self._session.cache.clear()  # type: ignore
 
     def _dedupe_query_params(
         self, url: str, params: Optional[Mapping[str, str]]

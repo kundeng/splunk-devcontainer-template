@@ -1,15 +1,14 @@
-from .connector_builder_file_uploader import ConnectorBuilderFileUploader
-from .default_file_uploader import DefaultFileUploader
-from .file_uploader import FileUploader
-from .file_writer import FileWriter
-from .local_file_system_file_writer import LocalFileSystemFileWriter
-from .noop_file_writer import NoopFileWriter
-
-__all__ = [
-    "DefaultFileUploader",
-    "LocalFileSystemFileWriter",
-    "NoopFileWriter",
-    "ConnectorBuilderFileUploader",
-    "FileUploader",
-    "FileWriter",
-]
+def __getattr__(name):
+    _imports = {
+        "ConnectorBuilderFileUploader": ".connector_builder_file_uploader",
+        "DefaultFileUploader": ".default_file_uploader",
+        "FileUploader": ".file_uploader",
+        "FileWriter": ".file_writer",
+        "LocalFileSystemFileWriter": ".local_file_system_file_writer",
+        "NoopFileWriter": ".noop_file_writer",
+    }
+    if name in _imports:
+        import importlib
+        mod = importlib.import_module(_imports[name], package=__name__)
+        return getattr(mod, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

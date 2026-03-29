@@ -3038,13 +3038,12 @@ class ModelToComponentFactory:
         )
 
         property_limit_type: PropertyLimitType
-        match model.property_limit_type:
-            case PropertyLimitTypeModel.property_count:
-                property_limit_type = PropertyLimitType.property_count
-            case PropertyLimitTypeModel.characters:
-                property_limit_type = PropertyLimitType.characters
-            case _:
-                raise ValueError(f"Invalid PropertyLimitType {property_limit_type}")
+        if model.property_limit_type == PropertyLimitTypeModel.property_count:
+            property_limit_type = PropertyLimitType.property_count
+        elif model.property_limit_type == PropertyLimitTypeModel.characters:
+            property_limit_type = PropertyLimitType.characters
+        else:
+            raise ValueError(f"Invalid PropertyLimitType {model.property_limit_type}")
 
         return PropertyChunking(
             property_limit_type=property_limit_type,
@@ -3692,17 +3691,15 @@ class ModelToComponentFactory:
         return api_status_to_cdk_status
 
     def _get_async_job_status(self, status: str) -> AsyncJobStatus:
-        match status:
-            case "running":
-                return AsyncJobStatus.RUNNING
-            case "completed":
-                return AsyncJobStatus.COMPLETED
-            case "failed":
-                return AsyncJobStatus.FAILED
-            case "timeout":
-                return AsyncJobStatus.TIMED_OUT
-            case _:
-                raise ValueError(f"Unsupported CDK status {status}")
+        status_map = {
+            "running": AsyncJobStatus.RUNNING,
+            "completed": AsyncJobStatus.COMPLETED,
+            "failed": AsyncJobStatus.FAILED,
+            "timeout": AsyncJobStatus.TIMED_OUT,
+        }
+        if status in status_map:
+            return status_map[status]
+        raise ValueError(f"Unsupported CDK status {status}")
 
     def create_async_retriever(
         self,

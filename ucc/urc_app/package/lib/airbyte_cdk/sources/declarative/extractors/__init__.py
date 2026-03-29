@@ -2,14 +2,21 @@
 # Copyright (c) 2023 Airbyte, Inc., all rights reserved.
 #
 
-from airbyte_cdk.sources.declarative.extractors.dpath_extractor import DpathExtractor
-from airbyte_cdk.sources.declarative.extractors.http_selector import HttpSelector
-from airbyte_cdk.sources.declarative.extractors.record_filter import RecordFilter
-from airbyte_cdk.sources.declarative.extractors.record_selector import RecordSelector
-from airbyte_cdk.sources.declarative.extractors.response_to_file_extractor import (
-    ResponseToFileExtractor,
-)
-from airbyte_cdk.sources.declarative.extractors.type_transformer import TypeTransformer
+
+def __getattr__(name):
+    _imports = {
+        "DpathExtractor": ".dpath_extractor",
+        "HttpSelector": ".http_selector",
+        "RecordFilter": ".record_filter",
+        "RecordSelector": ".record_selector",
+        "ResponseToFileExtractor": ".response_to_file_extractor",
+        "TypeTransformer": ".type_transformer",
+    }
+    if name in _imports:
+        import importlib
+        mod = importlib.import_module(_imports[name], package=__name__)
+        return getattr(mod, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "TypeTransformer",

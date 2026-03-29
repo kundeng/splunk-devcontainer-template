@@ -703,5 +703,8 @@ class LimiterSession(LimiterMixin, requests.Session):
     """Session that adds rate-limiting behavior to requests."""
 
 
-class CachedLimiterSession(requests_cache.CacheMixin, LimiterMixin, requests.Session):
-    """Session class with caching and rate-limiting behavior."""
+if requests_cache is not None:
+    class CachedLimiterSession(requests_cache.CacheMixin, LimiterMixin, requests.Session):
+        """Session class with caching and rate-limiting behavior."""
+else:
+    CachedLimiterSession = LimiterSession  # type: ignore[assignment,misc]
