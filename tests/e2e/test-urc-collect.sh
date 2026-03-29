@@ -43,12 +43,20 @@ if [ "$app_status" = "NOT_FOUND" ]; then
 fi
 pass "App installed: $app_status"
 
-# ── Step 2: Create a test account (NoAuth) ──
+# ── Step 2: Create a test account (NoAuth) via UCC REST endpoint ──
 info "Creating test account 'test_noauth'..."
-splunk_api POST "/servicesNS/nobody/${APP_NAME}/configs/conf-${APP_NAME}_account" \
+account_result=$(splunk_api POST "/servicesNS/nobody/${APP_NAME}/${APP_NAME}_account" \
+    -d output_mode=json \
     -d name=test_noauth \
-    -d auth_type=none \
-    -o /dev/null || true
+    -d auth_type=none 2>&1)
+echo "$account_result" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    if 'entry' in d: print('created')
+    elif 'messages' in d: print(d['messages'][0].get('text','')[:100])
+except: print('ok')
+" || true
 pass "Account created"
 
 # ── Step 3: Create test input with JSONPlaceholder manifest ──
@@ -75,15 +83,23 @@ streams:
           field_path: []'
 
 info "Creating test input 'test_jsonplaceholder'..."
-splunk_api POST "/servicesNS/nobody/${APP_NAME}/configs/conf-inputs/urc_app_input%3A%2F%2Ftest_jsonplaceholder" \
+input_result=$(splunk_api POST "/servicesNS/nobody/${APP_NAME}/${APP_NAME}_${APP_NAME}_input" \
+    -d output_mode=json \
+    -d name=test_jsonplaceholder \
     -d account=test_noauth \
     -d base_url=https://jsonplaceholder.typicode.com \
     --data-urlencode "manifest=${MANIFEST}" \
-    -d interval=300 \
+    -d interval=60 \
     -d index=main \
-    -d sourcetype=urc:api:json \
-    -d disabled=0 \
-    -o /dev/null || true
+    -d sourcetype=urc:api:json 2>&1)
+echo "$input_result" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    if 'entry' in d: print('created')
+    elif 'messages' in d: print(d['messages'][0].get('text','')[:200])
+except Exception as e: print(f'parse error: {e}')
+" || true
 pass "Input created"
 
 # ── Step 4: Wait for data collection ──
@@ -144,9 +160,9 @@ fi
 
 # ── Step 6: Cleanup ──
 info "Cleaning up test input..."
-splunk_api DELETE "/servicesNS/nobody/${APP_NAME}/configs/conf-inputs/urc_app_input%3A%2F%2Ftest_jsonplaceholder" \
+splunk_api DELETE "/servicesNS/nobody/${APP_NAME}/${APP_NAME}_${APP_NAME}_input/test_jsonplaceholder" \
     -o /dev/null || true
-splunk_api DELETE "/servicesNS/nobody/${APP_NAME}/configs/conf-${APP_NAME}_account/test_noauth" \
+splunk_api DELETE "/servicesNS/nobody/${APP_NAME}/${APP_NAME}_account/test_noauth" \
     -o /dev/null || true
 pass "Cleanup done"
 
