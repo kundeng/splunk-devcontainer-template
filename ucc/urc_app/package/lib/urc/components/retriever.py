@@ -34,6 +34,14 @@ class SimpleRetriever:
             from urc.components.pagination import NoPagination
             self._paginator = NoPagination({}, config)
 
+        # Decoder
+        decoder_def = definition.get("decoder")
+        if decoder_def:
+            self._decoder = create_component(decoder_def, config)
+        else:
+            from urc.components.decoders import JsonDecoder
+            self._decoder = JsonDecoder({}, config)
+
         self._config = config
 
     def read_records(
@@ -53,12 +61,16 @@ class SimpleRetriever:
                 stream_slice=stream_slice,
             )
 
-            # Parse response
+            # Decode response
             try:
-                response_body = response.json()
+                decoded = self._decoder.decode(response)
             except Exception:
-                logger.warning(f"Non-JSON response: {response.text[:200]}")
+                logger.warning("Failed to decode response: %s", response.text[:200])
                 break
+
+            # decoded is a list of dicts; treat the whole list as the response body
+            # for extraction if it's a single-element wrapper, otherwise pass as-is
+            response_body = decoded if len(decoded) != 1 else decoded[0]
 
             # Extract records
             records = self._selector.select(response_body, config)

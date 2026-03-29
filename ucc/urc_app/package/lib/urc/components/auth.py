@@ -157,3 +157,204 @@ class SelectiveAuth(BaseAuth):
 
     def apply(self, session: requests.Session, config: dict) -> Optional[Dict[str, Any]]:
         return self._delegate.apply(session, config)
+
+
+@component("DigestHttpAuthenticator")
+class DigestAuth(BaseAuth):
+    """HTTP Digest authentication using requests.auth.HTTPDigestAuth."""
+
+    def __init__(self, definition: dict, config: dict, **kwargs):
+        self._username_template = definition.get("username", "")
+        self._password_template = definition.get("password", "")
+
+    def apply(self, session: requests.Session, config: dict) -> None:
+        from requests.auth import HTTPDigestAuth
+
+        username = eval_string(self._username_template, config)
+        password = eval_string(self._password_template, config)
+        session.auth = HTTPDigestAuth(username, password)
+
+
+@component("JwtAuthenticator")
+class JwtAuth(BaseAuth):
+    """Signs a JWT token for each request using PyJWT."""
+
+    def __init__(self, definition: dict, config: dict, **kwargs):
+        self._secret_key_template = definition.get("secret_key", "")
+        self._algorithm = definition.get("algorithm", "HS256")
+        self._token_duration = int(definition.get("token_duration", 1200))
+        self._header_prefix = definition.get("header_prefix", "Bearer")
+        self._jwt_headers = definition.get("jwt_headers", {})
+        self._jwt_payload = definition.get("jwt_payload", {})
+        self._additional_jwt_headers = definition.get("additional_jwt_headers", {})
+        self._additional_jwt_payload = definition.get("additional_jwt_payload", {})
+        self._cached_token: Optional[str] = None
+        self._token_expiry: float = 0
+
+    def apply(self, session: requests.Session, config: dict) -> None:
+        now = time.time()
+        if self._cached_token is not None and now < self._token_expiry:
+            session.headers["Authorization"] = f"{self._header_prefix} {self._cached_token}"
+            return
+
+        try:
+            import jwt as pyjwt
+        except ImportError:
+            raise ImportError(
+                "PyJWT is required for JwtAuthenticator. "
+                "Install it with: pip install PyJWT"
+            )
+
+        secret_key = eval_string(self._secret_key_template, config)
+        algorithm = eval_string(str(self._algorithm), config)
+        header_prefix = eval_string(str(self._header_prefix), config)
+
+        # Build JWT headers
+        token_headers: Dict[str, Any] = {}
+        for k, v in self._jwt_headers.items():
+            token_headers[k] = eval_string(str(v), config) if isinstance(v, str) else v
+        for k, v in self._additional_jwt_headers.items():
+            token_headers[k] = eval_string(str(v), config) if isinstance(v, str) else v
+
+        # Build JWT payload
+        payload: Dict[str, Any] = {}
+        for k, v in self._jwt_payload.items():
+            payload[k] = eval_string(str(v), config) if isinstance(v, str) else v
+        for k, v in self._additional_jwt_payload.items():
+            payload[k] = eval_string(str(v), config) if isinstance(v, str) else v
+
+        # Set standard time claims if not already present
+        payload.setdefault("iat", int(now))
+        payload.setdefault("exp", int(now) + self._token_duration)
+
+        token = pyjwt.encode(
+            payload,
+            secret_key,
+            algorithm=algorithm,
+            headers=token_headers if token_headers else None,
+        )
+        # PyJWT >= 2.0 returns str; older versions return bytes
+        if isinstance(token, bytes):
+            token = token.decode("utf-8")
+
+        self._cached_token = token
+        self._token_expiry = now + self._token_duration
+        session.headers["Authorization"] = f"{header_prefix} {token}"
+
+
+@component("SessionTokenAuthenticator")
+class SessionTokenAuth(BaseAuth):
+    """Authenticates by first making a login request to obtain a session token,
+    then injecting it into subsequent requests."""
+
+    def __init__(self, definition: dict, config: dict, **kwargs):
+        from urc.registry import create as create_component
+
+        login_requester_def = definition.get("login_requester", {})
+        if login_requester_def:
+            self._login_requester = create_component(login_requester_def, config)
+        else:
+            self._login_requester = None
+
+        self._session_token_path: list = definition.get("session_token_path", [])
+        self._request_authentication = definition.get("request_authentication", {})
+        self._expiration_duration_str = definition.get("expiration_duration")
+        self._config = config
+
+        # Parse expiration duration
+        self._expiration_seconds: Optional[float] = None
+        if self._expiration_duration_str:
+            try:
+                import isodate
+                td = isodate.parse_duration(self._expiration_duration_str)
+                self._expiration_seconds = td.total_seconds()
+            except ImportError:
+                logger.warning(
+                    "isodate not available; expiration_duration will be ignored. "
+                    "Install it with: pip install isodate"
+                )
+            except Exception as e:
+                logger.warning(f"Failed to parse expiration_duration: {e}")
+
+        self._session_token: Optional[str] = None
+        self._token_obtained_at: float = 0
+
+    def _is_token_expired(self) -> bool:
+        if self._session_token is None:
+            return True
+        if self._expiration_seconds is not None:
+            return time.time() >= (self._token_obtained_at + self._expiration_seconds)
+        return False
+
+    def _fetch_token(self, config: dict) -> str:
+        """Call the login requester and extract the session token via dpath."""
+        if self._login_requester is None:
+            raise ValueError("SessionTokenAuthenticator: login_requester is not configured")
+
+        # Build a temporary session for the login request
+        login_session = requests.Session()
+        response = self._login_requester.send(login_session, config)
+        response.raise_for_status()
+        data = response.json()
+
+        # Walk the token path through the response JSON
+        token = data
+        for key in self._session_token_path:
+            if isinstance(token, dict):
+                token = token[key]
+            elif isinstance(token, (list, tuple)):
+                token = token[int(key)]
+            else:
+                raise ValueError(
+                    f"SessionTokenAuthenticator: cannot traverse path "
+                    f"{self._session_token_path} in response"
+                )
+        return str(token)
+
+    def apply(self, session: requests.Session, config: dict) -> Optional[Dict[str, Any]]:
+        if self._is_token_expired():
+            try:
+                self._session_token = self._fetch_token(config)
+                self._token_obtained_at = time.time()
+            except Exception as e:
+                logger.error(f"SessionTokenAuthenticator login failed: {e}")
+                raise
+
+        # Inject the token based on request_authentication config
+        auth_type = self._request_authentication.get("type", "")
+        token = self._session_token or ""
+
+        if auth_type == "ApiKeyAuthenticator":
+            header = eval_string(
+                self._request_authentication.get("header", ""),
+                config,
+            )
+            api_token_template = self._request_authentication.get("api_token", "")
+            # If the api_token template references the token, inject it;
+            # otherwise use the session token directly.
+            if api_token_template:
+                # Make token available for interpolation
+                token_config = {**config, "_session_token": token}
+                resolved = eval_string(api_token_template, token_config)
+            else:
+                resolved = token
+
+            inject_into = self._request_authentication.get("inject_into")
+            if inject_into:
+                inject_type = inject_into.get("inject_into", "header")
+                field_name = eval_string(inject_into.get("field_name", ""), config)
+                if inject_type == "header":
+                    session.headers[field_name] = str(resolved)
+                elif inject_type == "request_parameter":
+                    return {"params": {field_name: str(resolved)}}
+            elif header:
+                session.headers[header] = str(resolved)
+
+        elif auth_type == "BearerAuthenticator":
+            session.headers["Authorization"] = f"Bearer {token}"
+
+        else:
+            # Default: inject as Bearer
+            session.headers["Authorization"] = f"Bearer {token}"
+
+        return None

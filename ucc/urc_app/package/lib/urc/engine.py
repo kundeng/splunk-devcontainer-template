@@ -72,9 +72,22 @@ def _collect_stream(
     else:
         slices = [{}]  # Single full-refresh slice
 
+    # Build transformation pipeline if defined
+    transformations = []
+    for t_def in stream_def.get("transformations", []):
+        transformations.append(registry.create(t_def, config))
+
     record_count = 0
     for stream_slice in slices:
         for record in retriever.read_records(config, stream_slice=stream_slice):
+            # Apply transformations in order
+            for t in transformations:
+                record = t.transform(
+                    record, config,
+                    stream_partition=stream_slice,
+                    stream_name=stream_name,
+                )
+
             record_count += 1
 
             # Update cursor state if incremental
