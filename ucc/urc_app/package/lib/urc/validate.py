@@ -4,7 +4,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from urc.models_generated import DeclarativeSource1 as SourceModel
+from urc.models_generated import DeclarativeStream
 
 logger = logging.getLogger(__name__)
 
@@ -17,50 +17,70 @@ class ManifestValidationError(Exception):
         self.errors = errors or []
 
 
-def validate_manifest(manifest_dict: dict) -> SourceModel:
+class ValidatedManifest:
+    """Result of manifest validation — holds validated streams."""
+
+    def __init__(self, streams: List[DeclarativeStream]):
+        self.streams = streams
+
+
+def validate_manifest(manifest_dict: dict) -> ValidatedManifest:
     """Validate a processed manifest dict against the Pydantic schema.
+
+    Validates each stream individually using DeclarativeStream.parse_obj(),
+    avoiding the top-level anyOf union issue where pydantic v1 can't
+    discriminate between ConditionalStreams and DeclarativeStream.
 
     Args:
         manifest_dict: Processed manifest (after resolve_refs + propagate_types).
 
     Returns:
-        Validated SourceModel instance.
+        ValidatedManifest with validated stream instances.
 
     Raises:
-        ManifestValidationError: If the manifest is invalid, with field-path details.
+        ManifestValidationError: If any stream is invalid, with field-path details.
     """
-    try:
-        source = SourceModel.model_validate(manifest_dict)
-        return source
-    except Exception as e:
-        error_str = str(e)
-        errors = []
-        if hasattr(e, "errors"):
-            try:
-                errors = e.errors()
-            except Exception:
-                pass
+    streams_data = manifest_dict.get("streams", [])
+    if not streams_data:
+        raise ManifestValidationError("Manifest has no streams defined")
 
-        if errors:
-            details = []
-            for err in errors[:10]:
-                loc = " -> ".join(str(x) for x in err.get("loc", []))
-                msg = err.get("msg", "unknown error")
-                details.append(f"  {loc}: {msg}")
-            detail_str = "\n".join(details)
-            raise ManifestValidationError(
-                f"Manifest validation failed with {len(errors)} error(s):\n{detail_str}",
-                errors=errors,
-            ) from e
-        else:
-            raise ManifestValidationError(f"Manifest validation failed: {error_str}") from e
+    validated_streams = []
+    all_errors = []
+
+    for i, stream_dict in enumerate(streams_data):
+        stream_name = stream_dict.get("name", f"stream[{i}]")
+        try:
+            validated = DeclarativeStream.parse_obj(stream_dict)
+            validated_streams.append(validated)
+        except Exception as e:
+            errors = []
+            if hasattr(e, "errors"):
+                try:
+                    errors = e.errors()
+                except Exception:
+                    pass
+
+            if errors:
+                for err in errors[:10]:
+                    loc = " -> ".join(str(x) for x in err.get("loc", []))
+                    msg = err.get("msg", "unknown error")
+                    all_errors.append(f"  stream '{stream_name}' -> {loc}: {msg}")
+            else:
+                all_errors.append(f"  stream '{stream_name}': {e}")
+
+    if all_errors:
+        detail_str = "\n".join(all_errors)
+        raise ManifestValidationError(
+            f"Manifest validation failed with {len(all_errors)} error(s):\n{detail_str}",
+            errors=all_errors,
+        )
+
+    return ValidatedManifest(streams=validated_streams)
 
 
-def validate_stream(stream_dict: dict) -> Any:
+def validate_stream(stream_dict: dict) -> DeclarativeStream:
     """Validate a single stream definition."""
-    from urc.models_generated import DeclarativeStream
-
     try:
-        return DeclarativeStream.model_validate(stream_dict)
+        return DeclarativeStream.parse_obj(stream_dict)
     except Exception as e:
         raise ManifestValidationError(f"Stream validation failed: {e}") from e

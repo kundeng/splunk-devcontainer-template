@@ -790,16 +790,19 @@ tasks:
           --input "${SCHEMA_FILE}" \
           --output "${OUTPUT_FILE}" \
           --input-file-type jsonschema \
-          --output-model-type pydantic_v2.BaseModel \
+          --output-model-type pydantic.BaseModel \
           --target-python-version 3.9 \
-          --enum-field-as-literal all \
+          --enum-field-as-literal one \
+          --set-default-enum-member \
+          --use-one-literal-as-default \
           --use-schema-description \
           --field-constraints \
           --disable-timestamp \
           --custom-file-header-path "${HEADER_FILE}"
 
-        echo "Adding discriminated unions..."
-        python "${UCC_PATH}/schema/postprocess_models.py" "${OUTPUT_FILE}"
+        # Post-process: use pydantic.v1 compat layer (works in both pydantic<2 and pydantic>=2)
+        # This matches Airbyte CDK's approach exactly.
+        sed -i 's/^from pydantic import \(.*\)$/from pydantic.v1 import \1/' "${OUTPUT_FILE}"
 
         echo "Formatting with ruff..."
         ruff format "${OUTPUT_FILE}" 2>/dev/null || true

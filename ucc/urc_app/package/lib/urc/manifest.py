@@ -82,10 +82,6 @@ DEFAULT_TYPES: Dict[str, str] = {
     "RecordSelector.extractor": "DpathExtractor",
     "HttpRequester.error_handler": "DefaultErrorHandler",
     "DefaultPaginator.pagination_strategy": "OffsetIncrement",
-    "DefaultPaginator.page_size_option": "RequestOption",
-    "DefaultPaginator.page_token_option": "RequestOption",
-    "AddFields.fields": "AddedFieldDefinition",
-    "SubstreamPartitionRouter.parent_stream_configs": "ParentStreamConfig",
 }
 
 _PARAMETERS_KEY = "$parameters"
