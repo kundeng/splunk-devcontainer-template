@@ -18,3 +18,4 @@
 - [Feedback: non-interactive scaffold](feedback_noninteractive_scaffold.md) — Use splunk-create-noninteractive.mjs wrapper + Taskfile vars for automated scaffolding
 - [Project: URC architecture](project_urc_architecture.md) — No CDK vendoring, Pydantic v1 + @component registry, no DI framework
 - [Research: Airbyte Builder UI](research_airbyte_builder_ui.md) — Three-panel layout, schema-driven forms, dual mode, test panel tabs, AI assist, Splunk adaptation notes
+- [Research: Splunk binary deps](research_splunk_binary_deps.md) — Splunk Python 3.9 CAN load .so files; pydantic v2 works; "pure Python only" was wrong
