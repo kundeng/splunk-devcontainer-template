@@ -1,0 +1,105 @@
+# Infoblox WAPI — BasicAuth + custom pagination (_max_results + _paging)
+# Tests: Basic auth, Infoblox-specific cursor pagination, multiple object types
+# Config required: username, password, base_url (e.g. https://infoblox.corp/wapi/v2.12)
+type: DeclarativeSource
+version: "1.0.0"
+
+check:
+  type: CheckStream
+  stream_names: [network]
+
+definitions:
+  infoblox_auth:
+    type: BasicHttpAuthenticator
+    username: "{{ config['username'] }}"
+    password: "{{ config['password'] }}"
+
+streams:
+  # Network objects — Infoblox uses _paging=1 + _return_as_object=1 + _max_results
+  # Response: {"result": [...], "next_page_id": "..."}
+  - type: DeclarativeStream
+    name: network
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url: "{{ config['base_url'] }}/network"
+        http_method: GET
+        authenticator:
+          $ref: "#/definitions/infoblox_auth"
+        request_headers:
+          Accept: application/json
+        request_parameters:
+          _paging: "1"
+          _return_as_object: "1"
+          _max_results: "500"
+          _return_fields+: "network,network_view,comment,extattrs,options,members"
+        verify_ssl: false
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: [result]
+      paginator:
+        type: DefaultPaginator
+        pagination_strategy:
+          type: CursorPagination
+          cursor_value: "{{ response.get('next_page_id', '') }}"
+          stop_condition: "{{ not response.get('next_page_id') }}"
+          page_size: 500
+        page_token_option:
+          field_name: _page_id
+          inject_into: request_parameter
+    transformations:
+      - type: AddFields
+        fields:
+          - path: [_source_api]
+            value: infoblox
+          - path: [_object_type]
+            value: network
+      - type: FlattenFields
+        separator: "."
+
+  # Host records
+  - type: DeclarativeStream
+    name: record_host
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url: "{{ config['base_url'] }}/record:host"
+        http_method: GET
+        authenticator:
+          $ref: "#/definitions/infoblox_auth"
+        request_headers:
+          Accept: application/json
+        request_parameters:
+          _paging: "1"
+          _return_as_object: "1"
+          _max_results: "500"
+          _return_fields+: "name,ipv4addrs,view,zone,comment,extattrs"
+        verify_ssl: false
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: [result]
+      paginator:
+        type: DefaultPaginator
+        pagination_strategy:
+          type: CursorPagination
+          cursor_value: "{{ response.get('next_page_id', '') }}"
+          stop_condition: "{{ not response.get('next_page_id') }}"
+          page_size: 500
+        page_token_option:
+          field_name: _page_id
+          inject_into: request_parameter
+    transformations:
+      - type: AddFields
+        fields:
+          - path: [_source_api]
+            value: infoblox
+          - path: [_object_type]
+            value: "record:host"
+      - type: FlattenFields
+        separator: "."

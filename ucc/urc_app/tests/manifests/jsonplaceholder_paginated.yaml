@@ -1,0 +1,47 @@
+# JSONPlaceholder — OffsetIncrement pagination test
+# Tests: OffsetIncrement paginator with _start/_limit params
+# Expected: 100 posts split across 5 pages of 20
+type: DeclarativeSource
+version: "1.0.0"
+
+check:
+  type: CheckStream
+  stream_names: [posts]
+
+streams:
+  - type: DeclarativeStream
+    name: posts
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url: "{{ config['base_url'] }}/posts"
+        http_method: GET
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: []
+      paginator:
+        type: DefaultPaginator
+        pagination_strategy:
+          type: OffsetIncrement
+          page_size: 20
+          inject_on_first_request: true
+        page_size_option:
+          field_name: _limit
+          inject_into: request_parameter
+        page_token_option:
+          field_name: _start
+          inject_into: request_parameter
+    incremental_sync:
+      type: IncrementingCountCursor
+      cursor_field: id
+      start_value: 0
+    transformations:
+      - type: AddFields
+        fields:
+          - path: [_source_api]
+            value: jsonplaceholder
+          - path: [_collected_at]
+            value: "{{ now_utc() }}"

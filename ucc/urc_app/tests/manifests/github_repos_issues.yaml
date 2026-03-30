@@ -1,0 +1,139 @@
+# GitHub API — BearerAuth + CursorPagination + SubstreamPartitionRouter
+# Tests: Bearer token auth, Link header pagination, parent→child streams
+# Config required: api_key (GitHub PAT), github_org (organization name)
+# Expected: org → repos → issues (3-level hierarchy)
+type: DeclarativeSource
+version: "1.0.0"
+
+check:
+  type: CheckStream
+  stream_names: [repos]
+
+definitions:
+  github_auth:
+    type: BearerAuthenticator
+    api_token: "{{ config['api_key'] }}"
+
+  github_requester_base:
+    type: HttpRequester
+    http_method: GET
+    authenticator:
+      $ref: "#/definitions/github_auth"
+    request_headers:
+      Accept: application/vnd.github+json
+      X-GitHub-Api-Version: "2022-11-28"
+
+  link_header_paginator:
+    type: DefaultPaginator
+    pagination_strategy:
+      type: CursorPagination
+      cursor_value: "{{ headers.get('Link', '').split('rel=\"next\"')[0].split('<')[-1].split('>')[0] if 'rel=\"next\"' in headers.get('Link', '') else None }}"
+      stop_condition: "{{ 'rel=\"next\"' not in headers.get('Link', '') }}"
+      page_size: 30
+    page_token_option:
+      type: RequestPath
+      field_name: ""
+      inject_into: request_parameter
+
+streams:
+  # Stream 1: List repos for an organization
+  - type: DeclarativeStream
+    name: repos
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url: "{{ config['base_url'] }}/orgs/{{ config['github_org'] }}/repos"
+        http_method: GET
+        authenticator:
+          $ref: "#/definitions/github_auth"
+        request_headers:
+          Accept: application/vnd.github+json
+          X-GitHub-Api-Version: "2022-11-28"
+        request_parameters:
+          per_page: "30"
+          sort: updated
+          direction: desc
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: []
+      paginator:
+        $ref: "#/definitions/link_header_paginator"
+    transformations:
+      - type: AddFields
+        fields:
+          - path: [_stream]
+            value: repos
+      - type: RemoveFields
+        field_pointers:
+          - [permissions]
+          - [owner, received_events_url]
+          - [owner, followers_url]
+
+  # Stream 2: Issues for each repo (child of repos)
+  - type: DeclarativeStream
+    name: issues
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url: "{{ config['base_url'] }}/repos/{{ config['github_org'] }}/{{ stream_partition['repo_name'] }}/issues"
+        http_method: GET
+        authenticator:
+          $ref: "#/definitions/github_auth"
+        request_headers:
+          Accept: application/vnd.github+json
+          X-GitHub-Api-Version: "2022-11-28"
+        request_parameters:
+          per_page: "30"
+          state: all
+          sort: updated
+          direction: desc
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: []
+      paginator:
+        $ref: "#/definitions/link_header_paginator"
+      partition_router:
+        type: SubstreamPartitionRouter
+        parent_stream_configs:
+          - stream:
+              type: DeclarativeStream
+              name: parent_repos
+              retriever:
+                type: SimpleRetriever
+                requester:
+                  type: HttpRequester
+                  url: "{{ config['base_url'] }}/orgs/{{ config['github_org'] }}/repos"
+                  http_method: GET
+                  authenticator:
+                    $ref: "#/definitions/github_auth"
+                  request_headers:
+                    Accept: application/vnd.github+json
+                    X-GitHub-Api-Version: "2022-11-28"
+                  request_parameters:
+                    per_page: "30"
+                    sort: updated
+                record_selector:
+                  type: RecordSelector
+                  extractor:
+                    type: DpathExtractor
+                    field_path: []
+            parent_key: name
+            partition_field: repo_name
+    incremental_sync:
+      type: DatetimeBasedCursor
+      cursor_field: updated_at
+      start_datetime: "2024-01-01T00:00:00Z"
+      datetime_format: "%Y-%m-%dT%H:%M:%SZ"
+    transformations:
+      - type: AddFields
+        fields:
+          - path: [_stream]
+            value: issues
+          - path: [_repo]
+            value: "{{ stream_partition['repo_name'] }}"

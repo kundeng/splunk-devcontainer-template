@@ -1,0 +1,96 @@
+# Azure Event Hub — OAuth2 client credentials + event stream
+# Tests: OAuth2 token acquisition, AMQP-over-HTTP pattern, partition listing
+# Config required: client_id, client_secret, tenant_id, eventhub_namespace, eventhub_name
+# Note: Uses Azure Event Hubs REST API (management + data plane)
+type: DeclarativeSource
+version: "1.0.0"
+
+check:
+  type: CheckStream
+  stream_names: [consumer_groups]
+
+definitions:
+  azure_oauth:
+    type: OAuthAuthenticator
+    client_id: "{{ config['client_id'] }}"
+    client_secret: "{{ config['client_secret'] }}"
+    token_refresh_endpoint: "https://login.microsoftonline.com/{{ config['tenant_id'] }}/oauth2/v2.0/token"
+    grant_type: client_credentials
+    scopes:
+      - "https://management.azure.com/.default"
+
+  azure_eventhub_oauth:
+    type: OAuthAuthenticator
+    client_id: "{{ config['client_id'] }}"
+    client_secret: "{{ config['client_secret'] }}"
+    token_refresh_endpoint: "https://login.microsoftonline.com/{{ config['tenant_id'] }}/oauth2/v2.0/token"
+    grant_type: client_credentials
+    scopes:
+      - "https://eventhubs.azure.net/.default"
+
+streams:
+  # Stream 1: List consumer groups (ARM management API)
+  - type: DeclarativeStream
+    name: consumer_groups
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url: "https://management.azure.com/subscriptions/{{ config['subscription_id'] }}/resourceGroups/{{ config['resource_group'] }}/providers/Microsoft.EventHub/namespaces/{{ config['eventhub_namespace'] }}/eventhubs/{{ config['eventhub_name'] }}/consumergroups"
+        http_method: GET
+        authenticator:
+          $ref: "#/definitions/azure_oauth"
+        request_parameters:
+          api-version: "2024-01-01"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: [value]
+      paginator:
+        type: DefaultPaginator
+        pagination_strategy:
+          type: CursorPagination
+          cursor_value: "{{ response.get('nextLink', '') }}"
+          stop_condition: "{{ not response.get('nextLink') }}"
+        page_token_option:
+          type: RequestPath
+          field_name: ""
+          inject_into: request_parameter
+    transformations:
+      - type: AddFields
+        fields:
+          - path: [_source]
+            value: azure_eventhub
+          - path: [_object_type]
+            value: consumer_group
+      - type: FlattenFields
+        separator: "."
+
+  # Stream 2: List partitions via Event Hub management
+  - type: DeclarativeStream
+    name: eventhub_info
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url: "https://management.azure.com/subscriptions/{{ config['subscription_id'] }}/resourceGroups/{{ config['resource_group'] }}/providers/Microsoft.EventHub/namespaces/{{ config['eventhub_namespace'] }}/eventhubs/{{ config['eventhub_name'] }}"
+        http_method: GET
+        authenticator:
+          $ref: "#/definitions/azure_oauth"
+        request_parameters:
+          api-version: "2024-01-01"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: []
+    transformations:
+      - type: AddFields
+        fields:
+          - path: [_source]
+            value: azure_eventhub
+          - path: [_object_type]
+            value: eventhub_info
+      - type: FlattenFields
+        separator: "."

@@ -1,0 +1,113 @@
+# ServiceNow Table API — BasicAuth + OffsetPagination + DatetimeBasedCursor
+# Tests: Basic auth, offset pagination with sysparm_offset, incremental sync
+# Config required: username, password, base_url (e.g. https://instance.service-now.com)
+# Optional: start_date (ISO 8601)
+type: DeclarativeSource
+version: "1.0.0"
+
+check:
+  type: CheckStream
+  stream_names: [incidents]
+
+definitions:
+  snow_auth:
+    type: BasicHttpAuthenticator
+    username: "{{ config['username'] }}"
+    password: "{{ config['password'] }}"
+
+  snow_requester_base:
+    type: HttpRequester
+    http_method: GET
+    authenticator:
+      $ref: "#/definitions/snow_auth"
+    request_headers:
+      Accept: application/json
+
+streams:
+  - type: DeclarativeStream
+    name: incidents
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url: "{{ config['base_url'] }}/api/now/table/incident"
+        http_method: GET
+        authenticator:
+          $ref: "#/definitions/snow_auth"
+        request_headers:
+          Accept: application/json
+        request_parameters:
+          sysparm_display_value: "all"
+          sysparm_limit: "100"
+          sysparm_fields: "sys_id,number,short_description,description,state,priority,category,assigned_to,opened_at,resolved_at,closed_at,sys_updated_on"
+          sysparm_query: "sys_updated_on>={{ stream_slice.get('start_time', '2020-01-01 00:00:00') }}^ORDERBYsys_updated_on"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: [result]
+      paginator:
+        type: DefaultPaginator
+        pagination_strategy:
+          type: OffsetIncrement
+          page_size: 100
+        page_size_option:
+          field_name: sysparm_limit
+          inject_into: request_parameter
+        page_token_option:
+          field_name: sysparm_offset
+          inject_into: request_parameter
+    incremental_sync:
+      type: DatetimeBasedCursor
+      cursor_field: sys_updated_on
+      start_datetime: "{{ config.get('start_date', '2020-01-01T00:00:00Z') }}"
+      datetime_format: "%Y-%m-%d %H:%M:%S"
+    transformations:
+      - type: AddFields
+        fields:
+          - path: [_source_api]
+            value: servicenow
+          - path: [_table]
+            value: incident
+      - type: KeysToSnakeCase
+
+  - type: DeclarativeStream
+    name: sys_user
+    retriever:
+      type: SimpleRetriever
+      requester:
+        type: HttpRequester
+        url: "{{ config['base_url'] }}/api/now/table/sys_user"
+        http_method: GET
+        authenticator:
+          $ref: "#/definitions/snow_auth"
+        request_headers:
+          Accept: application/json
+        request_parameters:
+          sysparm_display_value: "all"
+          sysparm_limit: "100"
+          sysparm_fields: "sys_id,user_name,first_name,last_name,email,title,department,active"
+      record_selector:
+        type: RecordSelector
+        extractor:
+          type: DpathExtractor
+          field_path: [result]
+      paginator:
+        type: DefaultPaginator
+        pagination_strategy:
+          type: OffsetIncrement
+          page_size: 100
+        page_size_option:
+          field_name: sysparm_limit
+          inject_into: request_parameter
+        page_token_option:
+          field_name: sysparm_offset
+          inject_into: request_parameter
+    transformations:
+      - type: AddFields
+        fields:
+          - path: [_source_api]
+            value: servicenow
+          - path: [_table]
+            value: sys_user
+      - type: KeysToSnakeCase
