@@ -1,0 +1,5 @@
+# Progress Log: urc-model-codegen
+# Auto-updated by spec-go workflow
+# Format: [TIMESTAMP] [STATUS] [TASK_ID] - [DESCRIPTION]
+# STATUS: DONE | BLOCKED | SKIPPED | IN_PROGRESS
+# SUMMARY: 0/0 done | next: pending-tasks

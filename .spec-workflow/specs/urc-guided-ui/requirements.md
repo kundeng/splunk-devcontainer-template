@@ -35,18 +35,18 @@ CIMplicity AI App (Apache 2.0, Splunkbase #7945) demonstrates the hybrid pattern
 
 ## Requirements
 
-### R1: Guided Stream Configuration
+### R1: Schema-Driven Stream Configuration
 
-**User Story:** As a Splunk admin, I want to configure a REST API connection step-by-step through a visual form, so that I don't need to learn YAML manifest syntax.
+**User Story:** As a Splunk admin, I want to configure a REST API connection through a visual form that covers all supported component types, so that I don't need to learn YAML manifest syntax.
 
 #### Acceptance Criteria
-1. WHEN user opens the Connector Builder page THEN system SHALL display a step-by-step wizard with collapsible sections for each configuration area
-2. WHEN user selects an authentication type THEN system SHALL show only the relevant credential fields for that type, with placeholder examples
-3. WHEN user configures pagination THEN system SHALL show a visual picker for the pagination strategy (Offset, Cursor, Page Number, None) with plain-English descriptions and auto-populated defaults
-4. WHEN user configures record extraction THEN system SHALL provide a visual JSON path picker or text input with examples like `data.items` or `result`
-5. WHEN user configures incremental sync THEN system SHALL show datetime cursor fields with format picker and explain "only fetch new/updated records since last run"
-6. WHEN user adds a transformation THEN system SHALL provide a dropdown of available types (Add Fields, Remove Fields, Flatten, etc.) with inline descriptions
-7. IF user has not completed required fields THEN system SHALL highlight them with clear inline validation messages (not just red borders — explain what's needed)
+1. WHEN user opens the Connector Builder page THEN system SHALL display collapsible card sections for each configuration area, with fields auto-rendered from the declarative component JSON Schema
+2. WHEN a field has a `oneOf`/`anyOf` schema (e.g., authenticator, paginator, retriever type) THEN system SHALL show a dropdown selector with descriptions for each option, and conditionally render the selected type's fields
+3. WHEN a stream uses `AsyncRetriever` THEN system SHALL show sub-sections for creation, polling, and download requesters with their respective fields
+4. WHEN any component type in the schema is configurable THEN system SHALL render a working form for it — either in a curated card (common types) or in the auto-rendered "Advanced" catch-all section
+5. WHEN a schema property has a `description` THEN system SHALL display it as help text on the field
+6. IF user has not completed required fields (per schema `required` array) THEN system SHALL highlight them with actionable validation messages
+7. WHEN the schema adds new component types or fields (upstream updates) THEN the UI SHALL render them automatically via `SchemaFormRemainingFields` without code changes
 
 ### R2: Multi-Stream Support
 

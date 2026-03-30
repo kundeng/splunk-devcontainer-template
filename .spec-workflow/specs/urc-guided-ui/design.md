@@ -1,38 +1,55 @@
-# Design Document — URC Guided UI
+# Design Document — URC Guided UI (Schema-Driven)
 
 ## Overview
 
 A guided connector builder for the URC Splunk add-on. Renders as a separate Splunk page (CIMplicity hybrid pattern) alongside the UCC-generated Configuration page. Built with `@splunk/react-ui` components, `@splunk/react-page` layout, and `styled-components` theming. Generates Airbyte-compatible manifest YAML from a visual form.
 
-## Code Reuse Analysis
+**Key design choice:** Forms are **schema-driven**, following Airbyte's Connector Builder pattern. The JSON Schema from `declarative_component_schema.yaml` defines field types, enums, oneOf polymorphism, defaults, required fields, and descriptions. Hand-coded card components control **layout and grouping** only — field rendering is automatic from the schema. A `SchemaFormRemainingFields` catch-all ensures nothing is hidden.
 
-### Existing Components to Leverage
-- **`@splunk/react-ui` v5.9.0**: All form controls (ControlGroup, Text, Select, TextArea, Switch, ComboBox), layout (Card, TabLayout, Accordion, ColumnLayout), feedback (Message, WaitSpinner, Tooltip), navigation (TabBar, StepBar)
-- **`@splunk/react-page` v8.2.1**: Page mounting in Splunk Enterprise layout
-- **`@splunk/themes` v1.6.0**: Design tokens (spacing, colors, typography) via styled-components
-- **`@splunk/splunk-utils` v3.4.0**: CSRF tokens, theme loading, REST URL creation
-- **CIMplicity patterns**: 3-column layout, custom stepper, `postToEndpoint` REST helper, build pipeline
-- **Existing React monorepo**: Webpack 5 + Babel 7 + TypeScript build pipeline at `react/`
-- **URC test manifests**: 5 pre-built manifests at `ucc/urc_app/tests/manifests/` for template gallery
-
-### Integration Points
-- **UCC REST API**: Create/update/list inputs via `/servicesNS/-/urc_app/urc_app_input/` endpoint
-- **Test Connection**: POST to `/servicesNS/-/urc_app/urc_app/test_connection` with manifest + account
-- **Account listing**: GET `/servicesNS/-/urc_app/urc_app_account/` for credential dropdown
-- **UCC Configuration page**: Remains untouched — builder adds a new page, not a new tab
-
-## Architecture Decision: Separate Page (not UCC Custom Tab)
+## Architecture Decision: Schema-Driven Forms
 
 ### Options Evaluated
 
 | Option | Pros | Cons |
 |--------|------|------|
-| **A: UCC Custom Tab** | Lives inside UCC, gets save/validate for free | Limited to single panel, can't do 3-column layout, wizard awkward in tab context |
-| **B: UCC Custom Control** | Replaces manifest textarea, minimal change | Only controls one field, can't add test panel or stream sidebar |
-| **C: Separate Splunk Page** (chosen) | Full creative freedom, 3-column layout, wizard flow, proven by CIMplicity | Separate build, must handle save/validate ourselves |
-| **D: Full external SPA** | Maximum flexibility | Breaks Splunk integration, no theme support, auth headaches |
+| **A: Hand-coded sections** | Full UX control per field | Covers ~10 components, ignores 100+. Adding AsyncRetriever means writing a sub-application. |
+| **B: Schema-driven forms** (chosen) | All 136 model types get working forms automatically. Cards add UX polish to common fields. Nothing hidden. | Needs a generic `SchemaFormControl` component. Polymorphic (oneOf) handling adds complexity. |
+| **C: Full JSON Schema renderer** | Zero hand-coding | Poor UX for common paths — no grouping, no visual pickers, no help text |
 
-**Decision: Option C** — Separate Splunk page following CIMplicity pattern. This gives us full layout control for the guided wizard while staying native to Splunk. The builder page handles connector creation/editing. UCC Configuration handles accounts, logging, proxy.
+**Decision: Option B** — Schema-driven with curated card layout for common components, auto-rendered fields for everything else. This is how Airbyte's Connector Builder works.
+
+### How the schema drives the UI
+
+```
+declarative_component_schema.yaml (JSON Schema)
+    │
+    ▼ (shipped as static JSON to frontend at build time)
+    │
+SchemaFormControl({ path: "streams[0].retriever.requester.url", schema })
+    │ ← reads: type, enum, description, required, default, oneOf
+    │ ← applies widget overrides for known patterns (Jinja templates, secrets)
+    ▼
+Auto-rendered Splunk UI control (Text, Select, Switch, key-value editor, etc.)
+```
+
+**Cards define layout, schema defines fields.** Each card says "render these paths here." The actual field type, validation, description, and placeholder come from the schema. `SchemaFormRemainingFields` at the bottom auto-renders any properties not explicitly placed in a card — nothing is hidden.
+
+## Code Reuse Analysis
+
+### Existing Components to Leverage
+- **`@splunk/react-ui` v5.9.0**: All form controls, layout (Card, TabLayout, Accordion), feedback (Message, WaitSpinner)
+- **`@splunk/react-page` v8.2.1**: Page mounting in Splunk Enterprise layout
+- **`@splunk/themes` v1.6.0**: Design tokens via styled-components
+- **`@splunk/splunk-utils` v3.4.0**: CSRF tokens, theme loading, REST URL creation
+- **Existing React monorepo**: Webpack 5 + Babel 7 + TypeScript build pipeline at `react/`
+- **URC test manifests**: 5 pre-built manifests at `ucc/urc_app/tests/manifests/` for template gallery
+- **`declarative_component_schema.yaml`**: 125 definitions, 123 with descriptions, 297/516 field descriptions — drives all form rendering
+
+### Integration Points
+- **UCC REST API**: Create/update/list inputs via `/servicesNS/-/urc_app/urc_app_input/`
+- **Test Connection**: POST to `/servicesNS/-/urc_app/urc_app/test_connection`
+- **Account listing**: GET `/servicesNS/-/urc_app/urc_app_account/`
+- **UCC Configuration page**: Untouched — builder adds a new page, not a new tab
 
 ## UI Layout — ASCII Mockups
 
@@ -45,480 +62,354 @@ A guided connector builder for the URC Splunk add-on. Renders as a separate Splu
 │              │                                      │                       │
 │  STREAMS     │  Stream: github_repos                │  HELP & CONTEXT       │
 │              │                                      │                       │
-│  ┌────────┐  │  ┌─────────────────────────────────┐  │  ┌─────────────────┐  │
-│  │● repos │  │  │ ▼ Endpoint                      │  │  │ Endpoint        │  │
-│  ├────────┤  │  │                                 │  │  │                 │  │
-│  │  issues│  │  │ URL ___________________________│  │  │ The base URL of │  │
-│  ├────────┤  │  │ https://api.github.com/orgs/... │  │  │ your REST API.  │  │
-│  │  pulls │  │  │                                 │  │  │                 │  │
-│  └────────┘  │  │ Method [GET ▼]                  │  │  │ Example:        │  │
-│              │  │                                 │  │  │ https://api.    │  │
-│  [+ Add]     │  └─────────────────────────────────┘  │  │ github.com      │  │
-│              │                                      │  │                 │  │
-│              │  ┌─────────────────────────────────┐  │  │ Tip: Use        │  │
-│  ──────────  │  │ ▶ Authentication                │  │  │ {{ config['x'] }}│  │
-│              │  └─────────────────────────────────┘  │  │ for dynamic     │  │
-│  ACTIONS     │                                      │  │ values from     │  │
-│              │  ┌─────────────────────────────────┐  │  │ your Account.   │  │
-│  [Form|YAML] │  │ ▶ Pagination                    │  │  └─────────────────┘  │
+│  ┌────────┐  │  ┌─────────────────────────────────┐  │  (field description   │
+│  │● repos │  │  │ ▼ Endpoint         [Card 1]     │  │   from schema, shown  │
+│  ├────────┤  │  │   URL, Method, Headers, Params  │  │   for focused field)  │
+│  │  issues│  │  │   ← SchemaFormControl per field  │  │                       │
+│  ├────────┤  │  └─────────────────────────────────┘  │                       │
+│  │  pulls │  │                                      │                       │
+│  └────────┘  │  ┌─────────────────────────────────┐  │                       │
+│              │  │ ▶ Authentication    [Card 2]     │  │                       │
+│  [+ Add]     │  │   oneOf dropdown → type-specific │  │                       │
 │              │  └─────────────────────────────────┘  │                       │
-│  [Templates] │                                      │  ┌─────────────────┐  │
-│              │  ┌─────────────────────────────────┐  │  │ 💡 Quick Start  │  │
-│              │  │ ▶ Record Extraction              │  │  │                 │  │
-│              │  └─────────────────────────────────┘  │  │ 1. Set endpoint │  │
-│              │                                      │  │ 2. Pick auth    │  │
-│              │  ┌─────────────────────────────────┐  │  │ 3. Test it      │  │
-│              │  │ ▶ Incremental Sync               │  │  │ 4. Save         │  │
-│              │  └─────────────────────────────────┘  │  └─────────────────┘  │
-│              │                                      │                       │
+│  ──────────  │                                      │                       │
 │              │  ┌─────────────────────────────────┐  │                       │
-│              │  │ ▶ Transformations                 │  │                       │
+│  ACTIONS     │  │ ▶ Pagination        [Card 3]     │  │                       │
+│  [Form|YAML] │  └─────────────────────────────────┘  │                       │
+│  [Templates] │                                      │                       │
+│              │  ┌─────────────────────────────────┐  │                       │
+│              │  │ ▶ Record Extraction  [Card 4]    │  │                       │
 │              │  └─────────────────────────────────┘  │                       │
 │              │                                      │                       │
 │              │  ┌─────────────────────────────────┐  │                       │
-│              │  │ ▶ Error Handling                  │  │                       │
+│              │  │ ▶ Incremental Sync   [Card 5]    │  │                       │
+│              │  └─────────────────────────────────┘  │                       │
+│              │                                      │                       │
+│              │  ┌─────────────────────────────────┐  │                       │
+│              │  │ ▶ Transformations     [Card 6]    │  │                       │
+│              │  └─────────────────────────────────┘  │                       │
+│              │                                      │                       │
+│              │  ┌─────────────────────────────────┐  │                       │
+│              │  │ ▶ Error Handling      [Card 7]    │  │                       │
+│              │  └─────────────────────────────────┘  │                       │
+│              │                                      │                       │
+│              │  ┌─────────────────────────────────┐  │                       │
+│              │  │ ▶ Advanced (auto-rendered)       │  │                       │
+│              │  │   SchemaFormRemainingFields      │  │                       │
+│              │  │   (anything not placed above)    │  │                       │
 │              │  └─────────────────────────────────┘  │                       │
 │              │                                      │                       │
 ├──────────────┴──────────────────────────────────────┴───────────────────────┤
-│  TEST PANEL                                                                 │
-│  ┌──────────────────────────────────────────────────────────────────────┐   │
-│  │ Account [prod-github ▼]   [🔬 Test Connection]   ⟳ 5 records, 230ms│   │
-│  ├──────────┬───────────┬──────────┬───────────┐                       │   │
-│  │ Records  │ Request   │ Response │ Schema    │                       │   │
-│  ├──────────┴───────────┴──────────┴───────────┘                       │   │
-│  │  id │ name          │ full_name           │ description      │ ... │   │
-│  │  1  │ anthropic-sdk │ anthropics/anthro... │ Python SDK for...│     │   │
-│  │  2  │ claude-code   │ anthropics/claude... │ CLI for Claude   │     │   │
-│  │  3  │ courses       │ anthropics/courses   │ Educational...   │     │   │
-│  └──────────────────────────────────────────────────────────────────────┘   │
-│                                                                  [Save ▼]  │
+│  TEST PANEL  [Account ▼]  [Test]  ⟳ 20 records, 230ms                      │
+│  ┌──────────┬───────────┬──────────┬───────────┐                            │
+│  │ Records  │ Request   │ Response │ Schema    │                            │
+│  └──────────┴───────────┴──────────┴───────────┘                            │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Authentication Section (expanded)
+### AsyncRetriever Stream (extra tabs appear automatically)
+
+When a stream uses `AsyncRetriever`, the schema's `retriever` oneOf resolves to the async type, and the card layout adds tabs for the sub-requesters:
 
 ```
 ┌─────────────────────────────────────────────────┐
-│ ▼ Authentication                                │
+│ ▼ Retriever: Async Job                          │
 │                                                 │
-│ Auth Type  [Bearer Token          ▼]            │
-│            ┌────────────────────────┐           │
-│            │ None                   │           │
-│            │ API Key                │           │
-│            │ ● Bearer Token         │  ← Each  │
-│            │ Basic Auth             │    has a  │
-│            │ OAuth 2.0 (Client)     │    1-line │
-│            │ Digest Auth            │    desc   │
-│            │ JWT                    │           │
-│            │ Session Token          │           │
-│            └────────────────────────┘           │
+│ Retriever Type  [Async (polling) ▼]             │
 │                                                 │
-│ Token      [{{ config['api_key'] }} ]           │
-│            ℹ️ References the API Key from your  │
-│              Account configuration              │
-│                                                 │
-│ ┌─ Preview ──────────────────────────────────┐  │
-│ │ Authorization: Bearer ••••••••••••sk-1234  │  │
-│ └────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────┘
-```
-
-### Pagination Section (expanded)
-
-```
-┌─────────────────────────────────────────────────┐
-│ ▼ Pagination                                    │
-│                                                 │
-│ ┌─────────────────────────────────────────────┐ │
-│ │ How does this API paginate?                 │ │
-│ │                                             │ │
-│ │ ○ No pagination (single page of results)    │ │
-│ │                                             │ │
-│ │ ● Offset — API uses offset + limit params   │ │
-│ │   "Give me items 100-200"                   │ │
-│ │                                             │ │
-│ │ ○ Page number — API uses page + per_page    │ │
-│ │   "Give me page 3"                          │ │
-│ │                                             │ │
-│ │ ○ Cursor — API returns a next_page token    │ │
-│ │   "Continue from this token"                │ │
+│ ┌─ Creation Request ──────────────────────────┐ │
+│ │  URL, Method, Headers, Body                 │ │
+│ │  (SchemaFormControl for each field)          │ │
 │ └─────────────────────────────────────────────┘ │
 │                                                 │
-│ Page Size      [100          ]                  │
-│ Offset Param   [_start       ]  ← auto-filled  │
-│ Limit Param    [_limit       ]  ← from strategy │
+│ ┌─ Polling Request ───────────────────────────┐ │
+│ │  URL, Method, Headers                       │ │
+│ │  Status mapping: running/completed/failed   │ │
+│ └─────────────────────────────────────────────┘ │
 │                                                 │
-│ ┌─ How it works ─────────────────────────────┐  │
-│ │ Request 1: ?_start=0&_limit=100            │  │
-│ │ Request 2: ?_start=100&_limit=100          │  │
-│ │ Request 3: ?_start=200&_limit=100          │  │
-│ │ ...until fewer than 100 results returned   │  │
-│ └────────────────────────────────────────────┘  │
+│ ┌─ Download Request ──────────────────────────┐ │
+│ │  URL, Method, Decoder, Paginator            │ │
+│ └─────────────────────────────────────────────┘ │
+│                                                 │
+│ ┌─ Advanced ──────────────────────────────────┐ │
+│ │  abort_requester, delete_requester, timeout │ │
+│ │  (SchemaFormRemainingFields)                 │ │
+│ └─────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────┘
-```
-
-### Record Extraction (with test data)
-
-```
-┌─────────────────────────────────────────────────┐
-│ ▼ Record Extraction                             │
-│                                                 │
-│ Where are the records in the API response?      │
-│                                                 │
-│ Field Path  [result                   ]         │
-│             ℹ️ Dot-separated path to the array  │
-│                of records. Leave empty if the   │
-│                response IS the array.           │
-│                                                 │
-│ ┌─ API Response Preview ─────────────────────┐  │
-│ │ {                                          │  │
-│ │   "count": 156,                            │  │
-│ │   "next": "...?offset=100",                │  │
-│ │   ►"result": [  ← records are here         │  │
-│ │     { "sys_id": "abc", "number": "INC01" } │  │
-│ │     { "sys_id": "def", "number": "INC02" } │  │
-│ │   ]                                        │  │
-│ │ }                                          │  │
-│ └────────────────────────────────────────────┘  │
-│                                                 │
-│ [Apply Filter] (optional)                       │
-│ Condition  [{{ record['status'] == 'active' }}] │
-└─────────────────────────────────────────────────┘
-```
-
-### YAML Editor Mode
-
-```
-┌──────────────┬──────────────────────────────────────┬───────────────────────┐
-│              │                                      │                       │
-│  STREAMS     │  ┌─ YAML Editor ──────────────────┐  │  HELP & CONTEXT       │
-│              │  │ 1  type: DeclarativeSource      │  │                       │
-│  ┌────────┐  │  │ 2  version: "1.0.0"            │  │  ┌─────────────────┐  │
-│  │● repos │  │  │ 3                              │  │  │ YAML Mode       │  │
-│  ├────────┤  │  │ 4  check:                      │  │  │                 │  │
-│  │  issues│  │  │ 5    type: CheckStream         │  │  │ Edit the raw    │  │
-│  └────────┘  │  │ 6    stream_names: [repos]     │  │  │ manifest YAML   │  │
-│              │  │ 7                              │  │  │ directly.       │  │
-│  [+ Add]     │  │ 8  streams:                    │  │  │                 │  │
-│              │  │ 9    - type: DeclarativeStream  │  │  │ Switch back to  │  │
-│  ──────────  │  │10      name: repos             │  │  │ Form mode to    │  │
-│              │  │11      retriever:               │  │  │ use the visual  │  │
-│  [●Form|YAML]│  │12        type: SimpleRetriever  │  │  │ editor.         │  │
-│              │  │13        requester:             │  │  │                 │  │
-│  [Templates] │  │14  ❌ L14: expected indent     │  │  │ Errors are      │  │
-│              │  │                                │  │  │ shown inline.   │  │
-│              │  └────────────────────────────────┘  │  └─────────────────┘  │
-│              │                                      │                       │
-├──────────────┴──────────────────────────────────────┴───────────────────────┤
-│  TEST PANEL (collapsed — click to expand)                           [▼]    │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
-
-### Template Gallery (modal)
-
-```
-┌───────────────────────────────────────────────────────────────────┐
-│  Start from Template                                     [✕]     │
-│                                                                   │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌────────────┐ │
-│  │  🌐         │ │  🐙         │ │  ❄️         │ │  🔷        │ │
-│  │  Generic    │ │  GitHub     │ │  ServiceNow │ │  Infoblox  │ │
-│  │  REST API   │ │  API        │ │  Table API  │ │  WAPI      │ │
-│  │             │ │             │ │             │ │            │ │
-│  │  Blank      │ │  Bearer     │ │  Basic Auth │ │  Basic Auth│ │
-│  │  canvas     │ │  Cursor pag │ │  Offset pag │ │  Cursor pag│ │
-│  │             │ │  Substreams │ │  Incremental│ │            │ │
-│  │  [Select]   │ │  [Select]   │ │  [Select]   │ │  [Select]  │ │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └────────────┘ │
-│                                                                   │
-│  ┌─────────────┐ ┌─────────────┐                                 │
-│  │  ☁️         │ │  📋         │                                 │
-│  │  Azure      │ │  JSON       │                                 │
-│  │  Mgmt API   │ │  Placeholder│                                 │
-│  │             │ │             │                                 │
-│  │  OAuth 2.0  │ │  No auth    │                                 │
-│  │  Cursor pag │ │  Offset pag │                                 │
-│  │             │ │  Great for  │                                 │
-│  │  [Select]   │ │  testing    │                                 │
-│  └─────────────┘ │  [Select]   │                                 │
-│                   └─────────────┘                                 │
-│                                                                   │
-│                               [Start from Scratch]                │
-└───────────────────────────────────────────────────────────────────┘
-```
-
-### Save Flow (modal)
-
-```
-┌───────────────────────────────────────────────────────────┐
-│  Save Connector                                    [✕]    │
-│                                                           │
-│  Input Name    [github_connector      ]                   │
-│                ℹ️ Unique name for this data input          │
-│                                                           │
-│  Account       [prod-github           ▼]                  │
-│                ℹ️ Credentials to use (configured in        │
-│                   Configuration → Account)                │
-│                                                           │
-│  Interval      [300                   ] seconds           │
-│                ℹ️ How often to collect data (300 = 5 min)  │
-│                                                           │
-│  Index         [main                  ▼]                  │
-│                                                           │
-│  Sourcetype    [urc:github:repos      ]                   │
-│                ℹ️ Auto-generated from stream names         │
-│                                                           │
-│                          [Cancel]  [Save & Enable]        │
-└───────────────────────────────────────────────────────────┘
 ```
 
 ## Component Architecture
 
-### Package Structure (CIMplicity Pattern)
+### Package Structure
 
 ```
 react/packages/
 ├── urc-builder/                    # Reusable component library
-│   ├── package.json
 │   ├── src/
 │   │   ├── index.ts                # Public exports
-│   │   ├── ConnectorBuilder.tsx     # Root component (3-column layout)
-│   │   ├── state/
-│   │   │   ├── BuilderState.ts      # TypeScript interfaces for form state
-│   │   │   ├── useBuilderState.ts   # React state hook (form ↔ YAML)
-│   │   │   └── manifestSerializer.ts # form state → YAML (and reverse)
-│   │   ├── sections/               # Collapsible config sections
-│   │   │   ├── EndpointSection.tsx
-│   │   │   ├── AuthSection.tsx
-│   │   │   ├── PaginationSection.tsx
-│   │   │   ├── ExtractionSection.tsx
-│   │   │   ├── IncrementalSection.tsx
-│   │   │   ├── TransformSection.tsx
-│   │   │   └── ErrorHandlerSection.tsx
+│   │   ├── ConnectorBuilder.tsx    # Root component (3-column layout)
+│   │   │
+│   │   ├── schema/                 # Schema-driven form engine
+│   │   │   ├── SchemaFormControl.tsx    # Renders any field from JSON Schema
+│   │   │   ├── SchemaFormRemainingFields.tsx  # Auto-renders unplaced fields
+│   │   │   ├── OneOfSelector.tsx       # Dropdown for oneOf/anyOf polymorphism
+│   │   │   ├── KeyValueEditor.tsx      # For object-typed fields (headers, params)
+│   │   │   ├── ArrayEditor.tsx         # For array-typed fields (FormRows)
+│   │   │   ├── JinjaInput.tsx          # Template-aware text input ({{ config['x'] }})
+│   │   │   ├── widgetRegistry.ts       # Maps schema patterns → custom widgets
+│   │   │   └── schemaUtils.ts          # Schema traversal, ref resolution, defaults
+│   │   │
+│   │   ├── cards/                  # Layout grouping — cards say WHICH fields, not HOW
+│   │   │   ├── EndpointCard.tsx        # url, http_method, request_headers, request_parameters
+│   │   │   ├── AuthCard.tsx            # authenticator (oneOf dropdown)
+│   │   │   ├── PaginationCard.tsx      # paginator (oneOf dropdown)
+│   │   │   ├── ExtractionCard.tsx      # record_selector, with response preview
+│   │   │   ├── IncrementalCard.tsx     # incremental_sync (oneOf: datetime vs count)
+│   │   │   ├── TransformCard.tsx       # transformations (array of oneOf)
+│   │   │   ├── ErrorHandlingCard.tsx   # error_handler
+│   │   │   └── AdvancedCard.tsx        # SchemaFormRemainingFields catch-all
+│   │   │
 │   │   ├── panels/
-│   │   │   ├── StreamSidebar.tsx     # Left: stream list + actions
-│   │   │   ├── HelpPanel.tsx         # Right: contextual help
-│   │   │   └── TestPanel.tsx         # Bottom: test connection results
+│   │   │   ├── StreamSidebar.tsx       # Left: stream list + actions + mode toggle
+│   │   │   ├── HelpPanel.tsx           # Right: schema description for focused field
+│   │   │   └── TestPanel.tsx           # Bottom: test connection results
+│   │   │
 │   │   ├── dialogs/
-│   │   │   ├── SaveDialog.tsx        # Save/deploy modal
-│   │   │   └── TemplateGallery.tsx   # Template picker modal
+│   │   │   ├── SaveDialog.tsx          # Save/deploy modal
+│   │   │   └── TemplateGallery.tsx     # Template picker modal
+│   │   │
 │   │   ├── editor/
-│   │   │   └── YamlEditor.tsx        # CodeMirror 6 YAML editor
+│   │   │   └── YamlEditor.tsx          # CodeMirror 6 YAML editor
+│   │   │
+│   │   ├── state/
+│   │   │   ├── useBuilderState.ts      # React state hook (manifest as source of truth)
+│   │   │   └── manifestSerializer.ts   # manifest ↔ YAML conversion
+│   │   │
 │   │   └── utils/
-│   │       ├── api.ts                # Splunk REST helpers
-│   │       ├── templates.ts          # Built-in manifest templates
-│   │       └── helpContent.ts        # Field-level help text catalog
+│   │       ├── api.ts                  # Splunk REST helpers
+│   │       └── templates.ts            # Built-in manifest templates
 │   └── tests/
-│       └── ...
 │
-├── urc-app/                         # Splunk app wrapper
-│   ├── package.json
-│   ├── webpack.config.js
-│   ├── src/
-│   │   ├── main/
-│   │   │   ├── webapp/pages/
-│   │   │   │   └── builder/
-│   │   │   │       └── index.tsx     # Entry: getUserTheme → layout(<ConnectorBuilder />)
-│   │   │   └── resources/splunk/
-│   │   │       ├── default/
-│   │   │       │   └── data/ui/
-│   │   │       │       ├── nav/default.xml
-│   │   │       │       └── views/builder.xml
-│   │   │       └── appserver/templates/
-│   │   │           └── builder.html
-│   │   └── stage/                    # Build output → merged into UCC output
-│   └── ...
+├── urc-app/                         # Splunk app wrapper (already scaffolded)
 ```
 
 ### Key Components
 
-#### ConnectorBuilder (Root)
-- **Purpose:** 3-column layout orchestrator. Manages active stream, form/YAML mode toggle, test panel visibility.
-- **Interfaces:** `<ConnectorBuilder initialManifest?: string, inputName?: string />`
-- **Dependencies:** All section components, StreamSidebar, HelpPanel, TestPanel
-- **Layout:** CSS Grid: `grid-template-columns: 240px 1fr 280px; grid-template-rows: 1fr auto`
+#### SchemaFormControl (the core)
 
-#### useBuilderState (State Hook)
-- **Purpose:** Single source of truth for all builder state. Manages form fields, YAML string, active stream, validation errors.
-- **Interfaces:**
-  ```typescript
-  interface BuilderState {
-    mode: 'form' | 'yaml';
-    streams: StreamConfig[];
-    activeStreamIndex: number;
-    globalConfig: { check: { stream_names: string[] } };
-    yamlString: string;
-    yamlErrors: YamlError[];
-    validationErrors: Record<string, string>;
-    testResults: TestResult | null;
-    isDirty: boolean;
-  }
-  ```
-- **Key methods:** `setField(path, value)`, `addStream()`, `removeStream(idx)`, `toYaml()`, `fromYaml(str)`, `toManifest()`
+Renders any single field from a JSON Schema property definition. This is the workhorse.
 
-#### manifestSerializer
-- **Purpose:** Pure functions for bidirectional form state ↔ YAML conversion. No React dependencies — fully testable.
-- **Interfaces:**
-  ```typescript
-  function formStateToYaml(state: BuilderState): string;
-  function yamlToFormState(yaml: string): BuilderState | ValidationError[];
-  function formStateToManifest(state: BuilderState, config: Record<string, string>): string;
-  ```
-- **Reuses:** `js-yaml` for serialization, YAML field ordering to match Airbyte conventions
-
-#### Section Components (AuthSection, PaginationSection, etc.)
-- **Purpose:** Each renders a collapsible `Accordion` panel with form fields for one manifest concept
-- **Pattern:** All sections follow the same interface:
-  ```typescript
-  interface SectionProps {
-    stream: StreamConfig;
-    onChange: (path: string, value: any) => void;
-    onFocus: (fieldId: string) => void;  // triggers help panel update
-    validationErrors: Record<string, string>;
-    testResponse?: any;  // used by ExtractionSection for path preview
-  }
-  ```
-- **Splunk UI components used:** `Accordion`, `ControlGroup`, `Text`, `Select`, `ComboBox`, `Switch`, `TextArea`, `RadioBar`, `Tooltip`, `Message`
-
-#### TestPanel
-- **Purpose:** Bottom docked panel. Calls `/test_connection`, displays results in `TabLayout` (Records, Request, Response, Schema tabs).
-- **Interfaces:** `<TestPanel manifest={yaml} onAutoDetect={(fieldPath) => void} />`
-- **Dependencies:** `api.ts` for REST call, `@splunk/react-ui/Table` for record display, `@splunk/react-ui/TabLayout`
-- **Auto-detect:** When test succeeds, analyzes response shape and suggests `field_path` for record extraction
-
-#### YamlEditor
-- **Purpose:** CodeMirror 6 editor with YAML syntax highlighting, error markers, and line numbers.
-- **Interfaces:** `<YamlEditor value={yaml} onChange={(yaml) => void} errors={YamlError[]} />`
-- **Dependencies:** `@codemirror/lang-yaml`, `@codemirror/view`, `@codemirror/state`
-- **Integration:** Debounced onChange (300ms) triggers `yamlToFormState` validation
-
-#### api.ts (REST Helper)
-- **Purpose:** All Splunk REST calls. Follows CIMplicity pattern with CSRF tokens.
-- **Interfaces:**
-  ```typescript
-  function testConnection(manifest: string, accountName: string): Promise<TestResult>;
-  function listAccounts(): Promise<Account[]>;
-  function listIndexes(): Promise<string[]>;
-  function saveInput(name: string, config: InputConfig): Promise<void>;
-  function loadInput(name: string): Promise<InputConfig>;
-  function listInputs(): Promise<InputSummary[]>;
-  ```
-- **Reuses:** `@splunk/splunk-utils` for `createRESTURL`, `getDefaultFetchInit`
-
-## Data Models
-
-### StreamConfig (Form State)
 ```typescript
-interface StreamConfig {
-  name: string;
-  endpoint: {
-    url: string;
-    httpMethod: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
-    headers: Record<string, string>;
-    params: Record<string, string>;
-    bodyType: 'none' | 'json' | 'form' | 'graphql';
-    body: string;
-  };
-  auth: {
-    type: 'none' | 'api_key' | 'bearer' | 'basic' | 'oauth2' | 'digest' | 'jwt' | 'session_token';
-    // Type-specific fields populated conditionally
-    apiToken?: string;
-    header?: string;
-    username?: string;
-    password?: string;
-    clientId?: string;
-    clientSecret?: string;
-    tokenUrl?: string;
-    // ... (all use {{ config['x'] }} interpolation references)
-  };
-  pagination: {
-    type: 'none' | 'offset' | 'page' | 'cursor';
-    pageSize: number;
-    offsetParam?: string;
-    limitParam?: string;
-    cursorValue?: string;
-    stopCondition?: string;
-    pageParam?: string;
-  };
-  extraction: {
-    fieldPath: string[];      // e.g., ['data', 'items']
-    filterCondition?: string;
-  };
-  incremental: {
-    enabled: boolean;
-    type: 'datetime' | 'count';
-    cursorField?: string;
-    startDatetime?: string;
-    datetimeFormat?: string;
-    startValue?: number;
-  };
-  transformations: TransformConfig[];
-  errorHandling: {
-    maxRetries: number;
-    backoffType: 'constant' | 'exponential' | 'header';
-    retryStatusCodes: number[];
-    failStatusCodes: number[];
-  };
-}
-
-interface TransformConfig {
-  type: 'AddFields' | 'RemoveFields' | 'KeysToLower' | 'KeysToSnakeCase' | 'FlattenFields';
-  fields?: { path: string[]; value: string }[];
-  fieldPointers?: string[][];
-  separator?: string;
+interface SchemaFormControlProps {
+  path: string;              // e.g., "streams[0].retriever.requester.url"
+  schema: JSONSchemaProperty; // the schema definition for this field
+  value: any;
+  onChange: (path: string, value: any) => void;
+  onFocus: (path: string) => void;
+  errors?: Record<string, string>;
 }
 ```
 
-### TestResult
+**Auto-rendering rules by schema type:**
+
+| Schema type | Splunk component | Notes |
+|-------------|-----------------|-------|
+| `string` | `Text` | With placeholder from `examples` or `default` |
+| `string` + `enum` | `Select` | Options from enum values |
+| `string` + `interpolation_context` | `JinjaInput` | Shows `{{ config['...'] }}` hints |
+| `integer` / `number` | `Number` | With `min`/`max` from `minimum`/`maximum` |
+| `boolean` | `Switch` | |
+| `object` (key-value) | `KeyValueEditor` | For headers, params |
+| `array` of primitives | `FormRows` | Add/remove items |
+| `array` of objects | `ArrayEditor` | Each item rendered recursively |
+| `oneOf` / `anyOf` | `OneOfSelector` | Dropdown → conditional sub-form |
+| `$ref` | Follow ref → render recursively | |
+
+**Every field gets:** label (from property name, prettified), help text (from `description`), required indicator (from `required` array), validation errors.
+
+#### OneOfSelector
+
+Handles polymorphic fields — the most complex part. Auth, pagination, retriever type, decoder, etc.
+
 ```typescript
-interface TestResult {
-  success: boolean;
-  records: Record<string, any>[];
-  recordCount: number;
-  error?: string;
-  request: { url: string; method: string; headers: Record<string, string>; params: Record<string, string> };
-  response: { status: number; headers: Record<string, string>; body: any };
-  durationMs: number;
+interface OneOfSelectorProps {
+  path: string;
+  schema: { oneOf: JSONSchema[] } | { anyOf: JSONSchema[] };
+  value: any;
+  onChange: (path: string, value: any) => void;
 }
+```
+
+**How it works:**
+1. Reads the `oneOf`/`anyOf` array from the schema
+2. Each option has a `type` const that identifies it (e.g., `"BearerAuthenticator"`)
+3. Renders a `Select` dropdown with type names + descriptions
+4. On selection, shows the sub-schema's fields via recursive `SchemaFormControl`
+5. Switching types preserves common fields, clears type-specific ones
+
+#### SchemaFormRemainingFields
+
+Catches anything not explicitly placed in a card. Prevents fields from being accidentally hidden.
+
+```typescript
+interface RemainingFieldsProps {
+  schema: JSONSchema;          // full schema for current component
+  placedPaths: Set<string>;    // paths already rendered by cards
+  value: any;
+  onChange: (path: string, value: any) => void;
+}
+```
+
+Iterates schema properties, skips anything in `placedPaths`, renders the rest in a collapsible "Advanced" card.
+
+#### Cards (layout only)
+
+Cards don't render fields themselves — they declare which schema paths to place, then delegate to `SchemaFormControl`:
+
+```typescript
+// Example: EndpointCard
+const EndpointCard: React.FC<CardProps> = ({ schema, value, onChange, onFocus }) => {
+  const paths = [
+    'retriever.requester.url',
+    'retriever.requester.http_method',
+    'retriever.requester.request_headers',
+    'retriever.requester.request_parameters',
+    'retriever.requester.request_body',
+  ];
+
+  return (
+    <Accordion title="Endpoint">
+      {paths.map(path => (
+        <SchemaFormControl
+          key={path}
+          path={path}
+          schema={resolveSchemaPath(schema, path)}
+          value={getNestedValue(value, path)}
+          onChange={onChange}
+          onFocus={onFocus}
+        />
+      ))}
+    </Accordion>
+  );
+};
+```
+
+**Cards register their paths** so `SchemaFormRemainingFields` knows what's already placed.
+
+#### HelpPanel (schema-driven)
+
+No more hand-written `helpContent.ts`. The help panel reads the `description` from the focused field's schema definition:
+
+```typescript
+const HelpPanel: React.FC<{ focusedPath: string; schema: JSONSchema }> = ({ focusedPath, schema }) => {
+  const fieldSchema = resolveSchemaPath(schema, focusedPath);
+  return (
+    <Card>
+      <Heading>{prettifyFieldName(focusedPath)}</Heading>
+      <Typography>{fieldSchema?.description || 'No description available.'}</Typography>
+      {fieldSchema?.examples && <Code>{JSON.stringify(fieldSchema.examples[0], null, 2)}</Code>}
+      {fieldSchema?.default !== undefined && <Typography>Default: {String(fieldSchema.default)}</Typography>}
+    </Card>
+  );
+};
+```
+
+### State Management
+
+**The manifest IS the form state.** Following Airbyte's pattern, the form binds directly to the manifest structure — no separate `StreamConfig` intermediate type.
+
+```typescript
+interface BuilderState {
+  mode: 'form' | 'yaml';
+  manifest: ManifestDict;       // THE source of truth — same shape as the YAML
+  activeStreamIndex: number;
+  yamlString: string;            // kept in sync when in YAML mode
+  testResults: TestResult | null;
+  isDirty: boolean;
+  focusedPath: string | null;    // drives help panel
+}
+```
+
+This eliminates the `manifestSerializer` complexity — the form state IS the manifest dict. `js-yaml.dump(state.manifest)` produces the YAML. `js-yaml.load(yamlString)` produces the form state. No mapping layer.
+
+### Widget Overrides
+
+For the ~5% of fields that need special treatment beyond auto-rendering:
+
+```typescript
+// widgetRegistry.ts
+const WIDGET_OVERRIDES: Record<string, WidgetOverride> = {
+  // Jinja template fields get a special input with {{ }} hints
+  '*.url': { widget: 'jinja', placeholder: 'https://api.example.com/v1/{{ config["resource"] }}' },
+  '*.url_base': { widget: 'jinja' },
+  '*.api_token': { widget: 'jinja', placeholder: "{{ config['api_key'] }}" },
+
+  // Field path fields get a dot-notation hint
+  '*.field_path': { widget: 'dpath', placeholder: 'data.items' },
+
+  // Request body gets a multi-line JSON editor
+  '*.request_body_json': { widget: 'json-textarea' },
+};
+```
+
+These are ~15 overrides total, not 800 lines of hand-coded sections.
+
+## Data Flow
+
+```
+User interacts with form
+    │
+    ▼
+SchemaFormControl updates manifest dict at path
+    │ onChange("streams[0].retriever.requester.url", "https://...")
+    ▼
+useBuilderState updates manifest
+    │
+    ├── mode === 'form': re-renders form controls
+    ├── mode === 'yaml': js-yaml.dump(manifest) → updates editor
+    │
+    ▼ (on Test)
+api.testConnection(js-yaml.dump(manifest), account)
+    │ POST to /services/urc_app/test_connection
+    ▼
+TestPanel shows results
+    │
+    ▼ (on Save)
+api.saveInput(name, { manifest: js-yaml.dump(manifest), interval, index, ... })
+    │ POST to /servicesNS/-/urc_app/urc_app_input/
+    ▼
+Stored in Splunk inputs.conf as single manifest text field
+```
+
+## Schema Delivery
+
+The JSON Schema is shipped to the frontend as a static asset at build time:
+
+```
+Build time:
+  1. Read ucc/urc_app/schema/declarative_component_schema.yaml
+  2. Convert to JSON (smaller, faster to parse)
+  3. Bundle as import in urc-builder: import schema from './schema.json'
+
+Runtime:
+  SchemaFormControl reads schema properties on render
+  No fetch, no server round-trip
 ```
 
 ## Build Pipeline
 
-Following the CIMplicity two-stage pattern:
+Already implemented via `task ucc:add-react` (scaffolding) and existing Taskfile targets:
 
 ```
-1. ucc-gen build --source ucc/urc_app -o ucc/output/
-   └── Generates: REST handlers, conf files, UCC UI (Configuration page)
-
-2. Webpack build of react/packages/urc-app/
-   └── Input: react/packages/urc-builder/ component library
-   └── Output: stage/appserver/static/pages/builder.js
-
-3. Merge: Copy ucc/output/urc_app/ as base, overlay react build output
-   └── Add: appserver/static/pages/builder.js
-   └── Add: appserver/templates/builder.html
-   └── Add: default/data/ui/views/builder.xml
-   └── Modify: default/data/ui/nav/default.xml (add builder as default view)
-
-4. ucc-gen package (or manual tar) for distribution
-```
-
-**Taskfile integration:**
-```yaml
-ucc:build-ui:
-  desc: Build the connector builder React UI
-  cmds:
-    - cd react && yarn workspace @splunk/urc-app build
-
-ucc:build-full:
-  desc: UCC build + React UI build + merge
-  cmds:
-    - task: ucc:build
-    - task: ucc:build-ui
-    - task: ucc:merge-ui
+task ucc:build-full
+  ├── ucc:build       → UCC output (REST handlers, conf, UCC UI)
+  ├── ucc:build-ui    → webpack builds react/packages/urc-app → stage/
+  └── ucc:merge-ui    → copies stage/ into UCC output
 ```
 
 ## Navigation Integration
+
+Already implemented in scaffolded files:
 
 ```xml
 <!-- default/data/ui/nav/default.xml -->
@@ -529,57 +420,23 @@ ucc:build-full:
 </nav>
 ```
 
-```xml
-<!-- default/data/ui/views/builder.xml -->
-<view template="urc_app:/templates/builder.html" type="html">
-    <label>Connector Builder</label>
-</view>
-```
-
 ## Error Handling
 
-### Error Scenarios
-
-1. **YAML Parse Error**
-   - **Handling:** `js-yaml` parse error caught, line number extracted, error marker shown in editor
-   - **User Impact:** Red underline on error line, message in gutter: "Invalid YAML at line 14: expected indent"
-
-2. **Test Connection Failure (network)**
-   - **Handling:** Catch fetch error, show in test panel with retry button
-   - **User Impact:** "Could not reach the API. Check your URL and network settings." + [Retry]
-
-3. **Test Connection Failure (auth)**
-   - **Handling:** Parse 401/403 status, map to actionable message
-   - **User Impact:** "Authentication failed (401). Check your API key in Configuration → Account."
-
-4. **Manifest Validation Error**
-   - **Handling:** Pydantic validation errors returned from test_connection, mapped to form field paths
-   - **User Impact:** Red border + message on the specific field: "Required: pagination page_size must be a number"
-
-5. **Save Failure (duplicate name)**
-   - **Handling:** UCC REST API returns conflict, offer rename or update
-   - **User Impact:** "An input named 'github_connector' already exists. Update it or choose a different name."
-
-6. **Session Lost (page refresh)**
-   - **Handling:** Form state persisted to `sessionStorage` on every change, restored on mount
-   - **User Impact:** "Welcome back. Your unsaved changes have been restored." (dismissible banner)
+1. **YAML Parse Error**: `js-yaml` error → inline marker in CodeMirror, line number
+2. **Test Connection Failure**: Catch fetch error or HTTP status, show actionable message in TestPanel
+3. **Manifest Validation Error**: Pydantic errors from test_connection mapped to form field paths
+4. **Schema field missing**: SchemaFormControl renders gracefully if a path doesn't exist in schema
+5. **Save Failure**: UCC REST API error → dialog shows message, offer rename or retry
+6. **Session Lost**: `sessionStorage` persistence on every state change
 
 ## Testing Strategy
 
-### Unit Testing
-- `manifestSerializer.ts` — round-trip tests: form → YAML → form for every component type
-- Section components — render tests with `@testing-library/react`, verify field changes propagate
-- `useBuilderState` — hook tests for add/remove stream, mode toggle, validation
-
-### Integration Testing
-- `api.ts` — mock Splunk REST responses, verify request format and error handling
-- TestPanel — mock test_connection response, verify records render in table
-- Save flow — mock UCC input API, verify manifest YAML is correctly saved
-
-### End-to-End Testing
-- Open builder → select template → test connection → verify records → save → verify input created
-- Open builder → YAML mode → paste manifest → switch to form → verify fields populated
-- Edit existing input → modify stream → save → verify update applied
+- **SchemaFormControl**: Render tests — given schema property of each type, verify correct Splunk component rendered
+- **OneOfSelector**: Test type switching, field preservation, dropdown options from schema
+- **SchemaFormRemainingFields**: Given schema + placed paths, verify only unplaced fields render
+- **manifestSerializer**: Round-trip — manifest dict → YAML → manifest dict for all test fixtures
+- **api.ts**: Mock Splunk REST responses, verify request format
+- **E2E**: Template → test → save → verify input created
 
 ## Dependencies (New)
 
@@ -593,4 +450,4 @@ ucc:build-full:
 }
 ```
 
-All other dependencies (`@splunk/react-ui`, `@splunk/react-page`, `styled-components`, etc.) are already available in the monorepo.
+No react-hook-form or zod — the form state is a plain dict managed by `useBuilderState`. Splunk's `@splunk/react-ui` form controls handle their own local state.
