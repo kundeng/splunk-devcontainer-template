@@ -64,6 +64,8 @@ tasks:
         echo "  task ucc:link               # symlink build output into dev Splunk"
         echo "  task ucc:dev                # build + link + refresh (fast iteration loop)"
         echo "  task ucc:package            # build + package to splunk/stage/"
+        echo "  task ucc:appinspect         # run Splunk AppInspect (precert mode)"
+        echo "  task urc:update-schema      # download Airbyte schema + regenerate models"
         echo ""
         echo "Staging environment (port 18000):"
         echo "  task stage:deploy           # package + start + install (full pipeline)"
@@ -805,6 +807,35 @@ tasks:
         echo "Lines: $(wc -l < "${OUTPUT_FILE}")"
         echo "Classes: $(grep -c '^class ' "${OUTPUT_FILE}")"
     desc: Download Airbyte schema + regenerate Pydantic models
+
+  ucc:appinspect:
+    deps: [__ucc:resolve]
+    cmds:
+      - |
+        . .task/ucc-env
+        APP_DIR="{{.UCC_OUTPUT_DIR}}/${UCC_ADDON}"
+        if [ ! -d "${APP_DIR}" ]; then
+          echo "UCC output not found. Run: task ucc:build"
+          exit 1
+        fi
+        echo "Running AppInspect on ${APP_DIR} ..."
+        splunk-appinspect inspect "${APP_DIR}" --mode precert \
+          --included-tags cloud \
+          --included-tags self-service 2>&1 | tee /tmp/appinspect-output.txt
+        echo ""
+        # Extract summary
+        echo "=== Summary ==="
+        grep -E "error:|failure:|warning:|success:|Total:" /tmp/appinspect-output.txt
+        echo ""
+        # Show failures if any
+        FAILURES=$(grep -c "FAILURE:" /tmp/appinspect-output.txt || true)
+        if [ "$FAILURES" -gt 0 ]; then
+          echo "=== Failures ==="
+          grep -B1 -A3 "FAILURE:" /tmp/appinspect-output.txt
+          exit 1
+        fi
+        echo "All checks passed."
+    desc: Run Splunk AppInspect on UCC build output (precert mode)
 
   # ── Python Tooling ───────────────────────────────────────────────────
 
