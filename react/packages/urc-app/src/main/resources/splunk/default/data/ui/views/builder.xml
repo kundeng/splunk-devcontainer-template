@@ -1,0 +1,4 @@
+<?xml version="1.0"?>
+<view template="urc_app:/templates/builder.html" type="html">
+	<label>Builder</label>
+</view>

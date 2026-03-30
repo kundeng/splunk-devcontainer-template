@@ -49,8 +49,9 @@ tasks:
         echo "  task deps:install           # install Splunkbase dependencies into dev container"
         echo ""
         echo "React development:"
-        echo "  task react:create           # scaffold + initial build, syncs APP_NAME in .env"
-        echo "  task react:add-page         # add a page/component via @splunk/create"
+        echo "  task react:create                      # interactive, or APP_NAME=x for non-interactive"
+        echo "  task react:add-page                    # interactive, or PAGE_NAME=x APP_NAME=y"
+        echo "  task react:add-component               # interactive, or COMPONENT_NAME=x [COMPONENT_TYPE=basic|dashboard]"
         echo "  task react:link             # symlink stage/ into dev Splunk (run once)"
         echo "  task react:start            # webpack watch (stage/ updates live via symlink)"
         echo "  task react:build            # production webpack build (rebuilds stage/)"
@@ -58,6 +59,7 @@ tasks:
         echo ""
         echo "UCC add-on development:"
         echo "  task ucc:init APP_NAME=x    # scaffold UCC add-on (globalConfig.json + package/)"
+        echo "  task ucc:add-react          # add React UI to UCC app (scaffold + adapt + build)"
         echo "  task ucc:build              # run ucc-gen build (generates UI, REST, conf)"
         echo "  task ucc:link               # symlink build output into dev Splunk"
         echo "  task ucc:dev                # build + link + refresh (fast iteration loop)"
@@ -436,7 +438,11 @@ tasks:
       - |
         echo "Scaffolding React app with @splunk/create..."
         mkdir -p {{.REACT_PACKAGES_DIR}}
-        cd {{.REACT_PACKAGES_DIR}} && npx @splunk/create
+        if [ -n "{{.APP_NAME}}" ]; then
+          cd {{.REACT_PACKAGES_DIR}} && node bin/splunk-create-noninteractive.mjs app "{{.APP_NAME}}"
+        else
+          cd {{.REACT_PACKAGES_DIR}} && npx @splunk/create
+        fi
         echo ""
         echo "React app scaffolded."
       - |
@@ -468,18 +474,39 @@ tasks:
         (cd "{{.REACT_PACKAGES_DIR}}" && yarn install)
         (cd "${REACT_PATH}" && yarn build)
         echo "Done. Next: task react:link && task react:start"
-    desc: Scaffold React app via @splunk/create (interactive), detect app, sync .env, initial build
+    desc: Scaffold React app via @splunk/create — non-interactive if APP_NAME set, else interactive
 
   react:add-page:
     cmds:
       - |
-        echo "Adding page/component via @splunk/create (interactive)..."
-        cd {{.REACT_PACKAGES_DIR}} && npx @splunk/create
+        if [ -n "{{.PAGE_NAME}}" ] && [ -n "{{.APP_NAME}}" ]; then
+          echo "Adding page '{{.PAGE_NAME}}' to app '{{.APP_NAME}}' (non-interactive)..."
+          cd {{.REACT_PACKAGES_DIR}} && node bin/splunk-create-noninteractive.mjs page "{{.PAGE_NAME}}" --app "{{.APP_NAME}}"
+        else
+          echo "Adding page/component via @splunk/create (interactive)..."
+          cd {{.REACT_PACKAGES_DIR}} && npx @splunk/create
+        fi
         echo "Installing new packages..."
-        yarn install
+        cd {{.REACT_PACKAGES_DIR}} && yarn install
         echo ""
         echo "Done. Run 'task react:start' to rebuild, or 'task react:package' for staging."
-    desc: Add a new page or component to existing app via @splunk/create (interactive)
+    desc: Add page to existing app — non-interactive if PAGE_NAME + APP_NAME set, else interactive
+
+  react:add-component:
+    cmds:
+      - |
+        if [ -n "{{.COMPONENT_NAME}}" ]; then
+          echo "Adding component '{{.COMPONENT_NAME}}' (non-interactive)..."
+          cd {{.REACT_PACKAGES_DIR}} && node bin/splunk-create-noninteractive.mjs component "{{.COMPONENT_NAME}}" --type "{{.COMPONENT_TYPE | default "basic"}}"
+        else
+          echo "Adding component via @splunk/create (interactive)..."
+          cd {{.REACT_PACKAGES_DIR}} && npx @splunk/create
+        fi
+        echo "Installing new packages..."
+        cd {{.REACT_PACKAGES_DIR}} && yarn install
+        echo ""
+        echo "Done."
+    desc: Add component library — non-interactive if COMPONENT_NAME set, else interactive
 
   react:link:
     deps: [__react:ensure-build, __dev:ensure-running]
@@ -611,6 +638,61 @@ tasks:
           fi
         fi
     desc: Scaffold a new UCC add-on (creates globalConfig.json + package/)
+
+  ucc:add-react:
+    cmds:
+      - |
+        # Derive names from APP_NAME (e.g. urc_app → urc-app, urc-builder, builder)
+        UCC_APP="{{.APP_NAME}}"
+        REACT_APP=$(echo "${UCC_APP}" | tr '_' '-')
+        COMPONENT_PKG="${REACT_APP//-app/}-builder"
+        PAGE="{{.PAGE_NAME | default "builder"}}"
+        REACT_DIR="$(pwd)/{{.REACT_PACKAGES_DIR}}"
+
+        echo "Adding React UI to UCC app '${UCC_APP}'..."
+        echo "  React app package:  ${REACT_APP}"
+        echo "  Component library:  ${COMPONENT_PKG}"
+        echo "  Page name:          ${PAGE}"
+        echo ""
+
+        # kebab-to-PascalCase helper
+        to_pascal() { echo "$1" | sed 's/-\([a-z]\)/\U\1/g;s/^\([a-z]\)/\U\1/'; }
+
+        # 1. Scaffold component library
+        echo "── Scaffolding component library: ${COMPONENT_PKG} ──"
+        (cd "${REACT_DIR}" && node bin/splunk-create-noninteractive.mjs component "$(to_pascal "${COMPONENT_PKG}")")
+        echo ""
+
+        # 2. Scaffold Splunk app wrapper
+        echo "── Scaffolding app wrapper: ${REACT_APP} ──"
+        (cd "${REACT_DIR}" && node bin/splunk-create-noninteractive.mjs app "$(to_pascal "${REACT_APP}")")
+        echo ""
+
+        # 3. Adapt for UCC overlay
+        echo "── Adapting for UCC overlay ──"
+        (cd "${REACT_DIR}" && node bin/adapt-for-ucc.mjs \
+          --app-pkg "${REACT_APP}" \
+          --ucc-app "${UCC_APP}" \
+          --component-pkg "${COMPONENT_PKG}" \
+          --page "${PAGE}")
+        echo ""
+
+        # 4. Install deps + build
+        echo "── Installing dependencies ──"
+        (cd "${REACT_DIR}" && yarn install)
+        echo ""
+        echo "── Building ──"
+        (cd "${REACT_DIR}" && yarn workspace "@splunk/${COMPONENT_PKG}" build)
+        (cd "${REACT_DIR}" && yarn workspace "@splunk/${REACT_APP}" build)
+
+        echo ""
+        echo "Done. React UI added to ${UCC_APP}."
+        echo "  Component library: {{.REACT_PACKAGES_DIR}}/packages/${COMPONENT_PKG}/"
+        echo "  App wrapper:       {{.REACT_PACKAGES_DIR}}/packages/${REACT_APP}/"
+        echo "  Stage output:      {{.REACT_PACKAGES_DIR}}/packages/${REACT_APP}/stage/"
+        echo ""
+        echo "Next: task ucc:build-full (builds UCC + React + merges)"
+    desc: Add React UI to a UCC add-on (scaffolds component + app + adapts for UCC overlay)
 
   ucc:build:
     deps: [__ucc:resolve]

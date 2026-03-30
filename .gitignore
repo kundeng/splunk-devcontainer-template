@@ -36,9 +36,16 @@ npm-debug.log
 yarn-debug.log
 yarn-error.log
 
-# React source (created by task react:create) — keep only .gitkeep
-react/*
-!react/.gitkeep
+# React monorepo — track source, ignore build artifacts + deps
+react/node_modules/
+react/packages/*/node_modules/
+react/packages/*/stage/
+react/packages/*/*.js
+react/packages/*/*.js.map
+react/packages/*/types/
+react/packages/*/demo/splunk-app/appserver/static/
+react/packages/*/coverage_report/
+react/packages/*/test-reports/
 
 # Splunk
 local/

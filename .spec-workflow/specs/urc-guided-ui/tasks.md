@@ -2,7 +2,7 @@
 
 ## Phase 1: Foundation — Package Scaffold + State + Serializer
 
-- [ ] 1.1. Scaffold React packages (urc-builder + urc-app)
+- [-] 1.1. Scaffold React packages (urc-builder + urc-app)
   - Files: react/packages/urc-builder/package.json, react/packages/urc-builder/tsconfig.json, react/packages/urc-builder/src/index.ts, react/packages/urc-app/package.json, react/packages/urc-app/webpack.config.js, react/packages/urc-app/src/main/webapp/pages/builder/index.tsx
   - Create monorepo packages following CIMplicity pattern: urc-builder (component library) + urc-app (Splunk app wrapper)
   - Configure Webpack 5 with @splunk/webpack-configs, TypeScript, styled-components

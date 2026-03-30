@@ -15,4 +15,6 @@
 - [Project: REST connector plan](project_rest_connector_plan.md) — Architecture decisions: hybrid UCC+React, vendored Airbyte CDK (Option B), CIMplicity-style build, KV checkpointing, ACL permissions
 - [Feedback: use task primitives](feedback_use_task_primitives.md) — Dogfood Taskfile tasks as primary dev interface; fix/add tasks instead of working around them
 - [Feedback: push often](feedback_push_often.md) — Push to origin frequently; workspace is in Dropbox, prevent corruption
+- [Feedback: non-interactive scaffold](feedback_noninteractive_scaffold.md) — Use splunk-create-noninteractive.mjs wrapper + Taskfile vars for automated scaffolding
 - [Project: URC architecture](project_urc_architecture.md) — No CDK vendoring, Pydantic v1 + @component registry, no DI framework
+- [Research: Airbyte Builder UI](research_airbyte_builder_ui.md) — Three-panel layout, schema-driven forms, dual mode, test panel tabs, AI assist, Splunk adaptation notes
