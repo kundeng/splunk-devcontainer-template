@@ -767,6 +767,45 @@ tasks:
         echo "Deploy: task stage:deploy"
     desc: Build + package UCC add-on to splunk/stage/ for staging
 
+  urc:update-schema:
+    deps: [__ucc:resolve]
+    cmds:
+      - |
+        . .task/ucc-env
+        SCHEMA_URL="https://raw.githubusercontent.com/airbytehq/airbyte-python-cdk/main/airbyte_cdk/sources/declarative/declarative_component_schema.yaml"
+        SCHEMA_FILE="${UCC_PATH}/schema/declarative_component_schema.yaml"
+        OUTPUT_FILE="${UCC_PATH}/package/lib/urc/models_generated.py"
+        HEADER_FILE="${UCC_PATH}/schema/header.txt"
+
+        echo "Downloading schema from Airbyte CDK..."
+        curl -fsSL "${SCHEMA_URL}" -o "${SCHEMA_FILE}"
+
+        echo "Generating Pydantic models..."
+        datamodel-codegen \
+          --input "${SCHEMA_FILE}" \
+          --output "${OUTPUT_FILE}" \
+          --input-file-type jsonschema \
+          --output-model-type pydantic.BaseModel \
+          --target-python-version 3.9 \
+          --use-schema-description \
+          --field-constraints \
+          --disable-timestamp \
+          --custom-file-header-path "${HEADER_FILE}"
+
+        # Post-process for Pydantic v1/v2 compatibility:
+        # 1. Add try/except shim so models work in both pydantic<2 (Splunk) and pydantic>=2 (dev)
+        sed -i 's/^from pydantic import \(.*\)$/try:\n    from pydantic.v1 import \1\nexcept ImportError:\n    from pydantic import \1/' "${OUTPUT_FILE}"
+        # 2. Remove unique_items=True from Field() — removed in Pydantic v2
+        sed -i '/unique_items=True,/d' "${OUTPUT_FILE}"
+
+        echo "Formatting with ruff..."
+        ruff format "${OUTPUT_FILE}" 2>/dev/null || true
+
+        echo "Done. Generated: ${OUTPUT_FILE}"
+        echo "Lines: $(wc -l < "${OUTPUT_FILE}")"
+        echo "Classes: $(grep -c '^class ' "${OUTPUT_FILE}")"
+    desc: Download Airbyte schema + regenerate Pydantic models
+
   # ── Python Tooling ───────────────────────────────────────────────────
 
   python:lint:

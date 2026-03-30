@@ -4,7 +4,7 @@
 import logging
 from typing import Any, Dict, List, Optional
 
-from urc.models import DeclarativeSource1 as SourceModel
+from urc.models_generated import DeclarativeSource1 as SourceModel
 
 logger = logging.getLogger(__name__)
 
@@ -58,7 +58,7 @@ def validate_manifest(manifest_dict: dict) -> SourceModel:
 
 def validate_stream(stream_dict: dict) -> Any:
     """Validate a single stream definition."""
-    from urc.models import DeclarativeStream
+    from urc.models_generated import DeclarativeStream
 
     try:
         return DeclarativeStream.parse_obj(stream_dict)

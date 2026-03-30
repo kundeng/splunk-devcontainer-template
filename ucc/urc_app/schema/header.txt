@@ -1,0 +1,4 @@
+# AUTO-GENERATED — DO NOT EDIT
+# Source: ucc/urc_app/schema/declarative_component_schema.yaml
+# Regenerate: task urc:update-schema
+# Generator: datamodel-code-generator
