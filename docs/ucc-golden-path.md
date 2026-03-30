@@ -589,11 +589,15 @@ curl -sk https://localhost:8089/services/search/jobs \
 
 **What happened:** `jsonschema>=4.18` added a dependency on `rpds-py`, which is a Rust extension.
 
-**The fix:** Pin `jsonschema==4.17.3`, which uses `pyrsistent` (pure Python) instead.
+**The fix:** Pin `jsonschema==4.17.3`, which uses `pyrsistent` (pure Python) instead. *(Note: with the binary constraint revised — see below — this pin may no longer be necessary.)*
 
-### Attempt 3: pydantic v2 (NEVER ATTEMPTED)
+### ~~Attempt 3: pydantic v2 (NEVER ATTEMPTED)~~ → RESOLVED
 
-**Why we avoided it:** Pydantic v2 requires `pydantic-core`, a Rust extension. Splunk's Python 3.9 cannot load it. We used `pydantic<2` (pure Python, 166 KB) from the start.
+**Original assumption:** Pydantic v2 requires `pydantic-core`, a Rust extension. We assumed Splunk's Python 3.9 couldn't load C extensions.
+
+**What actually happened:** Tested `pydantic-core` (Rust `.so`) in the Splunk dev container — **it loads and works fine.** Splunk's Python 3.9 supports C extensions; `_ctypes`, `_ssl`, and `pydantic-core` all import successfully. The "pure Python only" assumption was never tested — just carried forward. Splunk's own MLTK add-on ships numpy/scipy/sklearn (all heavy C extensions) on Splunkbase, proving binary deps are supported.
+
+**The fix:** Upgraded to `pydantic>=2,<3`. This enabled `--enum-field-as-literal all` in codegen (264 → 138 classes), proper discriminated unions, `ConfigDict`, and better validation errors.
 
 ### Attempt 4: pyrate-limiter v4 (CAUGHT IN AUDIT)
 
@@ -601,17 +605,25 @@ curl -sk https://localhost:8089/services/search/jobs \
 
 **The fix:** Pin `pyrate-limiter<4`.
 
-### Key Takeaway: The Pure-Python Constraint
+### Key Takeaway: The Dependency Constraint (Revised)
 
-Every dependency decision comes down to one question: **Can this run on Splunk's bundled Python 3.9 without C extensions?**
+The original "pure Python only" rule was **wrong**. Splunk's Python 3.9 loads C extensions fine. The real constraints are:
 
-If the answer is "no" or "not sure", either:
-1. Find a pure-Python alternative
-2. Pin an older version before the C extension was added
-3. Write it yourself (often < 100 lines for what you actually need)
+1. **Python 3.9 syntax** — no `match/case`, no `type` aliases, no `ExceptionGroup` (Python 3.10+ features)
+2. **Correct platform wheels** — use `manylinux2014_x86_64` wheels for Splunk Cloud (x86_64)
+3. **No `.pyc` files** — AppInspect rejects compiled Python bytecode; clean `__pycache__` during build
+4. **AppInspect validation** — run `task ucc:appinspect` before shipping; use `--included-tags cloud` for Splunk Cloud compatibility
 
-The `.so` files that sneak in via `pip install` will silently fail on Splunk — no error at install time, just `ImportError` at runtime when a user tries to enable your input. Always test imports inside the Splunk container:
+When vendoring binary deps:
+```bash
+pip install --target lib/ \
+  --python-version 3.9 \
+  --only-binary :all: \
+  --platform manylinux2014_x86_64 \
+  "pydantic>=2,<3"
+```
 
+Always verify in the Splunk container:
 ```bash
 docker exec splunk-dev /opt/splunk/bin/splunk cmd python3 -c \
   "import sys; sys.path.insert(0, '/opt/splunk/etc/apps/your_app/lib'); import your_module"

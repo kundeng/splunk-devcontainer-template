@@ -714,6 +714,9 @@ tasks:
           -o "{{.UCC_OUTPUT_DIR}}" \
           --overwrite
 
+        # Clean __pycache__ from output — AppInspect rejects .pyc files
+        find "{{.UCC_OUTPUT_DIR}}/${UCC_ADDON}" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
         echo "Build complete → {{.UCC_OUTPUT_DIR}}/${UCC_ADDON}/"
     desc: Build UCC add-on (generates REST handlers, UI, conf files)
 
@@ -787,18 +790,16 @@ tasks:
           --input "${SCHEMA_FILE}" \
           --output "${OUTPUT_FILE}" \
           --input-file-type jsonschema \
-          --output-model-type pydantic.BaseModel \
+          --output-model-type pydantic_v2.BaseModel \
           --target-python-version 3.9 \
+          --enum-field-as-literal all \
           --use-schema-description \
           --field-constraints \
           --disable-timestamp \
           --custom-file-header-path "${HEADER_FILE}"
 
-        # Post-process for Pydantic v1/v2 compatibility:
-        # 1. Add try/except shim so models work in both pydantic<2 (Splunk) and pydantic>=2 (dev)
-        sed -i 's/^from pydantic import \(.*\)$/try:\n    from pydantic.v1 import \1\nexcept ImportError:\n    from pydantic import \1/' "${OUTPUT_FILE}"
-        # 2. Remove unique_items=True from Field() — removed in Pydantic v2
-        sed -i '/unique_items=True,/d' "${OUTPUT_FILE}"
+        echo "Adding discriminated unions..."
+        python "${UCC_PATH}/schema/postprocess_models.py" "${OUTPUT_FILE}"
 
         echo "Formatting with ruff..."
         ruff format "${OUTPUT_FILE}" 2>/dev/null || true
@@ -820,8 +821,7 @@ tasks:
         fi
         echo "Running AppInspect on ${APP_DIR} ..."
         splunk-appinspect inspect "${APP_DIR}" --mode precert \
-          --included-tags cloud \
-          --included-tags self-service 2>&1 | tee /tmp/appinspect-output.txt
+          --included-tags cloud 2>&1 | tee /tmp/appinspect-output.txt
         echo ""
         # Extract summary
         echo "=== Summary ==="

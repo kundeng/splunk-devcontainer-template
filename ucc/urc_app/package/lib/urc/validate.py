@@ -30,7 +30,7 @@ def validate_manifest(manifest_dict: dict) -> SourceModel:
         ManifestValidationError: If the manifest is invalid, with field-path details.
     """
     try:
-        source = SourceModel.parse_obj(manifest_dict)
+        source = SourceModel.model_validate(manifest_dict)
         return source
     except Exception as e:
         error_str = str(e)
@@ -61,6 +61,6 @@ def validate_stream(stream_dict: dict) -> Any:
     from urc.models_generated import DeclarativeStream
 
     try:
-        return DeclarativeStream.parse_obj(stream_dict)
+        return DeclarativeStream.model_validate(stream_dict)
     except Exception as e:
         raise ManifestValidationError(f"Stream validation failed: {e}") from e

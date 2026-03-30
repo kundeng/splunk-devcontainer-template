@@ -6,42 +6,9 @@
 
 from __future__ import annotations
 
-from enum import Enum
-from typing import Any, Dict, List, Optional, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
-try:
-    from pydantic.v1 import BaseModel, Extra, Field
-except ImportError:
-    from pydantic import BaseModel, Extra, Field
-
-
-class Type(Enum):
-    DeclarativeSource = "DeclarativeSource"
-
-
-class Type2(Enum):
-    AddedFieldDefinition = "AddedFieldDefinition"
-
-
-class Type3(Enum):
-    AddFields = "AddFields"
-
-
-class Type4(Enum):
-    ApiKeyAuthenticator = "ApiKeyAuthenticator"
-
-
-class AuthFlowType(Enum):
-    """
-    The type of auth to use
-    """
-
-    oauth2_0 = "oauth2.0"
-    oauth1_0 = "oauth1.0"
-
-
-class Type5(Enum):
-    BasicHttpAuthenticator = "BasicHttpAuthenticator"
+from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 
 class BasicHttpAuthenticator(BaseModel):
@@ -49,7 +16,7 @@ class BasicHttpAuthenticator(BaseModel):
     Authenticator for requests authenticated with the Basic HTTP authentication scheme, which encodes a username and an optional password in the Authorization request header.
     """
 
-    type: Type5
+    type: Literal["BasicHttpAuthenticator"]
     username: str = Field(
         ...,
         description="The username that will be combined with the password, base64 encoded and used to make requests. Fill it in the user inputs.",
@@ -65,16 +32,12 @@ class BasicHttpAuthenticator(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type6(Enum):
-    BearerAuthenticator = "BearerAuthenticator"
-
-
 class BearerAuthenticator(BaseModel):
     """
     Authenticator for requests authenticated with a bearer token injected as a request header of the form `Authorization: Bearer <token>`.
     """
 
-    type: Type6
+    type: Literal["BearerAuthenticator"]
     api_token: str = Field(
         ...,
         description="Token to inject as request header for authenticating with the API.",
@@ -84,20 +47,8 @@ class BearerAuthenticator(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type7(Enum):
-    SelectiveAuthenticator = "SelectiveAuthenticator"
-
-
-class Type8(Enum):
-    CheckStream = "CheckStream"
-
-
-class Type9(Enum):
-    DynamicStreamCheckConfig = "DynamicStreamCheckConfig"
-
-
 class DynamicStreamCheckConfig(BaseModel):
-    type: Type9
+    type: Literal["DynamicStreamCheckConfig"]
     dynamic_stream_name: str = Field(
         ..., description="The dynamic stream name.", title="Dynamic Stream Name"
     )
@@ -108,16 +59,12 @@ class DynamicStreamCheckConfig(BaseModel):
     )
 
 
-class Type10(Enum):
-    CheckDynamicStream = "CheckDynamicStream"
-
-
 class CheckDynamicStream(BaseModel):
     """
     (This component is experimental. Use at your own risk.) Defines the dynamic streams to try reading when running a check operation.
     """
 
-    type: Type10
+    type: Literal["CheckDynamicStream"]
     stream_count: int = Field(
         ...,
         description="Numbers of the streams to try reading from when running a check operation.",
@@ -130,20 +77,12 @@ class CheckDynamicStream(BaseModel):
     )
 
 
-class Type11(Enum):
-    CompositeErrorHandler = "CompositeErrorHandler"
-
-
-class Type12(Enum):
-    ConcurrencyLevel = "ConcurrencyLevel"
-
-
 class ConcurrencyLevel(BaseModel):
     """
     Defines the amount of parallelization for the streams that are being synced. The factor of parallelization is how many partitions or streams are synced at the same time. For example, with a concurrency_level of 10, ten streams or partitions of data will processed at the same time. Note that a value of 1 could create deadlock if a stream has a very high number of partitions.
     """
 
-    type: Optional[Type12] = None
+    type: Optional[Literal["ConcurrencyLevel"]] = None
     default_concurrency: Union[int, str] = Field(
         ...,
         description="The amount of concurrency that will applied during a sync. This value can be hardcoded or user-defined in the config if different users have varying volume thresholds in the target API.",
@@ -159,20 +98,12 @@ class ConcurrencyLevel(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type13(Enum):
-    ConditionalStreams = "ConditionalStreams"
-
-
-class Type14(Enum):
-    ConstantBackoffStrategy = "ConstantBackoffStrategy"
-
-
 class ConstantBackoffStrategy(BaseModel):
     """
     Backoff strategy with a constant backoff interval.
     """
 
-    type: Type14
+    type: Literal["ConstantBackoffStrategy"]
     backoff_time_in_seconds: Union[float, str] = Field(
         ...,
         description="Backoff time in seconds.",
@@ -182,16 +113,12 @@ class ConstantBackoffStrategy(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type15(Enum):
-    CursorPagination = "CursorPagination"
-
-
 class CursorPagination(BaseModel):
     """
     Pagination strategy that evaluates an interpolated string to define the next page to fetch.
     """
 
-    type: Type15
+    type: Literal["CursorPagination"]
     cursor_value: str = Field(
         ...,
         description="Value of the cursor defining the next page to fetch.",
@@ -220,19 +147,15 @@ class CursorPagination(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type16(Enum):
-    CustomAuthenticator = "CustomAuthenticator"
-
-
 class CustomAuthenticator(BaseModel):
     """
     Authenticator component whose behavior is derived from a custom code implementation of the connector.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type16
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomAuthenticator"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom authentication strategy. Has to be a sub class of DeclarativeAuthenticator. The format is `source_<name>.<package>.<class_name>`.",
@@ -242,19 +165,15 @@ class CustomAuthenticator(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type17(Enum):
-    CustomBackoffStrategy = "CustomBackoffStrategy"
-
-
 class CustomBackoffStrategy(BaseModel):
     """
     Backoff strategy component whose behavior is derived from a custom code implementation of the connector.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type17
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomBackoffStrategy"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom backoff strategy. The format is `source_<name>.<package>.<class_name>`.",
@@ -264,19 +183,15 @@ class CustomBackoffStrategy(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type18(Enum):
-    CustomErrorHandler = "CustomErrorHandler"
-
-
 class CustomErrorHandler(BaseModel):
     """
     Error handler component whose behavior is derived from a custom code implementation of the connector.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type18
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomErrorHandler"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom error handler. The format is `source_<name>.<package>.<class_name>`.",
@@ -286,19 +201,15 @@ class CustomErrorHandler(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type19(Enum):
-    CustomPaginationStrategy = "CustomPaginationStrategy"
-
-
 class CustomPaginationStrategy(BaseModel):
     """
     Pagination strategy component whose behavior is derived from a custom code implementation of the connector.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type19
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomPaginationStrategy"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom pagination strategy. The format is `source_<name>.<package>.<class_name>`.",
@@ -308,19 +219,15 @@ class CustomPaginationStrategy(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type20(Enum):
-    CustomRecordExtractor = "CustomRecordExtractor"
-
-
 class CustomRecordExtractor(BaseModel):
     """
     Record extractor component whose behavior is derived from a custom code implementation of the connector.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type20
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomRecordExtractor"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom record extraction strategy. The format is `source_<name>.<package>.<class_name>`.",
@@ -330,19 +237,15 @@ class CustomRecordExtractor(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type21(Enum):
-    CustomRecordFilter = "CustomRecordFilter"
-
-
 class CustomRecordFilter(BaseModel):
     """
     Record filter component whose behavior is derived from a custom code implementation of the connector.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type21
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomRecordFilter"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom record filter strategy. The format is `source_<name>.<package>.<class_name>`.",
@@ -352,19 +255,15 @@ class CustomRecordFilter(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type22(Enum):
-    CustomRequester = "CustomRequester"
-
-
 class CustomRequester(BaseModel):
     """
     Requester component whose behavior is derived from a custom code implementation of the connector.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type22
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomRequester"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom requester strategy. The format is `source_<name>.<package>.<class_name>`.",
@@ -374,19 +273,15 @@ class CustomRequester(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type23(Enum):
-    CustomRetriever = "CustomRetriever"
-
-
 class CustomRetriever(BaseModel):
     """
     Retriever component whose behavior is derived from a custom code implementation of the connector.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type23
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomRetriever"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom retriever strategy. The format is `source_<name>.<package>.<class_name>`.",
@@ -396,19 +291,15 @@ class CustomRetriever(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type24(Enum):
-    CustomPartitionRouter = "CustomPartitionRouter"
-
-
 class CustomPartitionRouter(BaseModel):
     """
     Partition router component whose behavior is derived from a custom code implementation of the connector.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type24
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomPartitionRouter"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom partition router. The format is `source_<name>.<package>.<class_name>`.",
@@ -418,19 +309,15 @@ class CustomPartitionRouter(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type25(Enum):
-    CustomSchemaLoader = "CustomSchemaLoader"
-
-
 class CustomSchemaLoader(BaseModel):
     """
     Schema Loader component whose behavior is derived from a custom code implementation of the connector.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type25
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomSchemaLoader"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom schema loader. The format is `source_<name>.<package>.<class_name>`.",
@@ -440,19 +327,15 @@ class CustomSchemaLoader(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type26(Enum):
-    CustomSchemaNormalization = "CustomSchemaNormalization"
-
-
 class CustomSchemaNormalization(BaseModel):
     """
     Schema normalization component whose behavior is derived from a custom code implementation of the connector.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type26
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomSchemaNormalization"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom normalization. The format is `source_<name>.<package>.<class_name>`.",
@@ -464,19 +347,15 @@ class CustomSchemaNormalization(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type27(Enum):
-    CustomStateMigration = "CustomStateMigration"
-
-
 class CustomStateMigration(BaseModel):
     """
     Apply a custom transformation on the input state.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type27
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomStateMigration"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom state migration. The format is `source_<name>.<package>.<class_name>`.",
@@ -486,19 +365,15 @@ class CustomStateMigration(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type28(Enum):
-    CustomTransformation = "CustomTransformation"
-
-
 class CustomTransformation(BaseModel):
     """
     Transformation component whose behavior is derived from a custom code implementation of the connector.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type28
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomTransformation"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom transformation. The format is `source_<name>.<package>.<class_name>`.",
@@ -508,28 +383,16 @@ class CustomTransformation(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type29(Enum):
-    LegacyToPerPartitionStateMigration = "LegacyToPerPartitionStateMigration"
-
-
 class LegacyToPerPartitionStateMigration(BaseModel):
     """
     Transforms the input state for per-partitioned streams from the legacy format to the low-code format. The cursor field and partition ID fields are automatically extracted from the stream's DatetimebasedCursor and SubstreamPartitionRouter.
     Example input state: { "13506132": { "last_changed": "2022-12-27T08:34:39+00:00" } Example output state: { "partition": {"id": "13506132"}, "cursor": {"last_changed": "2022-12-27T08:34:39+00:00"} }
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Optional[Type29] = None
-
-
-class Type30(Enum):
-    IncrementingCountCursor = "IncrementingCountCursor"
-
-
-class Type31(Enum):
-    DatetimeBasedCursor = "DatetimeBasedCursor"
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Optional[Literal["LegacyToPerPartitionStateMigration"]] = None
 
 
 class Clamping(BaseModel):
@@ -546,39 +409,14 @@ class Clamping(BaseModel):
     target_details: Optional[Dict[str, Any]] = None
 
 
-class Type32(Enum):
-    JwtAuthenticator = "JwtAuthenticator"
-
-
-class Algorithm(Enum):
-    """
-    Algorithm used to sign the JSON web token.
-    """
-
-    HS256 = "HS256"
-    HS384 = "HS384"
-    HS512 = "HS512"
-    ES256 = "ES256"
-    ES256K = "ES256K"
-    ES384 = "ES384"
-    ES512 = "ES512"
-    RS256 = "RS256"
-    RS384 = "RS384"
-    RS512 = "RS512"
-    PS256 = "PS256"
-    PS384 = "PS384"
-    PS512 = "PS512"
-    EdDSA = "EdDSA"
-
-
 class JwtHeaders(BaseModel):
     """
     JWT headers used when signing JSON web token.
     """
 
-    class Config:
-        extra = Extra.forbid
-
+    model_config = ConfigDict(
+        extra="forbid",
+    )
     kid: Optional[str] = Field(
         None,
         description="Private key ID for user account.",
@@ -604,9 +442,9 @@ class JwtPayload(BaseModel):
     JWT Payload used when signing JSON web token.
     """
 
-    class Config:
-        extra = Extra.forbid
-
+    model_config = ConfigDict(
+        extra="forbid",
+    )
     iss: Optional[str] = Field(
         None,
         description="The user/principal that issued the JWT. Commonly a value unique to the user.",
@@ -624,10 +462,6 @@ class JwtPayload(BaseModel):
         examples=["appstoreconnect-v1"],
         title="Audience",
     )
-
-
-class Type33(Enum):
-    OAuthAuthenticator = "OAuthAuthenticator"
 
 
 class RefreshTokenUpdater(BaseModel):
@@ -679,38 +513,14 @@ class RefreshTokenUpdater(BaseModel):
     )
 
 
-class Type34(Enum):
-    DeclarativeStream = "DeclarativeStream"
-
-
-class Type35(Enum):
-    FileUploader = "FileUploader"
-
-
-class Type36(Enum):
-    HTTPAPIBudget = "HTTPAPIBudget"
-
-
-class Type37(Enum):
-    FixedWindowCallRatePolicy = "FixedWindowCallRatePolicy"
-
-
-class Type38(Enum):
-    MovingWindowCallRatePolicy = "MovingWindowCallRatePolicy"
-
-
-class Type39(Enum):
-    UnlimitedCallRatePolicy = "UnlimitedCallRatePolicy"
-
-
 class Rate(BaseModel):
     """
     Defines a rate limit with a specific number of calls allowed within a time interval.
     """
 
-    class Config:
-        extra = Extra.allow
-
+    model_config = ConfigDict(
+        extra="allow",
+    )
     limit: Union[int, str] = Field(
         ...,
         description="The maximum number of calls allowed within the interval.",
@@ -730,9 +540,9 @@ class HttpRequestRegexMatcher(BaseModel):
 
     """
 
-    class Config:
-        extra = Extra.allow
-
+    model_config = ConfigDict(
+        extra="allow",
+    )
     method: Optional[str] = Field(
         None, description="The HTTP method to match (e.g., GET, POST).", title="Method"
     )
@@ -759,24 +569,12 @@ class HttpRequestRegexMatcher(BaseModel):
     )
 
 
-class Type40(Enum):
-    DefaultErrorHandler = "DefaultErrorHandler"
-
-
-class Type41(Enum):
-    DefaultPaginator = "DefaultPaginator"
-
-
-class Type42(Enum):
-    DpathExtractor = "DpathExtractor"
-
-
 class DpathExtractor(BaseModel):
     """
     Record extractor that searches a decoded response over a path defined as an array of fields.
     """
 
-    type: Type42
+    type: Literal["DpathExtractor"]
     field_path: List[str] = Field(
         ...,
         description='List of potentially nested fields describing the full path of the field to extract. Use "*" to extract all values from an array. See more info in the [docs](https://docs.airbyte.com/connector-development/config-based/understanding-the-yaml-file/record-selector).',
@@ -791,21 +589,13 @@ class DpathExtractor(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type43(Enum):
-    ResponseToFileExtractor = "ResponseToFileExtractor"
-
-
 class ResponseToFileExtractor(BaseModel):
     """
     A record extractor designed for handling large responses that may exceed memory limits (to prevent OOM issues). It downloads a CSV file to disk, reads the data from disk, and deletes the file once it has been fully processed.
     """
 
-    type: Type43
+    type: Literal["ResponseToFileExtractor"]
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
-
-
-class Type44(Enum):
-    ExponentialBackoffStrategy = "ExponentialBackoffStrategy"
 
 
 class ExponentialBackoffStrategy(BaseModel):
@@ -813,7 +603,7 @@ class ExponentialBackoffStrategy(BaseModel):
     Backoff strategy with an exponential backoff interval. The interval is defined as factor * 2^attempt_count.
     """
 
-    type: Type44
+    type: Literal["ExponentialBackoffStrategy"]
     factor: Optional[Union[float, str]] = Field(
         5,
         description="Multiplicative constant applied on each retry.",
@@ -823,16 +613,12 @@ class ExponentialBackoffStrategy(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type45(Enum):
-    GroupByKeyMergeStrategy = "GroupByKeyMergeStrategy"
-
-
 class GroupByKeyMergeStrategy(BaseModel):
     """
     Record merge strategy that combines records according to fields on the record.
     """
 
-    type: Type45
+    type: Literal["GroupByKeyMergeStrategy"]
     key: Union[str, List[str]] = Field(
         ...,
         description="The name of the field on the record whose value will be used to group properties that were retrieved through multiple API requests.",
@@ -842,65 +628,12 @@ class GroupByKeyMergeStrategy(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type46(Enum):
-    SessionTokenAuthenticator = "SessionTokenAuthenticator"
-
-
-class Type47(Enum):
-    ApiKey = "ApiKey"
-
-
-class Type48(Enum):
-    Bearer = "Bearer"
-
-
 class SessionTokenRequestBearerAuthenticator(BaseModel):
     """
     Authenticator for requests using the session token as a standard bearer token.
     """
 
-    type: Type48
-
-
-class Type49(Enum):
-    HttpRequester = "HttpRequester"
-
-
-class HttpMethod(Enum):
-    """
-    The HTTP method used to fetch data from the source (can be GET or POST).
-    """
-
-    GET = "GET"
-    POST = "POST"
-
-
-class Type50(Enum):
-    HttpResponseFilter = "HttpResponseFilter"
-
-
-class Action(Enum):
-    """
-    Action to execute if a response matches the filter.
-    """
-
-    SUCCESS = "SUCCESS"
-    FAIL = "FAIL"
-    RETRY = "RETRY"
-    IGNORE = "IGNORE"
-    RESET_PAGINATION = "RESET_PAGINATION"
-    RATE_LIMITED = "RATE_LIMITED"
-    REFRESH_TOKEN_THEN_RETRY = "REFRESH_TOKEN_THEN_RETRY"
-
-
-class FailureType(Enum):
-    """
-    Failure type of traced exception if a response matches the filter.
-    """
-
-    system_error = "system_error"
-    config_error = "config_error"
-    transient_error = "transient_error"
+    type: Literal["Bearer"]
 
 
 class HttpResponseFilter(BaseModel):
@@ -908,8 +641,18 @@ class HttpResponseFilter(BaseModel):
     A filter that is used to select on properties of the HTTP response received. When used with additional filters, a response will be selected if it matches any of the filter's criteria.
     """
 
-    type: Type50
-    action: Optional[Action] = Field(
+    type: Literal["HttpResponseFilter"]
+    action: Optional[
+        Literal[
+            "SUCCESS",
+            "FAIL",
+            "RETRY",
+            "IGNORE",
+            "RESET_PAGINATION",
+            "RATE_LIMITED",
+            "REFRESH_TOKEN_THEN_RETRY",
+        ]
+    ] = Field(
         None,
         description="Action to execute if a response matches the filter.",
         examples=[
@@ -923,7 +666,9 @@ class HttpResponseFilter(BaseModel):
         ],
         title="Action",
     )
-    failure_type: Optional[FailureType] = Field(
+    failure_type: Optional[
+        Literal["system_error", "config_error", "transient_error"]
+    ] = Field(
         None,
         description="Failure type of traced exception if a response matches the filter.",
         examples=["system_error", "config_error", "transient_error"],
@@ -937,7 +682,7 @@ class HttpResponseFilter(BaseModel):
     error_message_contains: Optional[str] = Field(
         None,
         description="Match the response if its error message contains the substring.",
-        example=["This API operation is not enabled for this site"],
+        examples=[["This API operation is not enabled for this site"]],
         title="Error Message Substring",
     )
     http_codes: Optional[List[int]] = Field(
@@ -977,16 +722,12 @@ class TypesMap(BaseModel):
     condition: Optional[str] = None
 
 
-class Type51(Enum):
-    SchemaTypeIdentifier = "SchemaTypeIdentifier"
-
-
 class SchemaTypeIdentifier(BaseModel):
     """
     (This component is experimental. Use at your own risk.) Identifies schema details for dynamic schema extraction and processing.
     """
 
-    type: Optional[Type51] = None
+    type: Optional[Literal["SchemaTypeIdentifier"]] = None
     schema_pointer: Optional[List[str]] = Field(
         [],
         description="List of nested fields defining the schema field path to extract. Defaults to [].",
@@ -1006,20 +747,12 @@ class SchemaTypeIdentifier(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type52(Enum):
-    DynamicSchemaLoader = "DynamicSchemaLoader"
-
-
-class Type53(Enum):
-    InlineSchemaLoader = "InlineSchemaLoader"
-
-
 class InlineSchemaLoader(BaseModel):
     """
     Loads a schema that is defined directly in the manifest file.
     """
 
-    type: Type53
+    type: Literal["InlineSchemaLoader"]
     schema_: Optional[Dict[str, Any]] = Field(
         None,
         alias="schema",
@@ -1028,27 +761,19 @@ class InlineSchemaLoader(BaseModel):
     )
 
 
-class Type54(Enum):
-    JsonFileSchemaLoader = "JsonFileSchemaLoader"
-
-
 class JsonFileSchemaLoader(BaseModel):
     """
     Loads the schema from a json file.
     """
 
-    type: Type54
+    type: Literal["JsonFileSchemaLoader"]
     file_path: Optional[str] = Field(
         None,
         description="Path to the JSON file defining the schema. The path is relative to the connector module's root.",
-        example=["./schemas/users.json"],
+        examples=[["./schemas/users.json"]],
         title="File Path",
     )
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
-
-
-class Type55(Enum):
-    JsonDecoder = "JsonDecoder"
 
 
 class JsonDecoder(BaseModel):
@@ -1056,11 +781,7 @@ class JsonDecoder(BaseModel):
     Select 'JSON' if the response is formatted as a JSON object.
     """
 
-    type: Type55
-
-
-class Type56(Enum):
-    JsonlDecoder = "JsonlDecoder"
+    type: Literal["JsonDecoder"]
 
 
 class JsonlDecoder(BaseModel):
@@ -1068,15 +789,7 @@ class JsonlDecoder(BaseModel):
     Select 'JSON Lines' if the response consists of JSON objects separated by new lines ('\n') in JSONL format.
     """
 
-    type: Type56
-
-
-class Type57(Enum):
-    JsonSchemaPropertySelector = "JsonSchemaPropertySelector"
-
-
-class Type58(Enum):
-    KeysToLower = "KeysToLower"
+    type: Literal["JsonlDecoder"]
 
 
 class KeysToLower(BaseModel):
@@ -1084,12 +797,8 @@ class KeysToLower(BaseModel):
     A transformation that renames all keys to lower case.
     """
 
-    type: Type58
+    type: Literal["KeysToLower"]
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
-
-
-class Type59(Enum):
-    KeysToSnakeCase = "KeysToSnakeCase"
 
 
 class KeysToSnakeCase(BaseModel):
@@ -1097,12 +806,8 @@ class KeysToSnakeCase(BaseModel):
     A transformation that renames all keys to snake case.
     """
 
-    type: Type59
+    type: Literal["KeysToSnakeCase"]
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
-
-
-class Type60(Enum):
-    FlattenFields = "FlattenFields"
 
 
 class FlattenFields(BaseModel):
@@ -1110,7 +815,7 @@ class FlattenFields(BaseModel):
     A transformation that flatten record to single level format.
     """
 
-    type: Type60
+    type: Literal["FlattenFields"]
     flatten_lists: Optional[bool] = Field(
         True,
         description="Whether to flatten lists or leave it as is. Default is True.",
@@ -1119,12 +824,8 @@ class FlattenFields(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type61(Enum):
-    KeyTransformation = "KeyTransformation"
-
-
 class KeyTransformation(BaseModel):
-    type: Type61
+    type: Literal["KeyTransformation"]
     prefix: Optional[str] = Field(
         None,
         description="Prefix to add for object keys. If not provided original keys remain unchanged.",
@@ -1139,16 +840,12 @@ class KeyTransformation(BaseModel):
     )
 
 
-class Type62(Enum):
-    DpathFlattenFields = "DpathFlattenFields"
-
-
 class DpathFlattenFields(BaseModel):
     """
     A transformation that flatten field values to the to top of the record.
     """
 
-    type: Type62
+    type: Literal["DpathFlattenFields"]
     field_path: List[str] = Field(
         ...,
         description="A path to field that needs to be flattened.",
@@ -1173,16 +870,12 @@ class DpathFlattenFields(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type63(Enum):
-    KeysReplace = "KeysReplace"
-
-
 class KeysReplace(BaseModel):
     """
     A transformation that replaces symbols in keys.
     """
 
-    type: Type63
+    type: Literal["KeysReplace"]
     old: str = Field(
         ...,
         description="Old value to replace.",
@@ -1208,20 +901,12 @@ class KeysReplace(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type64(Enum):
-    IterableDecoder = "IterableDecoder"
-
-
 class IterableDecoder(BaseModel):
     """
     Select 'Iterable' if the response consists of strings separated by new lines (`\n`). The string will then be wrapped into a JSON object with the `record` key.
     """
 
-    type: Type64
-
-
-class Type65(Enum):
-    XmlDecoder = "XmlDecoder"
+    type: Literal["IterableDecoder"]
 
 
 class XmlDecoder(BaseModel):
@@ -1229,11 +914,7 @@ class XmlDecoder(BaseModel):
     Select 'XML' if the response consists of XML-formatted data.
     """
 
-    type: Type65
-
-
-class Type66(Enum):
-    CustomDecoder = "CustomDecoder"
+    type: Literal["XmlDecoder"]
 
 
 class CustomDecoder(BaseModel):
@@ -1241,10 +922,10 @@ class CustomDecoder(BaseModel):
     Use this to implement custom decoder logic.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type66
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomDecoder"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom decoding. Has to be a sub class of Decoder. The format is `source_<name>.<package>.<class_name>`.",
@@ -1254,24 +935,12 @@ class CustomDecoder(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type67(Enum):
-    ZipfileDecoder = "ZipfileDecoder"
-
-
-class Type68(Enum):
-    ListPartitionRouter = "ListPartitionRouter"
-
-
-class Type69(Enum):
-    MinMaxDatetime = "MinMaxDatetime"
-
-
 class MinMaxDatetime(BaseModel):
     """
     Compares the provided date against optional minimum or maximum times. The max_datetime serves as the ceiling and will be returned when datetime exceeds it. The min_datetime serves as the floor.
     """
 
-    type: Type69
+    type: Literal["MinMaxDatetime"]
     datetime: str = Field(
         ...,
         description="Datetime value.",
@@ -1304,21 +973,13 @@ class MinMaxDatetime(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type70(Enum):
-    NoAuth = "NoAuth"
-
-
 class NoAuth(BaseModel):
     """
     Authenticator for requests requiring no authentication.
     """
 
-    type: Type70
+    type: Literal["NoAuth"]
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
-
-
-class Type71(Enum):
-    NoPagination = "NoPagination"
 
 
 class NoPagination(BaseModel):
@@ -1326,36 +987,25 @@ class NoPagination(BaseModel):
     Pagination implementation that never returns a next page.
     """
 
-    type: Type71
+    type: Literal["NoPagination"]
 
 
 class Scope(BaseModel):
-    class Config:
-        extra = Extra.allow
-
+    model_config = ConfigDict(
+        extra="allow",
+    )
     scope: str = Field(
         ..., description="The OAuth scope string to request from the provider."
     )
 
 
 class OptionalScope(BaseModel):
-    class Config:
-        extra = Extra.allow
-
+    model_config = ConfigDict(
+        extra="allow",
+    )
     scope: str = Field(
         ..., description="The OAuth scope string to request from the provider."
     )
-
-
-class ScopesJoinStrategy(Enum):
-    """
-    The strategy used to join the `scopes` array into a single string for the OAuth request.
-    Defaults to `space` per RFC 6749.
-    """
-
-    space = "space"
-    comma = "comma"
-    plus = "plus"
 
 
 class State(BaseModel):
@@ -1364,9 +1014,9 @@ class State(BaseModel):
     including length and complexity.
     """
 
-    class Config:
-        extra = Extra.allow
-
+    model_config = ConfigDict(
+        extra="allow",
+    )
     min: int
     max: int
 
@@ -1414,9 +1064,9 @@ class OauthConnectorInputSpecification(BaseModel):
       }
     """
 
-    class Config:
-        extra = Extra.allow
-
+    model_config = ConfigDict(
+        extra="allow",
+    )
     consent_url: str = Field(
         ...,
         description="The DeclarativeOAuth Specific string URL string template to initiate the authentication.\nThe placeholders are replaced during the processing to provide neccessary values.",
@@ -1444,7 +1094,7 @@ class OauthConnectorInputSpecification(BaseModel):
         examples=[[{"scope": "admin:read"}]],
         title="Optional Scopes",
     )
-    scopes_join_strategy: Optional[ScopesJoinStrategy] = Field(
+    scopes_join_strategy: Optional[Literal["space", "comma", "plus"]] = Field(
         "space",
         description="The strategy used to join the `scopes` array into a single string for the OAuth request.\nDefaults to `space` per RFC 6749.",
         title="Scopes Join Strategy",
@@ -1534,9 +1184,9 @@ class OAuthConfigSpecification(BaseModel):
     Specification describing how an 'advanced' Auth flow would need to function.
     """
 
-    class Config:
-        extra = Extra.allow
-
+    model_config = ConfigDict(
+        extra="allow",
+    )
     oauth_user_input_from_connector_config_specification: Optional[Dict[str, Any]] = (
         Field(
             None,
@@ -1600,16 +1250,12 @@ class OAuthConfigSpecification(BaseModel):
     )
 
 
-class Type72(Enum):
-    OffsetIncrement = "OffsetIncrement"
-
-
 class OffsetIncrement(BaseModel):
     """
     Pagination strategy that returns the number of records reads so far and returns it as the next page token.
     """
 
-    type: Type72
+    type: Literal["OffsetIncrement"]
     page_size: Optional[Union[int, str]] = Field(
         None,
         description="The number of records to include in each pages.",
@@ -1624,16 +1270,12 @@ class OffsetIncrement(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type73(Enum):
-    PageIncrement = "PageIncrement"
-
-
 class PageIncrement(BaseModel):
     """
     Pagination strategy that returns the number of pages reads so far and returns it as the next page token.
     """
 
-    type: Type73
+    type: Literal["PageIncrement"]
     page_size: Optional[Union[int, str]] = Field(
         None,
         description="The number of records to include in each pages.",
@@ -1654,12 +1296,8 @@ class PageIncrement(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type74(Enum):
-    ParentStreamConfig = "ParentStreamConfig"
-
-
-class PrimaryKey(BaseModel):
-    __root__: Union[str, List[str], List[List[str]]] = Field(
+class PrimaryKey(RootModel[Union[str, List[str], List[List[str]]]]):
+    root: Union[str, List[str], List[List[str]]] = Field(
         ...,
         description="The stream field to be used to distinguish unique records. Can either be a single field, an array of fields representing a composite key, or an array of arrays representing a composite key where the fields are nested fields.",
         examples=["id", ["code", "type"]],
@@ -1667,30 +1305,13 @@ class PrimaryKey(BaseModel):
     )
 
 
-class Type75(Enum):
-    PropertiesFromEndpoint = "PropertiesFromEndpoint"
-
-
-class Type76(Enum):
-    PropertyChunking = "PropertyChunking"
-
-
-class PropertyLimitType(Enum):
-    """
-    The type used to determine the maximum number of properties per chunk
-    """
-
-    characters = "characters"
-    property_count = "property_count"
-
-
 class PropertyChunking(BaseModel):
     """
     For APIs with restrictions on the amount of properties that can be requester per request, property chunking can be applied to make multiple requests with a subset of the properties.
     """
 
-    type: Type76
-    property_limit_type: PropertyLimitType = Field(
+    type: Literal["PropertyChunking"]
+    property_limit_type: Literal["characters", "property_count"] = Field(
         ...,
         description="The type used to determine the maximum number of properties per chunk",
         title="Property Limit Type",
@@ -1708,20 +1329,12 @@ class PropertyChunking(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type77(Enum):
-    QueryProperties = "QueryProperties"
-
-
-class Type78(Enum):
-    RecordFilter = "RecordFilter"
-
-
 class RecordFilter(BaseModel):
     """
     Filter applied on a list of records.
     """
 
-    type: Type78
+    type: Literal["RecordFilter"]
     condition: Optional[str] = Field(
         "",
         description="The predicate to filter a record. Records will be removed if evaluated to False.",
@@ -1734,21 +1347,13 @@ class RecordFilter(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type79(Enum):
-    RecordSelector = "RecordSelector"
-
-
-class SchemaNormalization(Enum):
-    """
-    Responsible for normalization according to the schema.
-    """
-
-    Default = "Default"
-    None_ = "None"
-
-
-class Type80(Enum):
-    RemoveFields = "RemoveFields"
+class SchemaNormalization(RootModel[Literal["Default", "None"]]):
+    root: Literal["Default", "None"] = Field(
+        ...,
+        description="Responsible for normalization according to the schema.",
+        examples=["Default", "None"],
+        title="Schema Normalization",
+    )
 
 
 class RemoveFields(BaseModel):
@@ -1756,7 +1361,7 @@ class RemoveFields(BaseModel):
     A transformation which removes fields from a record. The fields removed are designated using FieldPointers. During transformation, if a field or any of its parents does not exist in the record, no error is thrown.
     """
 
-    type: Type80
+    type: Literal["RemoveFields"]
     condition: Optional[str] = Field(
         "",
         description="The predicate to filter a property by a property value. Property will be removed if it is empty OR expression is evaluated to True.,",
@@ -1775,31 +1380,12 @@ class RemoveFields(BaseModel):
     )
 
 
-class Type81(Enum):
-    RequestPath = "RequestPath"
-
-
 class RequestPath(BaseModel):
     """
     The URL path to be used for the HTTP request.
     """
 
-    type: Type81
-
-
-class Type82(Enum):
-    RequestOption = "RequestOption"
-
-
-class InjectInto(Enum):
-    """
-    Configures where the descriptor should be set on the HTTP requests. Note that request parameters that are already encoded in the URL path will not be duplicated.
-    """
-
-    request_parameter = "request_parameter"
-    header = "header"
-    body_data = "body_data"
-    body_json = "body_json"
+    type: Literal["RequestPath"]
 
 
 class RequestOption(BaseModel):
@@ -1807,12 +1393,14 @@ class RequestOption(BaseModel):
     Specifies the key field or path and where in the request a component's value should be injected.
     """
 
-    type: Type82
-    inject_into: InjectInto = Field(
-        ...,
-        description="Configures where the descriptor should be set on the HTTP requests. Note that request parameters that are already encoded in the URL path will not be duplicated.",
-        examples=["request_parameter", "header", "body_data", "body_json"],
-        title="Inject Into",
+    type: Literal["RequestOption"]
+    inject_into: Literal["request_parameter", "header", "body_data", "body_json"] = (
+        Field(
+            ...,
+            description="Configures where the descriptor should be set on the HTTP requests. Note that request parameters that are already encoded in the URL path will not be duplicated.",
+            examples=["request_parameter", "header", "body_data", "body_json"],
+            title="Inject Into",
+        )
     )
     field_name: Optional[str] = Field(
         None,
@@ -1833,12 +1421,9 @@ class Schemas(BaseModel):
     The stream schemas representing the shape of the data emitted by the stream.
     """
 
-    class Config:
-        extra = Extra.allow
-
-
-class Type83(Enum):
-    LegacySessionTokenAuthenticator = "LegacySessionTokenAuthenticator"
+    model_config = ConfigDict(
+        extra="allow",
+    )
 
 
 class LegacySessionTokenAuthenticator(BaseModel):
@@ -1846,7 +1431,7 @@ class LegacySessionTokenAuthenticator(BaseModel):
     Deprecated - use SessionTokenAuthenticator instead. Authenticator for requests authenticated using session tokens. A session token is a random value generated by a server to identify a specific user for the duration of one interaction session.
     """
 
-    type: Type83
+    type: Literal["LegacySessionTokenAuthenticator"]
     header: str = Field(
         ...,
         description="The name of the session token header that will be injected in the request",
@@ -1862,7 +1447,7 @@ class LegacySessionTokenAuthenticator(BaseModel):
     session_token: Optional[str] = Field(
         None,
         description="Session token to use if using a pre-defined token. Not needed if authenticating with username + password pair",
-        example=["{{ config['session_token'] }}"],
+        examples=[["{{ config['session_token'] }}"]],
         title="Session Token",
     )
     session_token_response_key: str = Field(
@@ -1892,42 +1477,13 @@ class LegacySessionTokenAuthenticator(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type84(Enum):
-    StateDelegatingStream = "StateDelegatingStream"
-
-
-class Type85(Enum):
-    SimpleRetriever = "SimpleRetriever"
-
-
-class Type86(Enum):
-    PaginationReset = "PaginationReset"
-
-
-class Action1(Enum):
-    SPLIT_USING_CURSOR = "SPLIT_USING_CURSOR"
-    RESET = "RESET"
-
-
-class Type87(Enum):
-    PaginationResetLimits = "PaginationResetLimits"
-
-
 class PaginationResetLimits(BaseModel):
     """
     Describes the limits that trigger pagination reset
     """
 
-    type: Type87
+    type: Literal["PaginationResetLimits"]
     number_of_records: Optional[int] = None
-
-
-class Type88(Enum):
-    GzipDecoder = "GzipDecoder"
-
-
-class Type89(Enum):
-    CsvDecoder = "CsvDecoder"
 
 
 class CsvDecoder(BaseModel):
@@ -1935,14 +1491,10 @@ class CsvDecoder(BaseModel):
     Select 'CSV' for response data that is formatted as CSV (comma-separated values). Can specify an encoding (default: 'utf-8') and a delimiter (default: ',').
     """
 
-    type: Type89
+    type: Literal["CsvDecoder"]
     encoding: Optional[str] = "utf-8"
     delimiter: Optional[str] = ","
     set_values_to_none: Optional[List[str]] = None
-
-
-class Type90(Enum):
-    AsyncJobStatusMap = "AsyncJobStatusMap"
 
 
 class AsyncJobStatusMap(BaseModel):
@@ -1950,46 +1502,17 @@ class AsyncJobStatusMap(BaseModel):
     Matches the api job status to Async Job Status.
     """
 
-    type: Optional[Type90] = None
+    type: Optional[Literal["AsyncJobStatusMap"]] = None
     running: List[str]
     completed: List[str]
     failed: List[str]
     timeout: List[str]
 
 
-class Type91(Enum):
-    AsyncRetriever = "AsyncRetriever"
-
-
-class Type92(Enum):
-    Spec = "Spec"
-
-
-class Type93(Enum):
-    ConfigNormalizationRules = "ConfigNormalizationRules"
-
-
-class Type94(Enum):
-    ConfigMigration = "ConfigMigration"
-
-
-class Type95(Enum):
-    SubstreamPartitionRouter = "SubstreamPartitionRouter"
-
-
-class ValueType(Enum):
-    """
-    A schema type.
-    """
-
-    string = "string"
-    number = "number"
-    integer = "integer"
-    boolean = "boolean"
-
-
-class Type96(Enum):
-    WaitTimeFromHeader = "WaitTimeFromHeader"
+class ValueType(RootModel[Literal["string", "number", "integer", "boolean"]]):
+    root: Literal["string", "number", "integer", "boolean"] = Field(
+        ..., description="A schema type.", title="Value Type"
+    )
 
 
 class WaitTimeFromHeader(BaseModel):
@@ -1997,7 +1520,7 @@ class WaitTimeFromHeader(BaseModel):
     Extract wait time from a HTTP header in the response.
     """
 
-    type: Type96
+    type: Literal["WaitTimeFromHeader"]
     header: str = Field(
         ...,
         description="The name of the response header defining how long to wait before retrying.",
@@ -2019,20 +1542,12 @@ class WaitTimeFromHeader(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type97(Enum):
-    GroupingPartitionRouter = "GroupingPartitionRouter"
-
-
-class Type98(Enum):
-    WaitUntilTimeFromHeader = "WaitUntilTimeFromHeader"
-
-
 class WaitUntilTimeFromHeader(BaseModel):
     """
     Extract time at which we can retry the request from response header and wait for the difference between now and that time.
     """
 
-    type: Type98
+    type: Literal["WaitUntilTimeFromHeader"]
     header: str = Field(
         ...,
         description="The name of the response header defining how long to wait before retrying.",
@@ -2054,16 +1569,12 @@ class WaitUntilTimeFromHeader(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type99(Enum):
-    ComponentMappingDefinition = "ComponentMappingDefinition"
-
-
 class ComponentMappingDefinition(BaseModel):
     """
     (This component is experimental. Use at your own risk.) Specifies a mapping definition to update or add fields in a record or configuration. This allows dynamic mapping of data by interpolating values into the template based on provided contexts.
     """
 
-    type: Type99
+    type: Literal["ComponentMappingDefinition"]
     field_path: List[str] = Field(
         ...,
         description="A list of potentially nested fields indicating the full path where value will be added or updated.",
@@ -2109,20 +1620,12 @@ class ComponentMappingDefinition(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type100(Enum):
-    HttpComponentsResolver = "HttpComponentsResolver"
-
-
-class Type101(Enum):
-    StreamConfig = "StreamConfig"
-
-
 class StreamConfig(BaseModel):
     """
     (This component is experimental. Use at your own risk.) Describes how to get streams config from the source config.
     """
 
-    type: Type101
+    type: Literal["StreamConfig"]
     configs_pointer: List[str] = Field(
         ...,
         description="A list of potentially nested fields indicating the full path in source config file where streams configs located.",
@@ -2137,23 +1640,15 @@ class StreamConfig(BaseModel):
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
 
 
-class Type102(Enum):
-    ConfigComponentsResolver = "ConfigComponentsResolver"
-
-
 class ConfigComponentsResolver(BaseModel):
     """
     (This component is experimental. Use at your own risk.) Resolves and populates stream templates with components fetched from the source config.
     """
 
-    type: Type102
+    type: Literal["ConfigComponentsResolver"]
     stream_config: Union[List[StreamConfig], StreamConfig]
     components_mapping: List[ComponentMappingDefinition]
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
-
-
-class Type103(Enum):
-    StreamParametersDefinition = "StreamParametersDefinition"
 
 
 class StreamParametersDefinition(BaseModel):
@@ -2161,7 +1656,7 @@ class StreamParametersDefinition(BaseModel):
     (This component is experimental. Use at your own risk.) Represents a stream parameters definition to set up dynamic streams from defined values in manifest.
     """
 
-    type: Type103
+    type: Literal["StreamParametersDefinition"]
     list_of_parameters_for_stream: List[Dict[str, Any]] = Field(
         ...,
         description="A list of object of parameters for stream, each object in the list represents params for one stream.",
@@ -2178,27 +1673,15 @@ class StreamParametersDefinition(BaseModel):
     )
 
 
-class Type104(Enum):
-    ParametrizedComponentsResolver = "ParametrizedComponentsResolver"
-
-
 class ParametrizedComponentsResolver(BaseModel):
     """
     (This component is experimental. Use at your own risk.) Resolves and populates dynamic streams from defined parametrized values in manifest.
     """
 
-    type: Type104
+    type: Literal["ParametrizedComponentsResolver"]
     stream_parameters: StreamParametersDefinition
     components_mapping: List[ComponentMappingDefinition]
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
-
-
-class Type105(Enum):
-    DynamicDeclarativeStream = "DynamicDeclarativeStream"
-
-
-class Type106(Enum):
-    RequestBodyPlainText = "RequestBodyPlainText"
 
 
 class RequestBodyPlainText(BaseModel):
@@ -2206,12 +1689,8 @@ class RequestBodyPlainText(BaseModel):
     Request body value is sent as plain text
     """
 
-    type: Type106
+    type: Literal["RequestBodyPlainText"]
     value: str
-
-
-class Type107(Enum):
-    RequestBodyUrlEncodedForm = "RequestBodyUrlEncodedForm"
 
 
 class RequestBodyUrlEncodedForm(BaseModel):
@@ -2219,12 +1698,8 @@ class RequestBodyUrlEncodedForm(BaseModel):
     Request body value is converted into a url-encoded form
     """
 
-    type: Type107
+    type: Literal["RequestBodyUrlEncodedForm"]
     value: Dict[str, str]
-
-
-class Type108(Enum):
-    RequestBodyJsonObject = "RequestBodyJsonObject"
 
 
 class RequestBodyJsonObject(BaseModel):
@@ -2232,12 +1707,8 @@ class RequestBodyJsonObject(BaseModel):
     Request body value converted into a JSON object
     """
 
-    type: Type108
+    type: Literal["RequestBodyJsonObject"]
     value: Dict[str, Any]
-
-
-class Type109(Enum):
-    RequestBodyGraphQL = "RequestBodyGraphQL"
 
 
 class RequestBodyGraphQlQuery(BaseModel):
@@ -2245,22 +1716,10 @@ class RequestBodyGraphQlQuery(BaseModel):
     Request body GraphQL query object
     """
 
-    class Config:
-        extra = Extra.allow
-
+    model_config = ConfigDict(
+        extra="allow",
+    )
     query: str = Field(..., description="The GraphQL query to be executed")
-
-
-class Type110(Enum):
-    DpathValidator = "DpathValidator"
-
-
-class Type111(Enum):
-    PredicateValidator = "PredicateValidator"
-
-
-class Type112(Enum):
-    ValidateAdheresToSchema = "ValidateAdheresToSchema"
 
 
 class ValidateAdheresToSchema(BaseModel):
@@ -2268,7 +1727,7 @@ class ValidateAdheresToSchema(BaseModel):
     Validates that a user-provided schema adheres to a specified JSON schema.
     """
 
-    type: Type112
+    type: Literal["ValidateAdheresToSchema"]
     base_schema: Union[str, Dict[str, Any]] = Field(
         ...,
         description="The base JSON schema against which the user-provided schema will be validated.",
@@ -2294,19 +1753,15 @@ class ValidateAdheresToSchema(BaseModel):
     )
 
 
-class Type113(Enum):
-    CustomValidationStrategy = "CustomValidationStrategy"
-
-
 class CustomValidationStrategy(BaseModel):
     """
     Custom validation strategy that allows for custom validation logic.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type113
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["CustomValidationStrategy"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom validation strategy. Has to be a sub class of ValidationStrategy. The format is `source_<name>.<package>.<class_name>`.",
@@ -2315,16 +1770,12 @@ class CustomValidationStrategy(BaseModel):
     )
 
 
-class Type114(Enum):
-    ConfigRemapField = "ConfigRemapField"
-
-
 class ConfigRemapField(BaseModel):
     """
     Transformation that remaps a field's value to another value based on a static map.
     """
 
-    type: Type114
+    type: Literal["ConfigRemapField"]
     map: Union[Dict[str, Any], str] = Field(
         ...,
         description="A mapping of original values to new values. When a field value matches a key in this map, it will be replaced with the corresponding value.",
@@ -2347,20 +1798,12 @@ class ConfigRemapField(BaseModel):
     )
 
 
-class Type115(Enum):
-    ConfigAddFields = "ConfigAddFields"
-
-
-class Type116(Enum):
-    ConfigRemoveFields = "ConfigRemoveFields"
-
-
 class ConfigRemoveFields(BaseModel):
     """
     Transformation that removes a field from the config.
     """
 
-    type: Type116
+    type: Literal["ConfigRemoveFields"]
     field_pointers: List[List[str]] = Field(
         ...,
         description="A list of field pointers to be removed from the config.",
@@ -2379,16 +1822,12 @@ class ConfigRemoveFields(BaseModel):
     )
 
 
-class Type117(Enum):
-    CustomConfigTransformation = "CustomConfigTransformation"
-
-
 class CustomConfigTransformation(BaseModel):
     """
     A custom config transformation that can be used to transform the connector configuration.
     """
 
-    type: Type117
+    type: Literal["CustomConfigTransformation"]
     class_name: str = Field(
         ...,
         description="Fully-qualified name of the class that will be implementing the custom config transformation. The format is `source_<name>.<package>.<class_name>`.",
@@ -2408,7 +1847,7 @@ class AddedFieldDefinition(BaseModel):
     Defines the field to add on a record.
     """
 
-    type: Type2
+    type: Literal["AddedFieldDefinition"]
     path: List[str] = Field(
         ...,
         description="List of strings defining the path where to add the value on the record.",
@@ -2438,7 +1877,7 @@ class AddFields(BaseModel):
     Transformation which adds field to an output record. The path of the added field can be nested.
     """
 
-    type: Type3
+    type: Literal["AddFields"]
     fields: List[AddedFieldDefinition] = Field(
         ...,
         description="List of transformations (path and corresponding value) that will be added to the record.",
@@ -2462,7 +1901,7 @@ class ApiKeyAuthenticator(BaseModel):
     Authenticator for requests authenticated with an API token injected as an HTTP request header.
     """
 
-    type: Type4
+    type: Literal["ApiKeyAuthenticator"]
     api_token: Optional[str] = Field(
         None,
         description="The API key to inject in the request. Fill it in the user inputs.",
@@ -2496,7 +1935,7 @@ class AuthFlow(BaseModel):
       inputs anymore and the auth process is faster and easier to complete.
     """
 
-    auth_flow_type: Optional[AuthFlowType] = Field(
+    auth_flow_type: Optional[Literal["oauth2.0", "oauth1.0"]] = Field(
         None, description="The type of auth to use", title="Auth flow type"
     )
     predicate_key: Optional[List[str]] = Field(
@@ -2519,7 +1958,7 @@ class CheckStream(BaseModel):
     Defines the streams to try reading when running a check operation.
     """
 
-    type: Type8
+    type: Literal["CheckStream"]
     stream_names: Optional[List[str]] = Field(
         None,
         description="Names of the streams to try reading from when running a check operation.",
@@ -2534,7 +1973,7 @@ class IncrementingCountCursor(BaseModel):
     Cursor that allows for incremental sync according to a continuously increasing integer.
     """
 
-    type: Type30
+    type: Literal["IncrementingCountCursor"]
     cursor_field: str = Field(
         ...,
         description="The location of the value on a record that will be used as a bookmark during sync. To ensure no data loss, the API must return records in ascending order based on the cursor field. Nested fields are not supported, so the field must be at the top level of the record. You can use a combination of Add Field and Remove Field transformations to move the nested field to the top.",
@@ -2565,7 +2004,7 @@ class DatetimeBasedCursor(BaseModel):
     Cursor to provide incremental capabilities over datetime.
     """
 
-    type: Type31
+    type: Literal["DatetimeBasedCursor"]
     clamping: Optional[Clamping] = Field(
         None,
         description="This option is used to adjust the upper and lower boundaries of each datetime window to beginning and end of the provided target period (day, week, month)",
@@ -2685,7 +2124,7 @@ class JwtAuthenticator(BaseModel):
     Authenticator for requests using JWT authentication flow.
     """
 
-    type: Type32
+    type: Literal["JwtAuthenticator"]
     secret_key: str = Field(
         ...,
         description="Secret used to sign the JSON web token.",
@@ -2697,7 +2136,22 @@ class JwtAuthenticator(BaseModel):
         description='When set to true, the secret key will be base64 encoded prior to being encoded as part of the JWT. Only set to "true" when required by the API.',
         title="Base64-encode Secret Key",
     )
-    algorithm: Algorithm = Field(
+    algorithm: Literal[
+        "HS256",
+        "HS384",
+        "HS512",
+        "ES256",
+        "ES256K",
+        "ES384",
+        "ES512",
+        "RS256",
+        "RS384",
+        "RS512",
+        "PS256",
+        "PS384",
+        "PS512",
+        "EdDSA",
+    ] = Field(
         ...,
         description="Algorithm used to sign the JSON web token.",
         examples=["ES256", "HS256", "RS256", "{{ config['algorithm'] }}"],
@@ -2754,7 +2208,7 @@ class OAuthAuthenticator(BaseModel):
     Authenticator for requests using OAuth 2.0 authorization flow.
     """
 
-    type: Type33
+    type: Literal["OAuthAuthenticator"]
     client_id_name: Optional[str] = Field(
         "client_id",
         description="The name of the property to use to refresh the `access_token`.",
@@ -2920,10 +2374,10 @@ class FixedWindowCallRatePolicy(BaseModel):
     A policy that allows a fixed number of calls within a specific time window.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type37
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["FixedWindowCallRatePolicy"]
     period: str = Field(
         ..., description="The time interval for the rate limit window.", title="Period"
     )
@@ -2944,10 +2398,10 @@ class MovingWindowCallRatePolicy(BaseModel):
     A policy that allows a fixed number of calls within a moving time window.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type38
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["MovingWindowCallRatePolicy"]
     rates: List[Rate] = Field(
         ...,
         description="List of rates that define the call limits for different time intervals.",
@@ -2965,10 +2419,10 @@ class UnlimitedCallRatePolicy(BaseModel):
     A policy that allows unlimited calls for specific requests.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type39
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["UnlimitedCallRatePolicy"]
     matchers: List[HttpRequestRegexMatcher] = Field(
         ...,
         description="List of matchers that define which requests this policy applies to.",
@@ -2981,7 +2435,7 @@ class DefaultErrorHandler(BaseModel):
     Component defining how to handle errors. Default behavior includes only retrying server errors (HTTP 5XX) and too many requests (HTTP 429) with an exponential backoff.
     """
 
-    type: Type40
+    type: Literal["DefaultErrorHandler"]
     backoff_strategies: Optional[
         List[
             Union[
@@ -3016,7 +2470,7 @@ class DefaultPaginator(BaseModel):
     Default pagination implementation to request pages of results with a fixed size until the pagination strategy no longer returns a next_page_token.
     """
 
-    type: Type41
+    type: Literal["DefaultPaginator"]
     pagination_strategy: Union[
         PageIncrement, OffsetIncrement, CursorPagination, CustomPaginationStrategy
     ] = Field(
@@ -3040,7 +2494,7 @@ class SessionTokenRequestApiKeyAuthenticator(BaseModel):
     Authenticator for requests using the session token as an API key that's injected into the request.
     """
 
-    type: Type47
+    type: Literal["ApiKey"]
     inject_into: RequestOption = Field(
         ...,
         description="Configure how the API Key will be sent in requests to the source API.",
@@ -3067,7 +2521,7 @@ class JsonSchemaPropertySelector(BaseModel):
     When configured, the JSON schema supplied in the catalog containing which columns are selected for the current stream will be used to reduce which query properties will be included in the outbound API request. This can improve the performance of API requests, especially for those requiring multiple requests to get a complete record.
     """
 
-    type: Type57
+    type: Literal["JsonSchemaPropertySelector"]
     transformations: Optional[
         List[
             Union[
@@ -3094,7 +2548,7 @@ class ListPartitionRouter(BaseModel):
     A Partition router that specifies a list of attributes where each attribute describes a portion of the complete data set for a stream. During a sync, each value is iterated over and can be used as input to outbound API requests.
     """
 
-    type: Type68
+    type: Literal["ListPartitionRouter"]
     cursor_field: str = Field(
         ...,
         description='While iterating over list values, the name of field used to reference a list value. The partition value can be accessed with string interpolation. e.g. "{{ stream_partition[\'my_key\'] }}" where "my_key" is the value of the cursor_field.',
@@ -3120,8 +2574,10 @@ class RecordSelector(BaseModel):
     Responsible for translating an HTTP response into a list of records by extracting records from the response and optionally filtering records based on a heuristic.
     """
 
-    type: Type79
-    extractor: Union[DpathExtractor, CustomRecordExtractor]
+    type: Literal["RecordSelector"]
+    extractor: Annotated[
+        Union[DpathExtractor, CustomRecordExtractor], Field(discriminator="type")
+    ]
     record_filter: Optional[Union[RecordFilter, CustomRecordFilter]] = Field(
         None,
         description="Responsible for filtering records to be emitted by the Source.",
@@ -3147,8 +2603,8 @@ class PaginationReset(BaseModel):
     Describes what triggers pagination reset and how to handle it. If SPLIT_USING_CURSOR, the connector developer is accountable for ensuring that the records are returned in ascending order.
     """
 
-    type: Type86
-    action: Action1
+    type: Literal["PaginationReset"]
+    action: Literal["SPLIT_USING_CURSOR", "RESET"]
     limits: Optional[PaginationResetLimits] = None
 
 
@@ -3157,8 +2613,11 @@ class GzipDecoder(BaseModel):
     Select 'gzip' for response data that is compressed with gzip. Requires specifying an inner data type/decoder to parse the decompressed data.
     """
 
-    type: Type88
-    decoder: Union[CsvDecoder, GzipDecoder, JsonDecoder, JsonlDecoder]
+    type: Literal["GzipDecoder"]
+    decoder: Annotated[
+        Union[CsvDecoder, GzipDecoder, JsonDecoder, JsonlDecoder],
+        Field(discriminator="type"),
+    ]
 
 
 class RequestBodyGraphQL(BaseModel):
@@ -3166,7 +2625,7 @@ class RequestBodyGraphQL(BaseModel):
     Request body value converted into a GraphQL query object
     """
 
-    type: Type109
+    type: Literal["RequestBodyGraphQL"]
     value: RequestBodyGraphQlQuery
 
 
@@ -3175,7 +2634,7 @@ class DpathValidator(BaseModel):
     Validator that extracts the value located at a given field path.
     """
 
-    type: Type110
+    type: Literal["DpathValidator"]
     field_path: List[str] = Field(
         ...,
         description='List of potentially nested fields describing the full path of the field to validate. Use "*" to validate all values from an array.',
@@ -3201,7 +2660,7 @@ class PredicateValidator(BaseModel):
     Validator that applies a validation strategy to a specified value.
     """
 
-    type: Type111
+    type: Literal["PredicateValidator"]
     value: Optional[Union[str, float, Dict[str, Any], List[Any], bool]] = Field(
         ...,
         description="The value to be validated. Can be a literal value or interpolated from configuration.",
@@ -3227,7 +2686,7 @@ class ConfigAddFields(BaseModel):
     Transformation that adds fields to a config. The path of the added field can be nested.
     """
 
-    type: Type115
+    type: Literal["ConfigAddFields"]
     fields: List[AddedFieldDefinition] = Field(
         ...,
         description="A list of transformations (path and corresponding value) that will be added to the config.",
@@ -3250,7 +2709,7 @@ class CompositeErrorHandler(BaseModel):
     Error handler that sequentially iterates over a list of error handlers.
     """
 
-    type: Type11
+    type: Literal["CompositeErrorHandler"]
     error_handlers: List[
         Union[CompositeErrorHandler, DefaultErrorHandler, CustomErrorHandler]
     ] = Field(
@@ -3267,10 +2726,10 @@ class HTTPAPIBudget(BaseModel):
 
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type36
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["HTTPAPIBudget"]
     policies: List[
         Union[
             FixedWindowCallRatePolicy,
@@ -3304,11 +2763,14 @@ class ZipfileDecoder(BaseModel):
     Select 'ZIP file' for response data that is returned as a zipfile. Requires specifying an inner data type/decoder to parse the unzipped data.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type67
-    decoder: Union[CsvDecoder, GzipDecoder, JsonDecoder, JsonlDecoder] = Field(
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["ZipfileDecoder"]
+    decoder: Annotated[
+        Union[CsvDecoder, GzipDecoder, JsonDecoder, JsonlDecoder],
+        Field(discriminator="type"),
+    ] = Field(
         ...,
         description="Parser to parse the decompressed data from the zipfile(s).",
         title="Parser",
@@ -3320,7 +2782,7 @@ class ConfigMigration(BaseModel):
     A config migration that will be applied on the incoming config at the start of a sync.
     """
 
-    type: Type94
+    type: Literal["ConfigMigration"]
     description: Optional[str] = Field(
         None, description="The description/purpose of the config migration."
     )
@@ -3339,10 +2801,10 @@ class ConfigMigration(BaseModel):
 
 
 class ConfigNormalizationRules(BaseModel):
-    class Config:
-        extra = Extra.forbid
-
-    type: Type93
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: Literal["ConfigNormalizationRules"]
     config_migrations: Optional[List[ConfigMigration]] = Field(
         [],
         description="The discrete migrations that will be applied on the incoming config. Each migration will be applied in the order they are defined.",
@@ -3374,7 +2836,7 @@ class Spec(BaseModel):
     A source specification made up of connector metadata and how it can be configured.
     """
 
-    type: Type92
+    type: Literal["Spec"]
     connection_specification: Dict[str, Any] = Field(
         ...,
         description="A connection specification describing how a the connector can be configured.",
@@ -3401,12 +2863,19 @@ class DeclarativeSource1(BaseModel):
     An API source that extracts data according to its declarative components.
     """
 
-    class Config:
-        extra = Extra.forbid
-
-    type: Type
-    check: Union[CheckStream, CheckDynamicStream]
-    streams: List[Union[ConditionalStreams, DeclarativeStream, StateDelegatingStream]]
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: Literal["DeclarativeSource"]
+    check: Annotated[
+        Union[CheckStream, CheckDynamicStream], Field(discriminator="type")
+    ]
+    streams: List[
+        Annotated[
+            Union[ConditionalStreams, DeclarativeStream, StateDelegatingStream],
+            Field(discriminator="type"),
+        ]
+    ]
     dynamic_streams: Optional[List[DynamicDeclarativeStream]] = None
     version: str = Field(
         ...,
@@ -3438,11 +2907,13 @@ class DeclarativeSource2(BaseModel):
     An API source that extracts data according to its declarative components.
     """
 
-    class Config:
-        extra = Extra.forbid
-
-    type: Type
-    check: Union[CheckStream, CheckDynamicStream]
+    model_config = ConfigDict(
+        extra="forbid",
+    )
+    type: Literal["DeclarativeSource"]
+    check: Annotated[
+        Union[CheckStream, CheckDynamicStream], Field(discriminator="type")
+    ]
     streams: Optional[
         List[Union[ConditionalStreams, DeclarativeStream, StateDelegatingStream]]
     ] = None
@@ -3472,11 +2943,8 @@ class DeclarativeSource2(BaseModel):
     )
 
 
-class DeclarativeSource(BaseModel):
-    class Config:
-        extra = Extra.forbid
-
-    __root__: Union[DeclarativeSource1, DeclarativeSource2] = Field(
+class DeclarativeSource(RootModel[Union[DeclarativeSource1, DeclarativeSource2]]):
+    root: Union[DeclarativeSource1, DeclarativeSource2] = Field(
         ...,
         description="An API source that extracts data according to its declarative components.",
         title="DeclarativeSource",
@@ -3488,10 +2956,10 @@ class SelectiveAuthenticator(BaseModel):
     Authenticator that selects concrete authenticator based on config property.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type7
+    model_config = ConfigDict(
+        extra="allow",
+    )
+    type: Literal["SelectiveAuthenticator"]
     authenticator_selection_path: List[str] = Field(
         ...,
         description="Path of the field in config with selected authenticator name",
@@ -3533,7 +3001,7 @@ class ConditionalStreams(BaseModel):
     Streams that are only available while performing a connector operation when the condition is met.
     """
 
-    type: Type13
+    type: Literal["ConditionalStreams"]
     condition: str = Field(
         ...,
         description="Condition that will be evaluated to determine if a set of streams should be available.",
@@ -3553,7 +3021,7 @@ class FileUploader(BaseModel):
     (experimental) Describes how to fetch a file
     """
 
-    type: Type35
+    type: Literal["FileUploader"]
     requester: Union[HttpRequester, CustomRequester] = Field(
         ...,
         description="Requester component that describes how to prepare HTTP requests to send to the source API.",
@@ -3582,24 +3050,30 @@ class DeclarativeStream(BaseModel):
     A stream whose behavior is described by a set of declarative low code components.
     """
 
-    class Config:
-        extra = Extra.allow
-
-    type: Type34
-    name: Optional[str] = Field(
-        "", description="The stream name.", example=["Users"], title="Name"
+    model_config = ConfigDict(
+        extra="allow",
     )
-    retriever: Union[SimpleRetriever, AsyncRetriever, CustomRetriever] = Field(
+    type: Literal["DeclarativeStream"]
+    name: Optional[str] = Field(
+        "", description="The stream name.", examples=[["Users"]], title="Name"
+    )
+    retriever: Annotated[
+        Union[SimpleRetriever, AsyncRetriever, CustomRetriever],
+        Field(discriminator="type"),
+    ] = Field(
         ...,
         description="Component used to coordinate how records are extracted across stream slices and request pages.",
         title="Retriever",
     )
-    incremental_sync: Optional[Union[DatetimeBasedCursor, IncrementingCountCursor]] = (
-        Field(
-            None,
-            description="Component used to fetch data incrementally based on a time field in the data.",
-            title="Incremental Sync",
-        )
+    incremental_sync: Optional[
+        Annotated[
+            Union[DatetimeBasedCursor, IncrementingCountCursor],
+            Field(discriminator="type"),
+        ]
+    ] = Field(
+        None,
+        description="Component used to fetch data incrementally based on a time field in the data.",
+        title="Incremental Sync",
     )
     primary_key: Optional[PrimaryKey] = Field("", title="Primary Key")
     schema_loader: Optional[
@@ -3660,7 +3134,7 @@ class SessionTokenAuthenticator(BaseModel):
     Authenticator for requests using the session token as an API key that's injected into the request.
     """
 
-    type: Type46
+    type: Literal["SessionTokenAuthenticator"]
     login_requester: HttpRequester = Field(
         ...,
         description="Description of the request to perform to obtain a session token to perform data requests. The response body is expected to be a JSON object with a session token property.",
@@ -3697,7 +3171,9 @@ class SessionTokenAuthenticator(BaseModel):
         description="Authentication method to use for requests sent to the API, specifying how to inject the session token.",
         title="Data Request Authentication",
     )
-    decoder: Optional[Union[JsonDecoder, XmlDecoder]] = Field(
+    decoder: Optional[
+        Annotated[Union[JsonDecoder, XmlDecoder], Field(discriminator="type")]
+    ] = Field(
         None, description="Component used to decode the response.", title="Decoder"
     )
     field_parameters: Optional[Dict[str, Any]] = Field(None, alias="$parameters")
@@ -3708,7 +3184,7 @@ class HttpRequester(BaseModel):
     Requester submitting HTTP requests and extracting records from the response.
     """
 
-    type: Type49
+    type: Literal["HttpRequester"]
     url_base: Optional[str] = Field(
         None,
         description="Deprecated, use the `url` instead. Base URL of the API source. Do not put sensitive information (e.g. API tokens) into this field - Use the Authenticator component for this.",
@@ -3741,7 +3217,7 @@ class HttpRequester(BaseModel):
         ],
         title="URL Path",
     )
-    http_method: Optional[HttpMethod] = Field(
+    http_method: Optional[Literal["GET", "POST"]] = Field(
         "GET",
         description="The HTTP method used to fetch data from the source (can be GET or POST).",
         examples=["GET", "POST"],
@@ -3846,8 +3322,11 @@ class DynamicSchemaLoader(BaseModel):
     (This component is experimental. Use at your own risk.) Loads a schema by extracting data from retrieved records.
     """
 
-    type: Type52
-    retriever: Union[SimpleRetriever, AsyncRetriever, CustomRetriever] = Field(
+    type: Literal["DynamicSchemaLoader"]
+    retriever: Annotated[
+        Union[SimpleRetriever, AsyncRetriever, CustomRetriever],
+        Field(discriminator="type"),
+    ] = Field(
         ...,
         description="Component used to coordinate how records are extracted across stream slices and request pages.",
         title="Retriever",
@@ -3884,7 +3363,7 @@ class ParentStreamConfig(BaseModel):
     Describes how to construct partitions from the records retrieved from the parent stream..
     """
 
-    type: Type74
+    type: Literal["ParentStreamConfig"]
     stream: Union[DeclarativeStream, StateDelegatingStream] = Field(
         ..., description="Reference to the parent stream.", title="Parent Stream"
     )
@@ -3928,13 +3407,15 @@ class PropertiesFromEndpoint(BaseModel):
     Defines the behavior for fetching the list of properties from an API that will be loaded into the requests to extract records. Note that stream_slices can't be interpolated from this retriever.
     """
 
-    type: Type75
+    type: Literal["PropertiesFromEndpoint"]
     property_field_path: List[str] = Field(
         ...,
         description="Describes the path to the field that should be extracted",
         examples=[["name"]],
     )
-    retriever: Union[SimpleRetriever, CustomRetriever] = Field(
+    retriever: Annotated[
+        Union[SimpleRetriever, CustomRetriever], Field(discriminator="type")
+    ] = Field(
         ...,
         description="Requester component that describes how to fetch the properties to query from a remote API endpoint.",
     )
@@ -3946,7 +3427,7 @@ class QueryProperties(BaseModel):
     For APIs that require explicit specification of the properties to query for, this component specifies which property fields and how they are supplied to outbound requests.
     """
 
-    type: Type77
+    type: Literal["QueryProperties"]
     property_list: Union[List[str], PropertiesFromEndpoint] = Field(
         ...,
         description="The set of properties that will be queried for in the outbound request. This can either be statically defined or dynamic based on an API endpoint",
@@ -3975,9 +3456,9 @@ class StateDelegatingStream(BaseModel):
     (This component is experimental. Use at your own risk.) Orchestrate the retriever's usage based on the state value.
     """
 
-    type: Type84
+    type: Literal["StateDelegatingStream"]
     name: str = Field(
-        ..., description="The stream name.", example=["Users"], title="Name"
+        ..., description="The stream name.", examples=[["Users"]], title="Name"
     )
     full_refresh_stream: DeclarativeStream = Field(
         ...,
@@ -4003,7 +3484,7 @@ class SimpleRetriever(BaseModel):
     Retrieves records by synchronously sending requests to fetch records. The retriever acts as an orchestrator between the requester, the record selector, the paginator, and the partition router.
     """
 
-    type: Type85
+    type: Literal["SimpleRetriever"]
     requester: Union[HttpRequester, CustomRequester] = Field(
         ...,
         description="Requester component that describes how to prepare HTTP requests to send to the source API.",
@@ -4028,7 +3509,9 @@ class SimpleRetriever(BaseModel):
         ...,
         description="Component that describes how to extract records from a HTTP response.",
     )
-    paginator: Optional[Union[DefaultPaginator, NoPagination]] = Field(
+    paginator: Optional[
+        Annotated[Union[DefaultPaginator, NoPagination], Field(discriminator="type")]
+    ] = Field(
         None,
         description="Paginator component that describes how to navigate through the API's pages.",
     )
@@ -4068,7 +3551,7 @@ class AsyncRetriever(BaseModel):
     Retrieves records by Asynchronously sending requests to fetch records. The retriever acts as an orchestrator between the requester, the record selector, the paginator, and the partition router.
     """
 
-    type: Type91
+    type: Literal["AsyncRetriever"]
     record_selector: RecordSelector = Field(
         ...,
         description="Component that describes how to extract records from a HTTP response.",
@@ -4182,7 +3665,7 @@ class SubstreamPartitionRouter(BaseModel):
     Partition router that is used to retrieve records that have been partitioned according to records from the specified parent streams. An example of a parent stream is automobile brands and the substream would be the various car models associated with each branch.
     """
 
-    type: Type95
+    type: Literal["SubstreamPartitionRouter"]
     parent_stream_configs: List[ParentStreamConfig] = Field(
         ...,
         description="Specifies which parent streams are being iterated over and how parent records should be used to partition the child stream data set.",
@@ -4197,7 +3680,7 @@ class GroupingPartitionRouter(BaseModel):
 
     """
 
-    type: Type97
+    type: Literal["GroupingPartitionRouter"]
     group_size: int = Field(
         ...,
         description="The number of partitions to include in each group. This determines how many partition values are batched together in a single slice.",
@@ -4224,8 +3707,11 @@ class HttpComponentsResolver(BaseModel):
     (This component is experimental. Use at your own risk.) Component resolve and populates stream templates with components fetched via an HTTP retriever.
     """
 
-    type: Type100
-    retriever: Union[SimpleRetriever, AsyncRetriever, CustomRetriever] = Field(
+    type: Literal["HttpComponentsResolver"]
+    retriever: Annotated[
+        Union[SimpleRetriever, AsyncRetriever, CustomRetriever],
+        Field(discriminator="type"),
+    ] = Field(
         ...,
         description="Component used to coordinate how records are extracted across stream slices and request pages.",
         title="Retriever",
@@ -4239,9 +3725,9 @@ class DynamicDeclarativeStream(BaseModel):
     (This component is experimental. Use at your own risk.) A component that described how will be created declarative streams based on stream template.
     """
 
-    type: Type105
+    type: Literal["DynamicDeclarativeStream"]
     name: Optional[str] = Field(
-        "", description="The dynamic stream name.", example=["Tables"], title="Name"
+        "", description="The dynamic stream name.", examples=[["Tables"]], title="Name"
     )
     stream_template: Union[DeclarativeStream, StateDelegatingStream] = Field(
         ..., description="Reference to the stream template.", title="Stream Template"
@@ -4260,19 +3746,19 @@ class DynamicDeclarativeStream(BaseModel):
     )
 
 
-ComplexFieldType.update_forward_refs()
-GzipDecoder.update_forward_refs()
-CompositeErrorHandler.update_forward_refs()
-DeclarativeSource1.update_forward_refs()
-DeclarativeSource2.update_forward_refs()
-SelectiveAuthenticator.update_forward_refs()
-ConditionalStreams.update_forward_refs()
-FileUploader.update_forward_refs()
-DeclarativeStream.update_forward_refs()
-SessionTokenAuthenticator.update_forward_refs()
-HttpRequester.update_forward_refs()
-DynamicSchemaLoader.update_forward_refs()
-ParentStreamConfig.update_forward_refs()
-PropertiesFromEndpoint.update_forward_refs()
-SimpleRetriever.update_forward_refs()
-AsyncRetriever.update_forward_refs()
+ComplexFieldType.model_rebuild()
+GzipDecoder.model_rebuild()
+CompositeErrorHandler.model_rebuild()
+DeclarativeSource1.model_rebuild()
+DeclarativeSource2.model_rebuild()
+SelectiveAuthenticator.model_rebuild()
+ConditionalStreams.model_rebuild()
+FileUploader.model_rebuild()
+DeclarativeStream.model_rebuild()
+SessionTokenAuthenticator.model_rebuild()
+HttpRequester.model_rebuild()
+DynamicSchemaLoader.model_rebuild()
+ParentStreamConfig.model_rebuild()
+PropertiesFromEndpoint.model_rebuild()
+SimpleRetriever.model_rebuild()
+AsyncRetriever.model_rebuild()

@@ -2,8 +2,8 @@ splunktaucclib
 splunk-sdk
 solnlib
 
-# Airbyte CDK declarative runtime deps (pure Python only)
-pydantic<2
+# Airbyte CDK declarative runtime deps
+pydantic>=2,<3
 typing-extensions
 requests
 urllib3
