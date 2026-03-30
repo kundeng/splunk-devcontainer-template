@@ -2,23 +2,15 @@
 
 ## Phase 1: Foundation — Package Scaffold + State + Serializer
 
-- [-] 1.1. Scaffold React packages (urc-builder + urc-app)
-  - Files: react/packages/urc-builder/package.json, react/packages/urc-builder/tsconfig.json, react/packages/urc-builder/src/index.ts, react/packages/urc-app/package.json, react/packages/urc-app/webpack.config.js, react/packages/urc-app/src/main/webapp/pages/builder/index.tsx
-  - Create monorepo packages following CIMplicity pattern: urc-builder (component library) + urc-app (Splunk app wrapper)
-  - Configure Webpack 5 with @splunk/webpack-configs, TypeScript, styled-components
-  - Entry point: getUserTheme → layout(<ConnectorBuilder />)
-  - Purpose: Establish build pipeline before writing any UI code
-  - _Leverage: .ref/cimplicity-ai-app/packages/ for package.json structure, react/packages/test-page/ for webpack config_
-  - _Requirements: R8_
-  - _Prompt: Implement the task for spec urc-guided-ui, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React/TypeScript developer with Splunk app experience | Task: Scaffold two React packages (urc-builder component library + urc-app Splunk wrapper) following the CIMplicity monorepo pattern at .ref/cimplicity-ai-app/. Configure Webpack 5 with @splunk/webpack-configs, TypeScript 5.8, styled-components. Create entry point that loads Splunk theme and renders a placeholder ConnectorBuilder component. | Restrictions: Do not install new Splunk packages — use what's already in the monorepo node_modules. Do not create the actual UI components yet — just the shell. Follow CIMplicity's package.json structure exactly. | _Leverage: .ref/cimplicity-ai-app/packages/ci-mplicity-home/package.json, .ref/cimplicity-ai-app/packages/cim-plicity/package.json, .ref/cimplicity-ai-app/packages/cim-plicity/webpack.config.js | Success: `cd react && yarn workspace @splunk/urc-app build` produces stage/appserver/static/pages/builder.js without errors._
-
-- [ ] 1.2. Create Splunk navigation and view integration
-  - Files: react/packages/urc-app/src/main/resources/splunk/default/data/ui/nav/default.xml, react/packages/urc-app/src/main/resources/splunk/default/data/ui/views/builder.xml, react/packages/urc-app/src/main/resources/splunk/appserver/templates/builder.html
-  - Create nav XML (builder as default, configuration second), view XML pointing to template, HTML template loading builder.js
-  - Purpose: Builder page appears in Splunk app navigation
-  - _Leverage: .ref/cimplicity-ai-app/packages/cim-plicity/src/main/resources/splunk/default/data/ui/_
-  - _Requirements: R8_
-  - _Prompt: Implement the task for spec urc-guided-ui, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Splunk app developer | Task: Create the navigation XML, view XML, and HTML template so the builder page appears in the URC app nav. Follow CIMplicity's pattern exactly. | Restrictions: Do not modify the existing UCC globalConfig.json. The configuration view must remain accessible as a second nav item. | _Leverage: .ref/cimplicity-ai-app/packages/cim-plicity/src/main/resources/splunk/default/data/ui/nav/default.xml, .ref/cimplicity-ai-app/packages/cim-plicity/src/main/resources/splunk/default/data/ui/views/main.xml | Success: After UCC build + merge, Splunk shows "Connector Builder" as default page and "Configuration" as second nav item._
+- [x] 1.1. Scaffold React packages (urc-builder + urc-app) + Splunk nav/view integration
+  - Implemented via `task ucc:add-react APP_NAME=urc_app` which runs:
+    1. `react/bin/splunk-create-noninteractive.mjs component UrcBuilder` — scaffolds component library
+    2. `react/bin/splunk-create-noninteractive.mjs app UrcApp` — scaffolds Splunk app wrapper
+    3. `react/bin/adapt-for-ucc.mjs` — applies 6 UCC overlay transformations (webpack, deps, entry point, nav.xml, view XML, HTML template)
+  - Also created: `@splunk/create` as devDep, non-interactive scaffolding tooling, `ucc:add-react` Taskfile task
+  - Updated golden path docs, .gitignore for react source tracking
+  - _Note: Original task 1.2 (nav/view integration) was completed as part of this task by the adapt-for-ucc.mjs script_
+  - Success: `cd react && yarn workspace @splunk/urc-app build` produces stage/appserver/static/pages/builder.js ✓
 
 - [ ] 1.3. Implement BuilderState interfaces and useBuilderState hook
   - Files: react/packages/urc-builder/src/state/BuilderState.ts, react/packages/urc-builder/src/state/useBuilderState.ts
