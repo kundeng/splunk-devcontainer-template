@@ -70,6 +70,13 @@ class HttpRequester:
             from urc.components.error_handler import DefaultErrorHandler
             self._error_handler = DefaultErrorHandler({"type": "DefaultErrorHandler"}, config)
 
+        # Rate limiter (optional)
+        rate_limiter_def = definition.get("rate_limiter")
+        if rate_limiter_def and rate_limiter_def.get("type"):
+            self._rate_limiter = create_component(rate_limiter_def, config)
+        else:
+            self._rate_limiter = None
+
         # Session is reused across pages within a collection cycle, which
         # automatically persists cookies between requests (via requests.Session).
         self._session = requests.Session()
@@ -175,6 +182,12 @@ class HttpRequester:
         # Execute with retries
         max_retries = self._error_handler.max_retries
         for attempt in range(max_retries + 1):
+            # Apply rate limiting before each request
+            if self._rate_limiter:
+                wait = self._rate_limiter.acquire(url)
+                if wait > 0:
+                    logger.debug(f"Rate limiter waited {wait:.2f}s for {url}")
+
             try:
                 response = self._session.request(
                     method=self._method,
