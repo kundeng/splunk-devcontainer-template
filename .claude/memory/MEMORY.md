@@ -18,3 +18,4 @@
 - [Project: URC architecture](project_urc_architecture.md) — Pure Python engine from Airbyte schema, pydantic v1, Python 3.9+, zero native deps
 - [Research: Airbyte Builder UI](research_airbyte_builder_ui.md) — Three-panel layout, schema-driven forms, dual mode, test panel tabs, AI assist, Splunk adaptation notes
 - [Research: Splunk binary deps](research_splunk_binary_deps.md) — Splunk Python 3.9 CAN load .so files; pydantic v2 works; "pure Python only" was wrong
+- [Project: Engine gap](project_engine_gap.md) — 5300 lines to 99.9% CDK parity, priority breakdown by component
