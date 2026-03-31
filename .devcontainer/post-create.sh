@@ -12,8 +12,17 @@ fi
 export PATH="$HOME/.local/bin:$PATH"
 
 # ── System tools ─────────────────────────────────────────────────────
-echo "Installing expect (interactive test automation)..."
-sudo apt-get update -qq && sudo apt-get install -y -qq expect >/dev/null 2>&1
+echo "Installing system tools (expect, libmagic, gh)..."
+sudo apt-get update -qq && sudo apt-get install -y -qq expect libmagic1 >/dev/null 2>&1
+# GitHub CLI
+if ! command -v gh &>/dev/null; then
+  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+    | sudo gpg --dearmor -o /etc/apt/keyrings/githubcli-archive-keyring.gpg 2>/dev/null
+  sudo chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
+  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+    | sudo tee /etc/apt/sources.list.d/github-cli-stable.list >/dev/null
+  sudo apt-get update -qq && sudo apt-get install -y -qq gh >/dev/null 2>&1
+fi
 
 # ── uv (fast Python package manager + version manager) ─────────────
 echo "Installing uv..."

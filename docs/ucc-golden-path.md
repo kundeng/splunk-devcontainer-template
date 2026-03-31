@@ -3,7 +3,7 @@
 A practical handbook for building Splunk add-ons using the UCC (Universal Configuration Console) framework, with a guided React UI and modular input backend. Distilled from building the URC (Universal REST Client) add-on.
 
 **Audience:** Developers building Splunk add-ons who want to avoid the pitfalls we hit.
-**Last updated:** 2026-03-30
+**Last updated:** 2026-03-31
 
 ---
 
@@ -289,31 +289,46 @@ passSystemAuth = true
 
 ## 6. Python Dependencies — The Vendoring Challenge
 
-This is where most UCC projects hit trouble. Splunk ships its own Python runtime, and the constraints depend on which version you target:
+This is where most UCC projects hit trouble. Splunk ships its own Python runtime, and the constraints depend on which version you target.
 
 ### The Rules
 
 1. **Binary wheels work** — `.so` / `.pyd` C extensions load fine on Splunk's Python. Ship `manylinux2014_x86_64` wheels for Splunk Cloud.
-2. **Python version syntax** — Target Splunk 10.2+ with `python.version = python3` in `app.conf` to get Python 3.13. On older Splunk (9.x), you're stuck with Python 3.9 — no `match/case`, no `type` aliases, no `ExceptionGroup`.
+2. **Python 3.13** — Target Splunk 10.2+ with `python.version = python3` in `app.conf`. No syntax restrictions, full binary wheel support.
 3. **No pip at runtime** — Everything must be pre-vendored into `lib/`.
-4. **Size budget** — Keep under 50 MB total. Splunkbase has limits and large apps are slow to deploy.
+4. **Size budget** — Keep under ~65 MB total. The CDK pulls ~130 MB of transitive deps; post-build cleanup is essential (see below).
 
 ### How UCC Vendors Dependencies
 
 ```
 lib/
-├── requirements.txt    # What to install
+├── requirements.txt    # What to install (e.g. airbyte-cdk>=6,<7)
 ├── exclude.txt         # What to skip (setuptools, pip, etc.)
-└── your_module/        # Your Python code
+└── your_module/        # Your Python code (e.g. urc/)
 ```
 
-UCC runs `pip install -r requirements.txt -t lib/` during build, then removes packages listed in `exclude.txt`.
+`ucc-gen build` runs `pip install -r requirements.txt -t lib/` during build, then removes packages listed in `exclude.txt`. For large dependencies like `airbyte-cdk`, this is the correct approach — pip resolves the full dependency tree and installs binary wheels automatically.
+
+### Post-Build Cleanup (Critical for CDK)
+
+The CDK pulls in ~130 MB of transitive dependencies, many of which are unused at runtime (pandas, numpy, grpc, nltk, dateparser_cli, manifest_server, test dirs). A post-build cleanup step in the Taskfile strips these down:
+
+```yaml
+# Taskfile.yml — runs after ucc-gen build
+ucc:clean-deps:
+  cmds:
+    - rm -rf output/your_app/lib/{pandas,numpy,grpc*,nltk*,...}
+    - find output/your_app/lib -type d -name __pycache__ -exec rm -rf {} +
+    - find output/your_app/lib -type d -name tests -exec rm -rf {} +
+```
+
+Result: **62 MB total / 41 MB lib** — passes AppInspect (0 failures, 0 errors, 113 passes).
 
 ### Common Pitfalls
 
 | Problem | Symptom | Fix |
 |---------|---------|-----|
-| Python 3.10+ syntax on Splunk 9.x | `SyntaxError: invalid syntax` | Pin older version, patch, or target Splunk 10.2+ |
+| CDK bloat (pandas, numpy, grpc) | Package too large, AppInspect warnings | Post-build cleanup in Taskfile |
 | Conflicting deps | `ImportError: cannot import name X` | Use `exclude.txt` to remove conflicting versions |
 | Wrong platform wheel | `ImportError: cannot open shared object file` | Build with `--platform manylinux2014_x86_64` |
 | `.pyc` files in package | AppInspect failure | Clean `__pycache__` during build |
@@ -321,7 +336,7 @@ UCC runs `pip install -r requirements.txt -t lib/` during build, then removes pa
 ### Our Dependency Stack (Splunk 10.2+ / Python 3.13)
 
 ```
-airbyte-cdk>=6,<7       # Declarative manifest runtime (the core engine)
+airbyte-cdk>=6,<7       # Declarative manifest runtime — pip-installed via requirements.txt
 pydantic>=2,<3          # v2 — fast Rust-backed validation via pydantic-core
 requests + urllib3      # HTTP client
 Jinja2 + MarkupSafe    # Template engine
@@ -526,7 +541,7 @@ ucc:dev:
 ```python
 # Validate manifests parse without hitting any API
 python test_manifests.py --validate
-# Parses YAML → resolves $refs → propagates types → Pydantic validation
+# Imports urc.cdk_bridge → ConcurrentDeclarativeSource → validates manifest schema
 ```
 
 ### Live API Testing
@@ -580,9 +595,11 @@ curl -sk https://localhost:8089/services/search/jobs \
 
 **Interim fix:** Wrote a lightweight reimplementation (17 files, 584 KB) using the same manifest format, Pydantic v1, `@component` decorator.
 
-**Round 2 (succeeded on Splunk 10.2+ / Python 3.13):** With Splunk 10.2 shipping Python 3.13 (opt-in via `python.version = python3` in `app.conf`), the Python syntax and binary extension blockers vanished. We now vendor `airbyte-cdk>=6` as a pip dependency — the real CDK is the runtime, not our reimplementation.
+**Round 2 (succeeded on Splunk 10.2+ / Python 3.13):** With Splunk 10.2 shipping Python 3.13 (opt-in via `python.version = python3` in `app.conf`), the Python syntax and binary extension blockers vanished. We now pip-install `airbyte-cdk>=6` via `requirements.txt` — UCC's build handles vendoring automatically.
 
-**Lesson:** Platform constraints change. What fails today may work when you target the next platform version. The lightweight reimplementation was the right call for Splunk 9.x, but CDK 6.x is the right call for Splunk 10.2+.
+**Round 3 (CDK 6.x pivot complete):** Removed the entire hand-written custom engine (38 components, `engine.py`, `components/` dir with 10 files, `interpolation.py`, `registry.py`, `manifest.py`, `validate.py`, `models.py`, `models_generated.py`, `extensions.py`). The active runtime is now just 2 files: `package/lib/urc/__init__.py` + `package/lib/urc/cdk_bridge.py`. `cdk_bridge.py` wraps `ConcurrentDeclarativeSource` from the CDK. Post-build cleanup strips ~130 MB of unused transitive deps. Result: 62 MB total, AppInspect clean (0 failures, 0 errors, 113 passes). `test_manifests.py` imports from `urc.cdk_bridge` instead of the old `urc.engine`.
+
+**Lesson:** Platform constraints change. What fails today may work when you target the next platform version. The lightweight reimplementation was the right call for Splunk 9.x, but once Splunk 10.2+ / Python 3.13 removed those blockers, the real CDK replaced everything. Resist the urge to reimplement upstream libraries — wait for the platform to catch up.
 
 ### Attempt 2: jsonschema v4.18+ (FAILED)
 
@@ -613,16 +630,7 @@ The original "pure Python only" rule was **wrong**. Splunk loads C extensions fi
 3. **No `.pyc` files** — AppInspect rejects compiled Python bytecode; clean `__pycache__` during build
 4. **AppInspect validation** — run `task ucc:appinspect` before shipping; use `--included-tags cloud` for Splunk Cloud compatibility
 
-When vendoring deps (including CDK):
-```bash
-pip install --target lib/ \
-  --python-version 3.13 \
-  --only-binary :all: \
-  --platform manylinux2014_x86_64 \
-  "airbyte-cdk>=6,<7"
-```
-
-Always verify in the Splunk container:
+UCC handles vendoring automatically from `requirements.txt` during `ucc-gen build`. To verify in the Splunk container:
 ```bash
 docker exec splunk-dev /opt/splunk/bin/splunk cmd python3 -c \
   "import sys; sys.path.insert(0, '/opt/splunk/etc/apps/your_app/lib'); import airbyte_cdk"
@@ -652,14 +660,15 @@ ucc-gen init --addon-name your_app                     # Scaffold new app
 | `0419a769` | FULL E2E WORKING | 100 events, JSONPlaceholder → Splunk |
 | `b4d4b278` | Phase 2: 36 components | Transformations, decoders, auth |
 | `910dc66a` | 38 components, test connection | Partition routers, REST endpoint |
-| `6a21f686` | Remove hand-written CDK | Replaced by vendored airbyte-cdk>=6 |
+| `6a21f686` | Remove hand-written engine (38 components) | Replaced by pip-installed airbyte-cdk>=6 via cdk_bridge.py |
 | `78d4c6c7` | Guided UI spec + test manifests | 5 API manifests, spec workflow |
 
 ### File Sizes (Production URC App)
 
 ```
-Core runtime:       airbyte-cdk 6.x (vendored via pip)
-Vendored libs:      ~45 MB (CDK + binary wheels for pydantic-core, etc.)
-UCC build output:   ~65 MB (includes UCC UI bundle + vendored deps)
+Active runtime:     2 files — urc/__init__.py + urc/cdk_bridge.py
+Vendored libs:      ~41 MB (CDK + deps, after post-build cleanup)
+Total package:      ~62 MB (includes UCC UI bundle + vendored deps)
+AppInspect:         0 failures, 0 errors, 113 passes
 Target platform:    Splunk 10.2+ / Python 3.13
 ```
