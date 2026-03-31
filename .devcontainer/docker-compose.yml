@@ -11,7 +11,7 @@ services:
       dockerfile: Dockerfile
       target: dev
       args:
-        SPLUNK_VERSION: ${SPLUNK_VERSION:-9.4.0}
+        SPLUNK_VERSION: ${SPLUNK_VERSION:-10.2.1}
     container_name: splunk-dev
     hostname: splunk-dev
     environment:
@@ -48,7 +48,7 @@ services:
   ## ── Optional sidecars (uncomment as needed) ──────────────────────
 
   # uf:
-  #   image: splunk/universalforwarder:${SPLUNK_VERSION:-9.4.0}
+  #   image: splunk/universalforwarder:${SPLUNK_VERSION:-10.2.1}
   #   container_name: splunk-uf
   #   hostname: splunk-uf
   #   environment:
