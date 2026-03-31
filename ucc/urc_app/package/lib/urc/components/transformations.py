@@ -165,3 +165,96 @@ class FlattenFields:
 
     def transform(self, record: dict, config: dict, **context) -> dict:
         return _flatten(record, "", self._separator, self._flatten_lists)
+
+
+@component("DpathFlattenFields")
+class DpathFlattenFields:
+    """Flatten a nested field into the parent dict using dpath for extraction.
+
+    Given ``field_path`` pointing to a nested dict, merge its keys into
+    the parent record with the separator as prefix delimiter.
+    """
+
+    def __init__(self, definition: dict, config: dict, **kwargs):
+        self._field_path: List[str] = definition.get("field_path", [])
+        self._delete_origin: bool = definition.get("delete_origin", True)
+        self._separator: str = definition.get("separator", ".")
+
+    def transform(self, record: dict, config: dict, **context) -> dict:
+        import dpath
+
+        if not self._field_path:
+            return record
+
+        glob_path = self._separator.join(self._field_path)
+        try:
+            value = dpath.get(record, glob_path, separator=self._separator)
+        except (KeyError, dpath.exceptions.PathNotFound):
+            return record
+
+        if isinstance(value, dict):
+            prefix = glob_path + self._separator
+            for k, v in value.items():
+                record[prefix + k] = v
+
+        if self._delete_origin:
+            _delete_nested(record, self._field_path)
+
+        return record
+
+
+def _keys_replace_recursive(obj: Any, replacements: List[Dict[str, str]]) -> Any:
+    """Recursively apply key replacements to all dict keys."""
+    if isinstance(obj, dict):
+        new = {}
+        for k, v in obj.items():
+            new_key = k
+            for rep in replacements:
+                new_key = new_key.replace(rep["old"], rep["new"])
+            new[new_key] = _keys_replace_recursive(v, replacements)
+        return new
+    if isinstance(obj, list):
+        return [_keys_replace_recursive(item, replacements) for item in obj]
+    return obj
+
+
+@component("KeysReplace")
+class KeysReplace:
+    """Apply string replacements to all dict keys recursively."""
+
+    def __init__(self, definition: dict, config: dict, **kwargs):
+        self._replacements: List[Dict[str, str]] = definition.get("replacements", [])
+
+    def transform(self, record: dict, config: dict, **context) -> dict:
+        return _keys_replace_recursive(record, self._replacements)
+
+
+_NORMALIZE_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _normalize_key(key: str) -> str:
+    """Normalize a key: lowercase, replace non-alphanumeric with _, collapse, strip."""
+    result = key.lower()
+    result = _NORMALIZE_RE.sub("_", result)
+    result = result.strip("_")
+    return result
+
+
+def _schema_normalize_recursive(obj: Any) -> Any:
+    """Recursively normalize all dict keys."""
+    if isinstance(obj, dict):
+        return {_normalize_key(k): _schema_normalize_recursive(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_schema_normalize_recursive(item) for item in obj]
+    return obj
+
+
+@component("SchemaNormalization")
+class SchemaNormalization:
+    """Normalize all record keys: lowercase, non-alphanum to underscore, collapse, strip."""
+
+    def __init__(self, definition: dict, config: dict, **kwargs):
+        pass
+
+    def transform(self, record: dict, config: dict, **context) -> dict:
+        return _schema_normalize_recursive(record)

@@ -1,5 +1,6 @@
 # Partition routers — generate stream slices from parent streams or static lists.
 
+import itertools
 import logging
 from typing import Any, Dict, Iterator, List, Optional
 
@@ -127,3 +128,50 @@ class ListPartitionRouter:
 
         for v in values:
             yield {self._cursor_field: v}
+
+
+_CARTESIAN_LIMIT = 100_000
+
+
+@component("CartesianProductStreamSlicer")
+class CartesianProductStreamSlicer:
+    """Produce the Cartesian product of multiple partition routers.
+
+    Each sub-router's partitions are collected into a list, then
+    ``itertools.product`` is used to yield every combination with the
+    partition dicts merged together.
+    """
+
+    def __init__(self, definition: dict, config: dict, **kwargs):
+        from urc.registry import create as create_component
+
+        self._sub_routers = [
+            create_component(slicer_def, config)
+            for slicer_def in definition.get("stream_slicers", [])
+        ]
+        self._config = config
+
+    def get_partitions(self, config: dict) -> Iterator[dict]:
+        if not self._sub_routers:
+            return
+
+        # Collect all partition lists from each sub-router
+        partition_lists: List[List[dict]] = []
+        total = 1
+        for router in self._sub_routers:
+            partitions = list(router.get_partitions(config))
+            if not partitions:
+                return  # empty dimension -> no combinations
+            total *= len(partitions)
+            if total > _CARTESIAN_LIMIT:
+                raise ValueError(
+                    f"CartesianProductStreamSlicer: combination count "
+                    f"({total}) exceeds safety limit of {_CARTESIAN_LIMIT}"
+                )
+            partition_lists.append(partitions)
+
+        for combo in itertools.product(*partition_lists):
+            merged: dict = {}
+            for part in combo:
+                merged.update(part)
+            yield merged
