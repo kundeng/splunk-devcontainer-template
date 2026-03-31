@@ -524,7 +524,7 @@
     "meta": {
         "name": "urc_app",
         "restRoot": "urc_app",
-        "version": "0.0.0+7e0870cb",
+        "version": "0.0.0+41b5fbe2",
         "displayName": "Universal REST Client",
         "schemaVersion": "0.0.10",
         "supportedThemes": [

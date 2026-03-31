@@ -734,6 +734,12 @@ tasks:
           rm -rf "${APP}/lib/${pkg}" "${APP}/lib/${pkg}"*.dist-info 2>/dev/null
         done
         rm -rf "${APP}/lib/bin" "${APP}/lib/_cffi_backend"* 2>/dev/null
+        # Remove CDK internal artifacts that trigger appinspect failures
+        rm -rf "${APP}/lib/airbyte_cdk/manifest_server" 2>/dev/null
+        rm -rf "${APP}/lib/dateparser_cli" 2>/dev/null
+        # Remove test directories from vendored libs
+        find "${APP}/lib" -type d -name tests -exec rm -rf {} + 2>/dev/null || true
+        find "${APP}/lib" -type d -name test -exec rm -rf {} + 2>/dev/null || true
 
         echo "Build complete → {{.UCC_OUTPUT_DIR}}/${UCC_ADDON}/"
     desc: Build UCC add-on (generates REST handlers, UI, conf files)

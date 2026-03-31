@@ -26,33 +26,27 @@ from pathlib import Path
 LIB_DIR = Path(__file__).parent.parent / "package" / "lib"
 sys.path.insert(0, str(LIB_DIR))
 
-from urc.manifest import process_manifest
-from urc.engine import collect
+from urc.cdk_bridge import collect
 
 MANIFESTS_DIR = Path(__file__).parent / "manifests"
 
 
 def validate_manifest(name: str, yaml_path: Path) -> bool:
-    """Validate a manifest parses and resolves without errors."""
+    """Validate a manifest parses and creates a CDK source without errors."""
     print(f"\n{'='*60}")
     print(f"Validating: {name}")
     print(f"{'='*60}")
     try:
+        from urc.cdk_bridge import create_source
         with open(yaml_path) as f:
             manifest_yaml = f.read()
-        manifest = process_manifest(manifest_yaml)
-        streams = manifest.get("streams", [])
+        source = create_source(manifest_yaml)
+        streams = source.streams({})
         print(f"  OK: {len(streams)} stream(s) defined")
         for s in streams:
-            s_name = s.get("name", "unnamed")
-            retriever = s.get("retriever", {})
-            paginator = retriever.get("paginator", {})
-            pag_type = paginator.get("pagination_strategy", {}).get("type", "none")
-            auth = retriever.get("requester", {}).get("authenticator", {}).get("type", "none")
-            inc = s.get("incremental_sync", {}).get("type", "none")
-            partition = retriever.get("partition_router", {}).get("type", "none")
-            print(f"  Stream '{s_name}': auth={auth}, pagination={pag_type}, "
-                  f"incremental={inc}, partition={partition}")
+            airbyte_stream = s.as_airbyte_stream()
+            print(f"  Stream '{airbyte_stream.name}': "
+                  f"sync_modes={[m.value for m in airbyte_stream.supported_sync_modes]}")
         return True
     except Exception as e:
         print(f"  FAIL: {e}")

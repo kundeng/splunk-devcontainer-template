@@ -1,31 +1,29 @@
 ---
-name: URC architecture decisions
-description: Key technical decisions for URC runtime - vendored airbyte-cdk>=6, cdk_bridge.py interface, Python 3.10+ (Splunk 10.2)
+name: URC architecture — pip-installed CDK 6.x on Splunk 10.2 / Python 3.13
+description: Current URC runtime architecture — airbyte-cdk pip-installed via requirements.txt, cdk_bridge.py interface, Python 3.13 opted-in on both devcontainer and Splunk container
 type: project
 ---
 
-## URC Runtime Architecture Decisions
+## URC Runtime Architecture (as of 2026-03-31)
 
-### Updated 2026-03-30: Vendor airbyte-cdk>=6
+### Runtime stack
+- **Splunk Enterprise 10.2** with Python 3.13 opted-in
+- **Devcontainer** also runs Python 3.13 (matched to Splunk runtime)
+- **airbyte-cdk>=6,<7** declared in `requirements.txt`, installed by `ucc-gen build` into `package/lib/`
 
-Previous approach (hand-written @component registry, custom engine.py, Pydantic v1) was abandoned. CDK 6.x is now vendored directly.
+### Active code (3 files)
+1. `package/bin/urc_app_input_helper.py` — Splunk modular input handler
+2. `package/lib/urc/cdk_bridge.py` — wraps `ConcurrentDeclarativeSource`, yields `(stream_name, record, state)`
+3. `package/bin/urc_test_connection.py` — REST endpoint for connection testing
 
-### Why CDK 6.x works now
-- CDK 6.x requires Python 3.10+ — Splunk 10.2 ships Python 3.13, confirmed working
-- Full CDK vendoring eliminates the partial-vendoring coupling problems encountered earlier
-- 100% Airbyte manifest.yaml compatibility out of the box, no reimplementation needed
+### Build pipeline
+- `task ucc:build` → `ucc-gen build` → installs deps from `requirements.txt` → strips unused transitive deps (~130 MB)
+- `task ucc:appinspect` → validates package for Splunkbase certification
+- `task ucc:package` → creates .tar.gz for deployment
 
-### Architecture
-- **Vendored `airbyte-cdk>=6`** in `package/lib/` with all required deps
-- **`cdk_bridge.py`** is the interface between CDK and Splunk (replaces custom engine.py, registry.py)
-- No @component registry, no custom Pydantic models, no datamodel-codegen — CDK handles all of this internally
-- Manifest validation, component instantiation, stream orchestration all delegated to CDK
+### What was removed (2026-03-31 redirection)
+Custom engine code deleted: engine.py, components/ (10 files), interpolation.py, registry.py, manifest.py, validate.py, models.py, models_generated.py, extensions.py. CDK handles all of this natively.
 
-### What cdk_bridge.py does
-- Loads Airbyte declarative manifest YAML
-- Instantiates CDK's `ManifestDeclarativeSource`
-- Bridges CDK's record output to Splunk event format
-- Maps Airbyte state/cursor to KVStoreCheckpointer
-- Handles credential injection from Splunk conf via CDK's config object
+**Why:** CDK 6.x on Python 3.13 provides 100% Airbyte manifest compatibility with no custom code needed. The hand-written engine was a workaround for Python 3.9 limitations that no longer apply.
 
-**How to apply:** When adding new connector configs, write a standard Airbyte manifest.yaml. The CDK handles component resolution. Only modify cdk_bridge.py for Splunk-specific integration concerns.
+**How to apply:** All manifest execution goes through `cdk_bridge.py`. Tests use `test_manifests.py` which imports from `urc.cdk_bridge`.

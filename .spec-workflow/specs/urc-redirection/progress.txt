@@ -1,0 +1,10 @@
+URC Redirection Progress
+========================
+
+2026-03-31: Started reorg
+  - Archived urc-phase2 (superseded by CDK 6.x) and urc-app (redundant with scaffold+connector)
+  - Removed 12 dead files from package/lib/urc/ (engine, components, interpolation, registry, manifest, validate, models, extensions)
+  - Active lib now: __init__.py + cdk_bridge.py (2 files)
+  - Rewired test_manifests.py to import from urc.cdk_bridge
+  - Cleaned 3 stale memory files (deleted 1, updated 2)
+  - Next: ucc:build, appinspect, e2e test, push

@@ -7,15 +7,16 @@
 - [Research: REST connector](research_rest_connector.md) — Architecture for generic REST API connector using UCC SDK
 - [Feedback: git workflow](feedback_git_workflow.md) — Push to dev branch directly, no PRs needed
 - [Research: Airbyte declarative framework](research_airbyte_declarative.md) — Manifest schema, auth, pagination, record extraction, incremental sync, error handling, stream slicing, PyAirbyte, spec patterns
-- [Research: Airbyte CDK standalone](research_airbyte_cdk_standalone.md) — CDK as library, dependency footprint, slim options, MIT license
 - [Research: Checkpointing & dpath](research_checkpointing_and_dpath.md) — KVStoreCheckpointer API, Airbyte state messages, cursor mapping, dpath library
 - [Research: UCC backend + custom UI](research_ucc_custom_ui.md) — UCC value without auto-generated UI, REST handler decoupling
 - [Research: CIMplicity app](research_cimplicity_app.md) — Hybrid UCC+React build pipeline, PersistentServerConnectionApplication, credential access
 - [Research: OrbStack permissions](research_orbstack_permissions.md) — VirtioFS UID mapping, bind mount ownership in Mac->devcontainer->Splunk chain, OrbStack vs Docker Desktop
 - [Project: REST connector plan](project_rest_connector_plan.md) — Architecture decisions: hybrid UCC+React, vendored Airbyte CDK (Option B), CIMplicity-style build, KV checkpointing, ACL permissions
 - [Feedback: use task primitives](feedback_use_task_primitives.md) — Dogfood Taskfile tasks as primary dev interface; fix/add tasks instead of working around them
+- [Feedback: deps via Taskfile](feedback_taskfile_deps.md) — Never pip install globally; deps go through Taskfile into app lib/
 - [Feedback: push often](feedback_push_often.md) — Push to origin frequently; workspace is in Dropbox, prevent corruption
 - [Feedback: non-interactive scaffold](feedback_noninteractive_scaffold.md) — Use splunk-create-noninteractive.mjs wrapper + Taskfile vars for automated scaffolding
 - [Project: URC architecture](project_urc_architecture.md) — Vendored airbyte-cdk>=6, cdk_bridge.py interface, Python 3.10+ (Splunk 10.2 Python 3.13)
 - [Research: Airbyte Builder UI](research_airbyte_builder_ui.md) — Three-panel layout, schema-driven forms, dual mode, test panel tabs, AI assist, Splunk adaptation notes
 - [Research: Splunk binary deps](research_splunk_binary_deps.md) — Splunk Python 3.9 CAN load .so files; pydantic v2 works; "pure Python only" was wrong
+- [Project: CDK shift](project_cdk_shift.md) — pip-installed airbyte-cdk replaces custom engine; engine/components are dead code
