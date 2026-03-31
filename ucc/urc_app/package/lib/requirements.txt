@@ -2,5 +2,11 @@ splunktaucclib
 splunk-sdk
 solnlib
 
-# Airbyte CDK — full declarative runtime (requires Python >=3.10)
-airbyte-cdk>=6,<7
+# URC engine — all pure Python, no native deps
+pydantic<2
+requests
+Jinja2
+PyYAML
+dpath>=2.1,<3
+isodate
+backoff

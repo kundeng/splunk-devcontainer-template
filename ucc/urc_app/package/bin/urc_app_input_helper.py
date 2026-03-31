@@ -7,7 +7,7 @@ from solnlib import conf_manager, log
 from solnlib.modular_input import checkpointer
 from splunklib import modularinput as smi
 
-from urc.cdk_bridge import collect, check_connection
+from urc.engine import collect
 
 ADDON_NAME = "urc_app"
 
@@ -90,8 +90,8 @@ def validate_input(definition: smi.ValidationDefinition):
     if not manifest_yaml:
         raise ValueError("Manifest YAML is required")
     try:
-        from urc.cdk_bridge import create_source
-        create_source(manifest_yaml)
+        from urc.manifest import process_manifest
+        process_manifest(manifest_yaml)
     except Exception as e:
         raise ValueError(f"Invalid manifest: {e}")
 

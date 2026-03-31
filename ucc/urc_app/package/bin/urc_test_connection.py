@@ -8,7 +8,8 @@ from splunklib.persistent_server_connection_application import (
     PersistentServerConnectionApplication,
 )
 
-from urc.cdk_bridge import collect, create_source
+from urc.engine import collect
+from urc.manifest import process_manifest
 
 try:
     from splunk.clilib.bundle_paths import make_splunkhome_path  # noqa: F401
@@ -142,7 +143,7 @@ class TestConnectionHandler(PersistentServerConnectionApplication):
 
             # ---- Validate manifest ---------------------------------------
             try:
-                create_source(manifest_yaml)
+                process_manifest(manifest_yaml)
             except Exception as exc:
                 return _json_response(400, {
                     "status": "error",
