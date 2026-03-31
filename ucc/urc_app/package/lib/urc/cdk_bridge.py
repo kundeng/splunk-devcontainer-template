@@ -101,7 +101,10 @@ def collect(
             if hasattr(message.state, 'stream') and message.state.stream:
                 stream_name = message.state.stream.stream_descriptor.name
                 stream_state = message.state.stream.stream_state or {}
-                yield (stream_name, {}, dict(stream_state))
+                # AirbyteStateBlob may not be a plain dict — convert safely
+                if hasattr(stream_state, '__dict__'):
+                    stream_state = {k: v for k, v in stream_state.__dict__.items() if not k.startswith('_')}
+                yield (stream_name, {}, dict(stream_state) if isinstance(stream_state, dict) else {})
 
 
 def check_connection(manifest_yaml: str, config: dict) -> Tuple[bool, Optional[str]]:

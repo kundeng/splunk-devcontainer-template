@@ -718,28 +718,36 @@ tasks:
           -o "{{.UCC_OUTPUT_DIR}}" \
           --overwrite
 
-        # Post-build cleanup
         APP="{{.UCC_OUTPUT_DIR}}/${UCC_ADDON}"
+
+        # ── Strip bloat ──────────────────────────────────────────────
         find "${APP}" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
         find "${APP}" -name ".*" -not -name ".gitkeep" -delete 2>/dev/null || true
-        # Remove CDK transitive deps not needed for declarative runtime
-        # (UCC exclude.txt is buggy with some package names, so we rm directly)
         for pkg in pandas numpy numpy.libs grpc grpcio grpcio_status \
                    google google_cloud google_api_core google_auth \
                    googleapis_common_protos proto_plus protobuf pyasn1 pyasn1_modules \
                    nltk rapidfuzz cryptography cffi pycparser \
                    langchain_core langsmith rich rich_click pygments \
-                   anyascii unidecode psutil tqdm joblib serpyco_rs \
+                   unidecode psutil tqdm joblib serpyco_rs \
                    markdown_it_py mdurl; do
           rm -rf "${APP}/lib/${pkg}" "${APP}/lib/${pkg}"*.dist-info 2>/dev/null
         done
         rm -rf "${APP}/lib/bin" "${APP}/lib/_cffi_backend"* 2>/dev/null
-        # Remove CDK internal artifacts that trigger appinspect failures
         rm -rf "${APP}/lib/airbyte_cdk/manifest_server" 2>/dev/null
         rm -rf "${APP}/lib/dateparser_cli" 2>/dev/null
-        # Remove test directories from vendored libs
         find "${APP}/lib" -type d -name tests -exec rm -rf {} + 2>/dev/null || true
         find "${APP}/lib" -type d -name test -exec rm -rf {} + 2>/dev/null || true
+
+        # ── Patch imports that break after stripping ─────────────────
+        python3 "${UCC_PATH}/scripts/patch_imports.py" "${APP}/lib"
+
+        # Final __pycache__ cleanup (patch script may trigger new .pyc)
+        find "${APP}" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+
+        # ── Opt in to Python 3.13 (Splunk 10.2+) ────────────────────
+        if ! grep -q 'python.version' "${APP}/default/app.conf" 2>/dev/null; then
+          printf '\n[python]\npython.version = python3\n' >> "${APP}/default/app.conf"
+        fi
 
         echo "Build complete → {{.UCC_OUTPUT_DIR}}/${UCC_ADDON}/"
     desc: Build UCC add-on (generates REST handlers, UI, conf files)
