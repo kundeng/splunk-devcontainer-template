@@ -53,21 +53,25 @@ streams:
           page_size: 100
         page_size_option:
           field_name: sysparm_limit
+          type: RequestOption
           inject_into: request_parameter
         page_token_option:
           field_name: sysparm_offset
+          type: RequestOption
           inject_into: request_parameter
     incremental_sync:
       type: DatetimeBasedCursor
       cursor_field: sys_updated_on
-      start_datetime: "{{ config.get('start_date', '2020-01-01T00:00:00Z') }}"
+      start_datetime: "{{ config.get('start_date', '2020-01-01 00:00:00') }}"
       datetime_format: "%Y-%m-%d %H:%M:%S"
     transformations:
       - type: AddFields
         fields:
-          - path: [_source_api]
+          - type: AddedFieldDefinition
+            path: [_source_api]
             value: servicenow
-          - path: [_table]
+          - type: AddedFieldDefinition
+            path: [_table]
             value: incident
       - type: KeysToSnakeCase
 
@@ -99,15 +103,19 @@ streams:
           page_size: 100
         page_size_option:
           field_name: sysparm_limit
+          type: RequestOption
           inject_into: request_parameter
         page_token_option:
           field_name: sysparm_offset
+          type: RequestOption
           inject_into: request_parameter
     transformations:
       - type: AddFields
         fields:
-          - path: [_source_api]
+          - type: AddedFieldDefinition
+            path: [_source_api]
             value: servicenow
-          - path: [_table]
+          - type: AddedFieldDefinition
+            path: [_table]
             value: sys_user
       - type: KeysToSnakeCase

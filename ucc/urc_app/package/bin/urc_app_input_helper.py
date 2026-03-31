@@ -3,14 +3,11 @@ import logging
 import time
 
 import import_declare_test
-import yaml
 from solnlib import conf_manager, log
 from solnlib.modular_input import checkpointer
 from splunklib import modularinput as smi
 
-from urc.manifest import process_manifest
-from urc.validate import validate_manifest, ManifestValidationError
-from urc.engine import collect
+from urc.cdk_bridge import collect, check_connection
 
 ADDON_NAME = "urc_app"
 
@@ -93,12 +90,10 @@ def validate_input(definition: smi.ValidationDefinition):
     if not manifest_yaml:
         raise ValueError("Manifest YAML is required")
     try:
-        processed = process_manifest(manifest_yaml)
-        validate_manifest(processed)
-    except ManifestValidationError as e:
+        from urc.cdk_bridge import create_source
+        create_source(manifest_yaml)
+    except Exception as e:
         raise ValueError(f"Invalid manifest: {e}")
-    except yaml.YAMLError as e:
-        raise ValueError(f"Invalid YAML syntax: {e}")
 
 
 def stream_events(inputs: smi.InputDefinition, event_writer: smi.EventWriter):
@@ -128,15 +123,7 @@ def stream_events(inputs: smi.InputDefinition, event_writer: smi.EventWriter):
                 logger.error(f"No manifest configured for input {normalized_input_name}")
                 continue
 
-            # 3. Validate manifest
-            try:
-                processed = process_manifest(manifest_yaml)
-                validate_manifest(processed)
-            except ManifestValidationError as e:
-                logger.error(f"Invalid manifest for {normalized_input_name}: {e}")
-                continue
-
-            # 4. Load checkpoint
+            # 3. Load checkpoint
             ckpt = CheckpointManager(session_key, normalized_input_name)
             checkpoint = ckpt.load()
 

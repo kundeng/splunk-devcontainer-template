@@ -49,13 +49,16 @@ streams:
           page_size: 500
         page_token_option:
           field_name: _page_id
+          type: RequestOption
           inject_into: request_parameter
     transformations:
       - type: AddFields
         fields:
-          - path: [_source_api]
+          - type: AddedFieldDefinition
+            path: [_source_api]
             value: infoblox
-          - path: [_object_type]
+          - type: AddedFieldDefinition
+            path: [_object_type]
             value: network
       - type: FlattenFields
         separator: "."
@@ -93,13 +96,16 @@ streams:
           page_size: 500
         page_token_option:
           field_name: _page_id
+          type: RequestOption
           inject_into: request_parameter
     transformations:
       - type: AddFields
         fields:
-          - path: [_source_api]
+          - type: AddedFieldDefinition
+            path: [_source_api]
             value: infoblox
-          - path: [_object_type]
+          - type: AddedFieldDefinition
+            path: [_object_type]
             value: "record:host"
       - type: FlattenFields
         separator: "."

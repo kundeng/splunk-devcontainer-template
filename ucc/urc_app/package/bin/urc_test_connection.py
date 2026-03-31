@@ -8,9 +8,7 @@ from splunklib.persistent_server_connection_application import (
     PersistentServerConnectionApplication,
 )
 
-from urc.engine import collect
-from urc.manifest import process_manifest
-from urc.validate import ManifestValidationError, validate_manifest
+from urc.cdk_bridge import collect, create_source
 
 try:
     from splunk.clilib.bundle_paths import make_splunkhome_path  # noqa: F401
@@ -144,17 +142,11 @@ class TestConnectionHandler(PersistentServerConnectionApplication):
 
             # ---- Validate manifest ---------------------------------------
             try:
-                processed = process_manifest(manifest_yaml)
-                validate_manifest(processed)
-            except ManifestValidationError as exc:
-                return _json_response(400, {
-                    "status": "error",
-                    "message": f"Manifest validation failed: {exc}",
-                })
+                create_source(manifest_yaml)
             except Exception as exc:
                 return _json_response(400, {
                     "status": "error",
-                    "message": f"Manifest processing error: {exc}",
+                    "message": f"Manifest validation failed: {exc}",
                 })
 
             # ---- Dry-run collection (first page, max N records) ----------

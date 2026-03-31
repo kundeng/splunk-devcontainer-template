@@ -32,8 +32,6 @@ definitions:
       page_size: 30
     page_token_option:
       type: RequestPath
-      field_name: ""
-      inject_into: request_parameter
 
 streams:
   # Stream 1: List repos for an organization
@@ -64,7 +62,8 @@ streams:
     transformations:
       - type: AddFields
         fields:
-          - path: [_stream]
+          - type: AddedFieldDefinition
+            path: [_stream]
             value: repos
       - type: RemoveFields
         field_pointers:
@@ -133,7 +132,9 @@ streams:
     transformations:
       - type: AddFields
         fields:
-          - path: [_stream]
+          - type: AddedFieldDefinition
+            path: [_stream]
             value: issues
-          - path: [_repo]
+          - type: AddedFieldDefinition
+            path: [_repo]
             value: "{{ stream_partition['repo_name'] }}"

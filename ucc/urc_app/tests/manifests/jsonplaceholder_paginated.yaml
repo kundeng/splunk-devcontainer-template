@@ -29,9 +29,11 @@ streams:
           page_size: 20
           inject_on_first_request: true
         page_size_option:
+          type: RequestOption
           field_name: _limit
           inject_into: request_parameter
         page_token_option:
+          type: RequestOption
           field_name: _start
           inject_into: request_parameter
     incremental_sync:
@@ -41,7 +43,9 @@ streams:
     transformations:
       - type: AddFields
         fields:
-          - path: [_source_api]
+          - type: AddedFieldDefinition
+            path: [_source_api]
             value: jsonplaceholder
-          - path: [_collected_at]
+          - type: AddedFieldDefinition
+            path: [_collected_at]
             value: "{{ now_utc() }}"

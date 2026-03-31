@@ -55,14 +55,14 @@ streams:
           stop_condition: "{{ not response.get('nextLink') }}"
         page_token_option:
           type: RequestPath
-          field_name: ""
-          inject_into: request_parameter
     transformations:
       - type: AddFields
         fields:
-          - path: [_source]
+          - type: AddedFieldDefinition
+            path: [_source]
             value: azure_eventhub
-          - path: [_object_type]
+          - type: AddedFieldDefinition
+            path: [_object_type]
             value: consumer_group
       - type: FlattenFields
         separator: "."
@@ -88,9 +88,11 @@ streams:
     transformations:
       - type: AddFields
         fields:
-          - path: [_source]
+          - type: AddedFieldDefinition
+            path: [_source]
             value: azure_eventhub
-          - path: [_object_type]
+          - type: AddedFieldDefinition
+            path: [_object_type]
             value: eventhub_info
       - type: FlattenFields
         separator: "."
