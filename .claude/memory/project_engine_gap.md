@@ -1,74 +1,67 @@
 ---
-name: URC engine gap analysis — 5300 lines to 99.9% CDK parity
-description: Component-by-component delta between current pure engine (2148 lines) and full CDK parity, with line estimates
+name: URC engine gap analysis — ~3000 lines remaining for 99.9% CDK parity
+description: Component-by-component delta after completing CRITICAL+HIGH+MEDIUM priorities
 type: project
 ---
 
-## Engine Gap Analysis (2026-03-31)
+## Engine Gap Analysis (updated 2026-03-31)
 
-Current engine: 2148 lines, 40 runtime classes. Need ~5300 more for 99.9% CDK parity.
+Current engine: 3510 runtime lines (excl. generated models), 49 components.
+Test suite: 176 tests, 3151 lines, 0.19s execution.
 
-### Priority breakdown
+### Completed
 
-**Incremental/cursors (+1316 lines) — CRITICAL**
-- Per-partition state management (nested dict in KV Store)
-- Lookback windows (subtract from cursor before querying)
-- Resumable full refresh
-- MinMaxDatetime clamping
+**Per-partition state — DONE**
+- PerPartitionStateManager, lookback windows, time window slicing
 
-**AsyncRetriever (+796 lines) — HIGH**
-- Bulk job lifecycle: create → poll → download
-- Status mapping, URL extraction
-- Splunk REST API and many enterprise APIs use this pattern
+**AsyncRetriever — DONE**
+- Create → poll → download lifecycle, status mapping, URL extraction
 
-**Rate limiting (+575 lines) — HIGH**
-- Token bucket, fixed/moving window policies
-- API budget with per-endpoint limits
-- stdlib time.monotonic + deque, no native deps
+**Rate limiting — DONE**
+- TokenBucket, MovingWindowRateLimiter, APIBudget
 
-**Interpolation (+498 lines) — MEDIUM**
-- More Jinja2 context vars: response, headers, next_page_token, stream_interval
-- Custom macros and filters
-- Error context for better debugging
+**Event Timestamp — DONE (URC extension)**
+- CursorBasedTimestamp, FieldBasedTimestamp, FetchTimestamp
+- Separate extension schema (urc_extensions_schema.yaml)
+- Auto-derives _time from DatetimeBasedCursor
 
-**Transformations (+468 lines) — MEDIUM**
+**Decoders — DONE**
+- CsvDecoder (BOM, malformed rows), JsonlDecoder, ZipfileDecoder
+
+**Transformations — DONE**
 - DpathFlattenFields, KeysReplace, SchemaNormalization
-- Config transforms (ConfigAddFields, ConfigRemoveFields, ConfigRemapField)
-- ComponentMappingDefinition, GroupByKeyMergeStrategy
 
-**Extraction (+434 lines) — MEDIUM**
-- CSV extraction via stdlib csv (not pandas)
-- PropertiesFromEndpoint (dynamic property fetching)
-- JsonSchemaPropertySelector
+**Partition Router — DONE**
+- CartesianProductStreamSlicer (itertools.product, 100k limit)
 
-**Auth (+412 lines) — MEDIUM**
-- OAuth2: token refresh edge cases, PKCE (needs crypto — real gap)
-- JWT: key loading, multiple algorithms, payload customization
-- Session token refinements
+**Test Suite — DONE**
+- 157 unit tests + 19 integration tests = 176 total
+- Covers: auth, pagination, decoders, transforms, error handling, rate limiting,
+  event timestamp, manifest parsing, registry, full pipeline, incremental sync,
+  per-partition state, async retriever, modular input with mocked Splunk SDK
+
+### Remaining gaps (LOW priority)
+
+**Interpolation (+498 lines) — LOW**
+- More Jinja2 context vars, custom macros/filters, error context
+
+**Auth (+412 lines) — LOW**
+- OAuth2 PKCE, JWT key loading/RS256, session token edge cases
 
 **Pagination (+380 lines) — LOW**
-- Stop condition evaluation refinements
-- Interpolated cursor edge cases
-- Keyset pagination
-
-**Decoders (+297 lines) — LOW**
-- ZipfileDecoder (stdlib zipfile)
-- CSV refinement, JSONL edge cases
+- Stop condition refinements, keyset pagination
 
 **HttpRequester (+210 lines) — LOW**
-- Request body types: PlainText, UrlEncodedForm, JsonObject, GraphQL
-- Proxy support refinement
+- Request body type refinements, proxy support
 
 **Error handling (+157 lines) — LOW**
-- Response filter regex matching
-- Jitter in backoff
-- WaitUntilTimeFromHeader
+- Response filter regex, jitter in backoff, WaitUntilTimeFromHeader
 
 **Stream slicers (+146 lines) — LOW**
-- Cartesian product slicers
+- Additional slicer patterns
 
 ### Known hard gaps (no pure Python solution)
-- JWT RS256/ES256 signing — needs cryptography or pure-Python RSA lib
+- JWT RS256/ES256 signing — needs cryptography lib
 - OAuth2 PKCE — needs cryptographic code verifier
 
-**How to apply:** Start with CRITICAL + HIGH priorities. Each component is independent and testable. Use the test manifests (jsonplaceholder, github, servicenow, infoblox, azure) to validate.
+**How to apply:** All CRITICAL, HIGH, and MEDIUM priorities are done. Remaining items are LOW priority — implement as needed when specific manifests require them.

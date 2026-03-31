@@ -104,26 +104,26 @@
 
 ## Phase E: Integration Tests
 
-- [ ] 15. Full engine pipeline with mocked HTTP
+- [x] 15. Full engine pipeline with mocked HTTP
   - File: `tests/integration/test_engine_pipeline.py`
   - Scenarios: simple GET, paginated (offset + cursor), with auth, with transformations, with rate limiter
   - Verify: record count, field values, `_time` presence, state emission
 
-- [ ] 16. Incremental sync with per-partition state
+- [x] 16. Incremental sync with per-partition state
   - File: `tests/integration/test_incremental_sync.py`
   - First run (no checkpoint) → second run (resume from cursor)
   - Per-partition: 3+ partitions with different cursors, state round-trip
   - Lookback window: cursor minus lookback = actual query start
   - 10+ partitions: serialization/deserialization fidelity
 
-- [ ] 17. Async retriever bulk job lifecycle
+- [x] 17. Async retriever bulk job lifecycle
   - File: `tests/integration/test_async_retriever.py`
   - Happy path: create → poll PENDING → RUNNING → COMPLETED → download
   - Failure: FAILED status → no records, error logged
   - Timeout: mock time, verify timeout handling
   - URL extraction: downloadUrl from poll response
 
-- [ ] 18. Modular input with mocked Splunk SDK
+- [x] 18. Modular input with mocked Splunk SDK
   - File: `tests/integration/test_modular_input.py`
   - Mock `splunklib.client.Service`: passwords + KV Store
   - First run → checkpoint save; resume → checkpoint read
@@ -132,12 +132,12 @@
 
 ## Phase F: Validation
 
-- [ ] 19. Run full test suite, fix any failures
+- [x] 19. Run full test suite, fix any failures
   - `pytest ucc/urc_app/tests/ -v` — all green
   - `python ucc/urc_app/tests/test_manifests.py --validate` — all valid
   - `task ucc:build` — succeeds
   - `task ucc:appinspect` — 0 errors, 0 failures
 
-- [ ] 20. Push to origin and update gap analysis memory
+- [x] 20. Push to origin and update gap analysis memory
   - Commit + push all changes
   - Update `memory/project_engine_gap.md` with completed items
