@@ -1,7 +1,5 @@
-# Exclude the following packages from being installed in the add-on
-# Packages stripped to keep pure-Python only and minimize size
+# Exclude build tools not needed at runtime
 setuptools
 pip
 distribute
 wheel
-bin

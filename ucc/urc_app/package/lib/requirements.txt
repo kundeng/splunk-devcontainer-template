@@ -2,27 +2,6 @@ splunktaucclib
 splunk-sdk
 solnlib
 
-# Airbyte CDK declarative runtime deps
-pydantic>=2,<3
-typing-extensions
-requests
-urllib3
-certifi
-idna
-charset-normalizer
-Jinja2
-MarkupSafe
-PyYAML
-dpath
-backoff
-cachetools
-isodate
-python-dateutil
-pytz
-pyrate-limiter>=3.1.1,<4.0
-jsonref
-jsonschema==4.17.3
-pyrsistent
-xmltodict
-attrs
-airbyte-protocol-models-dataclasses
+# Airbyte CDK — the full declarative runtime
+# v3.9.6 is the last version supporting Python 3.9 (Splunk's runtime)
+airbyte-cdk==3.9.6

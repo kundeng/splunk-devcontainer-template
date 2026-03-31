@@ -714,8 +714,10 @@ tasks:
           -o "{{.UCC_OUTPUT_DIR}}" \
           --overwrite
 
-        # Clean __pycache__ from output — AppInspect rejects .pyc files
-        find "{{.UCC_OUTPUT_DIR}}/${UCC_ADDON}" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+        # AppInspect compliance: remove .pyc files and dotfiles
+        APP="{{.UCC_OUTPUT_DIR}}/${UCC_ADDON}"
+        find "${APP}" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
+        find "${APP}" -name ".*" -not -name ".gitkeep" -delete 2>/dev/null || true
 
         echo "Build complete → {{.UCC_OUTPUT_DIR}}/${UCC_ADDON}/"
     desc: Build UCC add-on (generates REST handlers, UI, conf files)
