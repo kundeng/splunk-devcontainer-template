@@ -11,7 +11,7 @@ services:
       dockerfile: Dockerfile
       target: dev
       args:
-        SPLUNK_VERSION: ${SPLUNK_VERSION:-9.4.0}
+        SPLUNK_VERSION: ${SPLUNK_VERSION:-10.2.1}
     container_name: splunk-dev
     hostname: splunk-dev
     environment:
@@ -41,12 +41,14 @@ services:
       - ${LOCAL_WORKSPACE_FOLDER:-..}/splunk/config/apps:/opt/splunk/dev-apps
       # React source — mounted so stage/ symlinks resolve inside container (react:link)
       - ${LOCAL_WORKSPACE_FOLDER:-..}/react:/opt/splunk/react
+      # UCC build output — symlinked into etc/apps/ by ucc:link (same pattern as dev-apps, react)
+      - ${LOCAL_WORKSPACE_FOLDER:-..}/ucc/output:/opt/splunk/ucc-apps
     restart: unless-stopped
 
   ## ── Optional sidecars (uncomment as needed) ──────────────────────
 
   # uf:
-  #   image: splunk/universalforwarder:${SPLUNK_VERSION:-9.4.0}
+  #   image: splunk/universalforwarder:${SPLUNK_VERSION:-10.2.1}
   #   container_name: splunk-uf
   #   hostname: splunk-uf
   #   environment:

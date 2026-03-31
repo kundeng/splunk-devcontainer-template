@@ -12,6 +12,10 @@ dependencies:
     splunkbase_id: 2882
     version: "4.2.3"
 
+  - name: Splunk_App_for_Anomaly_Detection
+    splunkbase_id: 6843
+    version: "1.1.2"
+
   # - name: Splunk_ML_Toolkit
   #   splunkbase_id: 2890
   #   version: "5.6.1"

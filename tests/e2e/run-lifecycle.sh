@@ -21,7 +21,8 @@ task dev:down 2>/dev/null || true
 task stage:clean 2>/dev/null || true
 rm -rf splunk/config/apps/test_cmd_app splunk/config/apps/test-react-app splunk/config/apps/testReactApp
 rm -rf react/packages react/package.json react/node_modules react/yarn.lock
-rm -f splunk/stage/*.tgz
+rm -rf ucc/test_ucc_addon ucc/output/*
+rm -f splunk/stage/*.tgz splunk/stage/*.tar.gz
 rm -rf ".task"
 # Clear APP_NAME from .env so guards test works cleanly
 if [ -f .env ]; then
@@ -34,7 +35,8 @@ cleanup_all() {
     task stage:clean 2>/dev/null || true
     rm -rf splunk/config/apps/test_cmd_app splunk/config/apps/test-react-app splunk/config/apps/testReactApp
     rm -rf react/packages react/package.json react/node_modules react/yarn.lock
-    rm -f splunk/stage/*.tgz
+    rm -rf ucc/test_ucc_addon ucc/output/*
+    rm -f splunk/stage/*.tgz splunk/stage/*.tar.gz
     rm -rf ".task"
     # Clear APP_NAME from .env so next run starts clean
     if [ -f .env ]; then
@@ -69,6 +71,7 @@ run_suite "boot"           "${SCRIPT_DIR}/test-boot.sh"
 run_suite "app-lifecycle"  "${SCRIPT_DIR}/test-app-lifecycle.sh"
 run_suite "deps-install"   "${SCRIPT_DIR}/test-deps-install.sh"
 run_suite "react-build"    "${SCRIPT_DIR}/test-react-build.sh"
+run_suite "ucc-lifecycle"  "${SCRIPT_DIR}/test-ucc-lifecycle.sh"
 run_suite "staging"        "${SCRIPT_DIR}/test-staging.sh"
 run_suite "skip-provision" "${SCRIPT_DIR}/test-skip-provision.sh"
 

@@ -26,8 +26,13 @@ puts "=== expect: starting task react:create ==="
 
 spawn task react:create
 
-# Prompt 1: App name
+# npx may prompt "Ok to proceed? (y)" before the wizard starts
 expect {
+    -re {Ok to proceed} {
+        send "y\r"
+        puts "=== expect: accepted npx install prompt ==="
+        exp_continue
+    }
     -re {name your Splunk app} {
         send "$app_name\r"
         puts "=== expect: sent app name: $app_name ==="

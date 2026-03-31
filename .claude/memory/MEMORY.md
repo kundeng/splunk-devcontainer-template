@@ -1,0 +1,15 @@
+- [Project goals](project_goals.md) — UCC alignment, cross-platform template, generic REST API connector app
+- [User profile](user_profile.md) — Splunk app developer using remote dev containers
+- [Feedback: persist memory in project](feedback_persist_memory.md) — Keep memory inside /workspace so it survives rebuilds
+- [Feedback: use worktrees](feedback_worktrees.md) — Separate branches/worktrees for template vs app work
+- [Research: UCC framework](research_ucc_framework.md) — UCC generator, globalConfig schema, project structure, template gaps
+- [Research: UCC generator details](research_ucc_generator_details.md) — CLI commands, build pipeline, import_declare_test, reference app patterns
+- [Research: REST connector](research_rest_connector.md) — Architecture for generic REST API connector using UCC SDK
+- [Feedback: git workflow](feedback_git_workflow.md) — Push to dev branch directly, no PRs needed
+- [Research: Airbyte declarative framework](research_airbyte_declarative.md) — Manifest schema, auth, pagination, record extraction, incremental sync, error handling, stream slicing, PyAirbyte, spec patterns
+- [Research: Airbyte CDK standalone](research_airbyte_cdk_standalone.md) — CDK as library, dependency footprint, slim options, MIT license
+- [Research: Checkpointing & dpath](research_checkpointing_and_dpath.md) — KVStoreCheckpointer API, Airbyte state messages, cursor mapping, dpath library
+- [Research: UCC backend + custom UI](research_ucc_custom_ui.md) — UCC value without auto-generated UI, REST handler decoupling
+- [Research: CIMplicity app](research_cimplicity_app.md) — Hybrid UCC+React build pipeline, PersistentServerConnectionApplication, credential access
+- [Research: OrbStack permissions](research_orbstack_permissions.md) — VirtioFS UID mapping, bind mount ownership in Mac->devcontainer->Splunk chain, OrbStack vs Docker Desktop
+- [Project: REST connector plan](project_rest_connector_plan.md) — Architecture decisions: hybrid UCC+React, vendored Airbyte CDK (Option B), CIMplicity-style build, KV checkpointing, ACL permissions

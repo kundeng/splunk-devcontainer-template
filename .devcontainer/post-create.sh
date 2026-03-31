@@ -12,12 +12,17 @@ fi
 export PATH="$HOME/.local/bin:$PATH"
 
 # ── System tools ─────────────────────────────────────────────────────
-echo "Installing expect (interactive test automation)..."
-sudo apt-get update -qq && sudo apt-get install -y -qq expect >/dev/null 2>&1
+echo "Installing system tools (expect, libmagic)..."
+sudo apt-get update -qq && sudo apt-get install -y -qq expect libmagic1 >/dev/null 2>&1
+
+# ── uv (fast Python package manager + version manager) ─────────────
+echo "Installing uv..."
+curl -LsSf https://astral.sh/uv/install.sh | sh 2>/dev/null
+export PATH="$HOME/.local/bin:$PATH"
 
 # ── Python dev tools ─────────────────────────────────────────────────
-echo "Installing Python tools (appinspect, ruff, pytest)..."
-pip install --user --quiet splunk-appinspect ruff pytest 2>/dev/null
+echo "Installing Python tools (appinspect, ruff, pytest, ucc-gen, codegen)..."
+pip install --user --quiet splunk-appinspect ruff pytest splunk-add-on-ucc-framework datamodel-code-generator 2>/dev/null
 
 # ── Create .env from example if missing ──────────────────────────────
 if [ ! -f /workspace/.env ] && [ -f /workspace/splunk.env.example ]; then
@@ -29,6 +34,14 @@ fi
 mkdir -p /workspace/splunk/config/apps
 mkdir -p /workspace/splunk/stage
 mkdir -p /workspace/packages
+
+# ── Claude Code memory persistence ──────────────────────────────────
+# Symlink Claude memory into the project so it survives container rebuilds
+if [ -d /workspace/.claude/memory ]; then
+  mkdir -p "$HOME/.claude/projects/-workspace"
+  ln -sfn /workspace/.claude/memory "$HOME/.claude/projects/-workspace/memory"
+  echo "Claude Code memory linked to project directory"
+fi
 
 # ── Build Splunk image ────────────────────────────────────────────────
 echo "Building Splunk dev image (first time only)..."
