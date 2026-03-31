@@ -1,4 +1,5 @@
-# Exclude build tools not needed at runtime
+# Exclude build tools only — UCC's exclude is buggy with other packages
+# Heavy deps are cleaned up post-build in Taskfile ucc:build
 setuptools
 pip
 distribute

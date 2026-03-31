@@ -18,13 +18,17 @@ globalConfig.json → ucc-gen build → REST handlers + conf + libs (KEEP)
 Custom React UI → @splunk/react-ui → calls UCC REST endpoints
 ```
 
-### Collection engine: Vendored Airbyte CDK (Option B)
+### Collection engine: Vendored airbyte-cdk>=6 (full package)
 
-**Decision:** Vendor `airbyte_cdk/sources/declarative/` subtree directly into `package/lib/`. NOT a fork repo — the code lives in our repo.
+**Updated 2026-03-30:** Now vendoring the full `airbyte-cdk>=6` package (not a subtree). Splunk 10.2's Python 3.13 removes the Python 3.10+ blocker.
+
+**Previous approach (rejected then re-adopted):** Option B (CDK vendoring) was originally planned, then rejected due to Python 3.9 constraints and coupling issues, then a hand-written @component registry was attempted. CDK 6.x + Splunk 10.2 Python 3.13 made full vendoring viable again.
+
+**Interface:** `cdk_bridge.py` bridges CDK's ManifestDeclarativeSource to Splunk events + KVStoreCheckpointer.
 
 **Why:** 100% Airbyte manifest.yaml compatibility. Users can drop in any Airbyte declarative connector manifest and it works. MIT license, no concerns.
 
-**Deps to include** (~20 MB): requests, pydantic, Jinja2, PyYAML, dpath, jsonschema, isodate, backoff, cachetools, pyrate-limiter
+**Deps to include**: requests, pydantic (v2), Jinja2, PyYAML, dpath, jsonschema, isodate, backoff, cachetools, pyrate-limiter, and CDK's own transitive deps
 **Deps to SKIP** (~130 MB): pandas, numpy, grpcio, nltk, google-cloud-secret-manager
 
 ### UI design

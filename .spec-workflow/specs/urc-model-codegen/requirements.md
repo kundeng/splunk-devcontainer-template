@@ -1,3 +1,5 @@
+> **STATUS: PARTIALLY SUPERSEDED** — CDK 6.x (commit 598385e7) ships its own models, replacing hand-written Pydantic classes. However, the codegen pipeline (`task urc:update-schema`) remains useful for schema-driven UI generation.
+
 # Requirements: URC Model Code Generation & Pydantic Layer
 
 ## Introduction

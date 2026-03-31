@@ -718,10 +718,22 @@ tasks:
           -o "{{.UCC_OUTPUT_DIR}}" \
           --overwrite
 
-        # AppInspect compliance: remove .pyc files and dotfiles
+        # Post-build cleanup
         APP="{{.UCC_OUTPUT_DIR}}/${UCC_ADDON}"
         find "${APP}" -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
         find "${APP}" -name ".*" -not -name ".gitkeep" -delete 2>/dev/null || true
+        # Remove CDK transitive deps not needed for declarative runtime
+        # (UCC exclude.txt is buggy with some package names, so we rm directly)
+        for pkg in pandas numpy numpy.libs grpc grpcio grpcio_status \
+                   google google_cloud google_api_core google_auth \
+                   googleapis_common_protos proto_plus protobuf pyasn1 pyasn1_modules \
+                   nltk rapidfuzz cryptography cffi pycparser \
+                   langchain_core langsmith rich rich_click pygments \
+                   anyascii unidecode psutil tqdm joblib serpyco_rs \
+                   markdown_it_py mdurl; do
+          rm -rf "${APP}/lib/${pkg}" "${APP}/lib/${pkg}"*.dist-info 2>/dev/null
+        done
+        rm -rf "${APP}/lib/bin" "${APP}/lib/_cffi_backend"* 2>/dev/null
 
         echo "Build complete → {{.UCC_OUTPUT_DIR}}/${UCC_ADDON}/"
     desc: Build UCC add-on (generates REST handlers, UI, conf files)

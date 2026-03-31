@@ -16,3 +16,9 @@ Splunk's bundled Python 3.9 CAN load C extension `.so` files. Tested and confirm
 - When vendoring deps, use: `pip install --target lib/ --python-version 3.9 --only-binary :all: --platform manylinux2014_x86_64`
 - Update golden path docs to remove "pure Python only" constraint
 - AppInspect: Splunk Cloud allows binary deps (MLTK proves this)
+
+### CDK 6.x on Splunk 10.2 (confirmed 2026-03-30)
+- `airbyte-cdk>=6` requires Python 3.10+
+- Splunk 10.2 ships Python 3.13 — confirmed CDK 6.x loads and runs correctly
+- This unblocks full CDK vendoring (previously blocked by Splunk's Python 3.9)
+- Vendor command for 3.10+: `pip install --target lib/ --python-version 3.10 --only-binary :all: --platform manylinux2014_x86_64 airbyte-cdk>=6`

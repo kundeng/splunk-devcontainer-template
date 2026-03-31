@@ -37,12 +37,12 @@ A UCC add-on has three layers:
 │  └─ Custom (PersistentServerConn)   │  ← Your endpoints (test_connection, etc.)
 ├─────────────────────────────────────┤
 │  Modular Input                      │
-│  └─ Your Python code                │  ← Data collection logic
-│     └─ Vendored libraries           │  ← Pure-Python only on Splunk 3.9
+│  └─ Airbyte CDK 6.x runtime        │  ← Declarative manifest → data collection
+│     └─ Vendored libraries           │  ← Binary wheels OK on Splunk 10.2+/3.13
 └─────────────────────────────────────┘
 ```
 
-**Key insight:** UCC generates the glue (conf files, REST handlers, UI pages) from a single `globalConfig.json`. Your job is to write the modular input handler and any custom endpoints. The UI comes free — unless you want something beyond forms, in which case you build a custom React page alongside UCC.
+**Key insight:** UCC generates the glue (conf files, REST handlers, UI pages) from a single `globalConfig.json`. The modular input handler delegates to the Airbyte CDK 6.x declarative runtime, which interprets YAML manifests to collect data from REST APIs. The UI comes free — unless you want something beyond forms, in which case you build a custom React page alongside UCC.
 
 ## 2. Project Structure
 
@@ -289,12 +289,12 @@ passSystemAuth = true
 
 ## 6. Python Dependencies — The Vendoring Challenge
 
-This is where most UCC projects hit trouble. Splunk ships its own Python 3.9 runtime with limitations:
+This is where most UCC projects hit trouble. Splunk ships its own Python runtime, and the constraints depend on which version you target:
 
 ### The Rules
 
-1. **Pure Python only** — No `.so` / `.pyd` C extensions. Splunk's Python 3.9 can't load them (different build, missing symbols).
-2. **Python 3.9 syntax** — No `match/case` (3.10+), no `type X = ...` (3.12+), no `ExceptionGroup` (3.11+).
+1. **Binary wheels work** — `.so` / `.pyd` C extensions load fine on Splunk's Python. Ship `manylinux2014_x86_64` wheels for Splunk Cloud.
+2. **Python version syntax** — Target Splunk 10.2+ with `python.version = python3` in `app.conf` to get Python 3.13. On older Splunk (9.x), you're stuck with Python 3.9 — no `match/case`, no `type` aliases, no `ExceptionGroup`.
 3. **No pip at runtime** — Everything must be pre-vendored into `lib/`.
 4. **Size budget** — Keep under 50 MB total. Splunkbase has limits and large apps are slow to deploy.
 
@@ -313,26 +313,25 @@ UCC runs `pip install -r requirements.txt -t lib/` during build, then removes pa
 
 | Problem | Symptom | Fix |
 |---------|---------|-----|
-| C extension in dep | `ImportError: cannot open shared object file` | Pin a version without C ext, or find pure-Python alternative |
-| Python 3.10+ syntax | `SyntaxError: invalid syntax` | Pin older version or patch |
+| Python 3.10+ syntax on Splunk 9.x | `SyntaxError: invalid syntax` | Pin older version, patch, or target Splunk 10.2+ |
 | Conflicting deps | `ImportError: cannot import name X` | Use `exclude.txt` to remove conflicting versions |
-| jsonschema v4.18+ | Pulls in `rpds-py` (Rust) | Pin `jsonschema==4.17.3` (uses `pyrsistent` instead) |
-| pydantic v2 | Requires `pydantic-core` (Rust) | Use `pydantic<2` (pure Python v1) |
-| PyYAML with libyaml | `.so` file in package | Works fine — falls back to pure Python if `.so` won't load |
+| Wrong platform wheel | `ImportError: cannot open shared object file` | Build with `--platform manylinux2014_x86_64` |
+| `.pyc` files in package | AppInspect failure | Clean `__pycache__` during build |
 
-### Our Dependency Stack (proven on Splunk 3.9)
+### Our Dependency Stack (Splunk 10.2+ / Python 3.13)
 
 ```
-pydantic<2              # v1.10.x — pure Python validation
-requests + urllib3      # HTTP client (has .so but falls back)
-Jinja2 + MarkupSafe    # Template engine (pure Python mode)
-PyYAML                  # YAML (pure Python fallback)
+airbyte-cdk>=6,<7       # Declarative manifest runtime (the core engine)
+pydantic>=2,<3          # v2 — fast Rust-backed validation via pydantic-core
+requests + urllib3      # HTTP client
+Jinja2 + MarkupSafe    # Template engine
+PyYAML                  # YAML parsing
 dpath                   # 15 KB, zero deps, MIT
 backoff                 # Retry/backoff
 python-dateutil + pytz  # Datetime handling
 isodate                 # ISO 8601 parsing
 jsonref                 # JSON reference resolution
-jsonschema==4.17.3      # Pin to avoid rpds-py
+jsonschema              # No longer need to pin — binary deps are fine
 xmltodict               # XML → dict
 ```
 
@@ -570,20 +569,20 @@ curl -sk https://localhost:8089/services/search/jobs \
 
 ## 10. Lessons Learned — What Failed and Why
 
-### Attempt 1: Vendor the Full Airbyte CDK (FAILED)
+### Attempt 1: Vendor the Full Airbyte CDK — FAILED initially, then SUCCEEDED
 
-**What we tried:** `git subtree add` the entire Airbyte CDK declarative runtime (~4000 files, 213 MB) into our Splunk app.
+**Round 1 (failed on Splunk 9.x / Python 3.9):** `git subtree add` the entire Airbyte CDK declarative runtime (~4000 files, 213 MB) into our Splunk app.
 
-**Why it failed:**
-- **59% of CDK files needed** for just the declarative subset — tight coupling
+**Why it failed initially:**
 - **Python 3.10+ syntax** throughout: `match/case`, `type` aliases, `ExceptionGroup`
-- **C extensions everywhere**: `pydantic-core` (Rust), `orjson`, `grpcio`, `numpy`
-- **Circular imports** resist partial vendoring — pulling one module pulls dozens
+- **C extensions** (`pydantic-core`, `orjson`) assumed incompatible with Splunk's Python 3.9
 - **3 WIP commits** of patching before we gave up (`35f4686b`, `10a3477a`, `4e7f6b04`)
 
-**The fix:** Write our own lightweight runtime (17 files, 584 KB) using the same manifest format. Pydantic v1 for validation, `@component` decorator for registration. No CDK dependency at all.
+**Interim fix:** Wrote a lightweight reimplementation (17 files, 584 KB) using the same manifest format, Pydantic v1, `@component` decorator.
 
-**Lesson:** Don't vendor a framework — understand the format and reimplement the runtime cleanly.
+**Round 2 (succeeded on Splunk 10.2+ / Python 3.13):** With Splunk 10.2 shipping Python 3.13 (opt-in via `python.version = python3` in `app.conf`), the Python syntax and binary extension blockers vanished. We now vendor `airbyte-cdk>=6` as a pip dependency — the real CDK is the runtime, not our reimplementation.
+
+**Lesson:** Platform constraints change. What fails today may work when you target the next platform version. The lightweight reimplementation was the right call for Splunk 9.x, but CDK 6.x is the right call for Splunk 10.2+.
 
 ### Attempt 2: jsonschema v4.18+ (FAILED)
 
@@ -593,11 +592,11 @@ curl -sk https://localhost:8089/services/search/jobs \
 
 ### ~~Attempt 3: pydantic v2 (NEVER ATTEMPTED)~~ → RESOLVED
 
-**Original assumption:** Pydantic v2 requires `pydantic-core`, a Rust extension. We assumed Splunk's Python 3.9 couldn't load C extensions.
+**Original assumption:** Pydantic v2 requires `pydantic-core`, a Rust extension, which wouldn't work on Splunk.
 
-**What actually happened:** Tested `pydantic-core` (Rust `.so`) in the Splunk dev container — **it loads and works fine.** Splunk's Python 3.9 supports C extensions; `_ctypes`, `_ssl`, and `pydantic-core` all import successfully. The "pure Python only" assumption was never tested — just carried forward. Splunk's own MLTK add-on ships numpy/scipy/sklearn (all heavy C extensions) on Splunkbase, proving binary deps are supported.
+**What actually happened:** Binary extensions work fine on Splunk. The "pure Python only" assumption was never tested — just carried forward. Splunk's own MLTK add-on ships numpy/scipy/sklearn (all heavy C extensions) on Splunkbase. With Splunk 10.2+ / Python 3.13, this is even more straightforward.
 
-**The fix:** Upgraded to `pydantic>=2,<3`. This enabled `--enum-field-as-literal all` in codegen (264 → 138 classes), proper discriminated unions, `ConfigDict`, and better validation errors.
+**The fix:** Upgraded to `pydantic>=2,<3`. This is now required by `airbyte-cdk>=6` anyway. Benefits: `--enum-field-as-literal all` in codegen (264 → 138 classes), proper discriminated unions, `ConfigDict`, and better validation errors.
 
 ### Attempt 4: pyrate-limiter v4 (CAUGHT IN AUDIT)
 
@@ -607,26 +606,26 @@ curl -sk https://localhost:8089/services/search/jobs \
 
 ### Key Takeaway: The Dependency Constraint (Revised)
 
-The original "pure Python only" rule was **wrong**. Splunk's Python 3.9 loads C extensions fine. The real constraints are:
+The original "pure Python only" rule was **wrong**. Splunk loads C extensions fine. On Splunk 10.2+ with `python.version = python3`, you get Python 3.13 — no syntax restrictions, full binary wheel support. The real constraints are:
 
-1. **Python 3.9 syntax** — no `match/case`, no `type` aliases, no `ExceptionGroup` (Python 3.10+ features)
+1. **Target Splunk 10.2+** — opt-in to Python 3.13 via `python.version = python3` in `app.conf`. This removes all Python 3.9-era syntax restrictions.
 2. **Correct platform wheels** — use `manylinux2014_x86_64` wheels for Splunk Cloud (x86_64)
 3. **No `.pyc` files** — AppInspect rejects compiled Python bytecode; clean `__pycache__` during build
 4. **AppInspect validation** — run `task ucc:appinspect` before shipping; use `--included-tags cloud` for Splunk Cloud compatibility
 
-When vendoring binary deps:
+When vendoring deps (including CDK):
 ```bash
 pip install --target lib/ \
-  --python-version 3.9 \
+  --python-version 3.13 \
   --only-binary :all: \
   --platform manylinux2014_x86_64 \
-  "pydantic>=2,<3"
+  "airbyte-cdk>=6,<7"
 ```
 
 Always verify in the Splunk container:
 ```bash
 docker exec splunk-dev /opt/splunk/bin/splunk cmd python3 -c \
-  "import sys; sys.path.insert(0, '/opt/splunk/etc/apps/your_app/lib'); import your_module"
+  "import sys; sys.path.insert(0, '/opt/splunk/etc/apps/your_app/lib'); import airbyte_cdk"
 ```
 
 ---
@@ -647,20 +646,20 @@ ucc-gen init --addon-name your_app                     # Scaffold new app
 |--------|------|--------|
 | `364ba660` | UCC support added to template | Start with UCC scaffolding |
 | `f7488f04` | Scaffold UCC app, vendor CDK, audit | Always audit deps FIRST |
-| `4e7f6b04` → `35f4686b` | 3 WIP CDK patching attempts | Vendoring large frameworks fails |
-| `58de9bb4` | Clean URC runtime, registry pattern | Reimplement cleanly instead |
+| `4e7f6b04` → `35f4686b` | 3 WIP CDK patching attempts | Vendoring on Py 3.9 fails |
+| `58de9bb4` | Clean URC runtime, registry pattern | Interim solution for Splunk 9.x |
 | `b0656e0d` | Pydantic validation layer | Generated models from schema |
 | `0419a769` | FULL E2E WORKING | 100 events, JSONPlaceholder → Splunk |
 | `b4d4b278` | Phase 2: 36 components | Transformations, decoders, auth |
 | `910dc66a` | 38 components, test connection | Partition routers, REST endpoint |
-| `6a21f686` | Remove vendored CDK | Final cleanup |
+| `6a21f686` | Remove hand-written CDK | Replaced by vendored airbyte-cdk>=6 |
 | `78d4c6c7` | Guided UI spec + test manifests | 5 API manifests, spec workflow |
 
 ### File Sizes (Production URC App)
 
 ```
-Total runtime:      584 KB (17 Python files)
-Vendored libs:      ~20 MB (pure Python subset)
-UCC build output:   ~40 MB (includes UCC UI bundle)
-Component count:    38 registered types
+Core runtime:       airbyte-cdk 6.x (vendored via pip)
+Vendored libs:      ~45 MB (CDK + binary wheels for pydantic-core, etc.)
+UCC build output:   ~65 MB (includes UCC UI bundle + vendored deps)
+Target platform:    Splunk 10.2+ / Python 3.13
 ```

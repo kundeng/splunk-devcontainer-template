@@ -1,3 +1,5 @@
+> **STATUS: SUPERSEDED** — This spec was superseded by the CDK 6.x integration (commit 598385e7). The hand-written runtime components were replaced by vendoring airbyte-cdk>=6.
+
 # URC Connector Implementation — Requirements
 
 ## Introduction

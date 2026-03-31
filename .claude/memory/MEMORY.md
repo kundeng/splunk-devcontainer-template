@@ -16,6 +16,6 @@
 - [Feedback: use task primitives](feedback_use_task_primitives.md) — Dogfood Taskfile tasks as primary dev interface; fix/add tasks instead of working around them
 - [Feedback: push often](feedback_push_often.md) — Push to origin frequently; workspace is in Dropbox, prevent corruption
 - [Feedback: non-interactive scaffold](feedback_noninteractive_scaffold.md) — Use splunk-create-noninteractive.mjs wrapper + Taskfile vars for automated scaffolding
-- [Project: URC architecture](project_urc_architecture.md) — No CDK vendoring, Pydantic v1 + @component registry, no DI framework
+- [Project: URC architecture](project_urc_architecture.md) — Vendored airbyte-cdk>=6, cdk_bridge.py interface, Python 3.10+ (Splunk 10.2 Python 3.13)
 - [Research: Airbyte Builder UI](research_airbyte_builder_ui.md) — Three-panel layout, schema-driven forms, dual mode, test panel tabs, AI assist, Splunk adaptation notes
 - [Research: Splunk binary deps](research_splunk_binary_deps.md) — Splunk Python 3.9 CAN load .so files; pydantic v2 works; "pure Python only" was wrong

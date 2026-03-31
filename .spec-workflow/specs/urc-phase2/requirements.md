@@ -1,3 +1,5 @@
+> **STATUS: SUPERSEDED** — This spec was superseded by the CDK 6.x integration (commit 598385e7). The additional hand-written components are no longer needed; airbyte-cdk>=6 ships them natively.
+
 # URC Phase 2 — Feature Completeness and UI
 
 ## Introduction
