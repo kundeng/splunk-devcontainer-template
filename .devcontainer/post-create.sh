@@ -15,9 +15,14 @@ export PATH="$HOME/.local/bin:$PATH"
 echo "Installing expect (interactive test automation)..."
 sudo apt-get update -qq && sudo apt-get install -y -qq expect >/dev/null 2>&1
 
+# ── uv (fast Python package manager + version manager) ─────────────
+echo "Installing uv..."
+curl -LsSf https://astral.sh/uv/install.sh | sh 2>/dev/null
+export PATH="$HOME/.local/bin:$PATH"
+
 # ── Python dev tools ─────────────────────────────────────────────────
-echo "Installing Python tools (appinspect, ruff, pytest, ucc-gen)..."
-pip install --user --quiet splunk-appinspect ruff pytest splunk-add-on-ucc-framework 2>/dev/null
+echo "Installing Python tools (appinspect, ruff, pytest, ucc-gen, codegen)..."
+pip install --user --quiet splunk-appinspect ruff pytest splunk-add-on-ucc-framework datamodel-code-generator 2>/dev/null
 
 # ── Create .env from example if missing ──────────────────────────────
 if [ ! -f /workspace/.env ] && [ -f /workspace/splunk.env.example ]; then
