@@ -1,0 +1,16 @@
+{
+  "id": "snapshot_1774911968803_d8xclbv3x",
+  "approvalId": "approval_1774911968795_in11orkcy",
+  "approvalTitle": "URC Model Codegen — Tasks (6 tasks, 2 phases)",
+  "version": 1,
+  "timestamp": "2026-03-30T23:06:08.803Z",
+  "trigger": "initial",
+  "status": "pending",
+  "content": "# Tasks — URC Model Code Generation\n\n## Phase 1: Codegen Pipeline\n\n- [ ] 1. Create header.txt and extensions.py scaffolding files\n  - Files: ucc/urc_app/schema/header.txt, ucc/urc_app/package/lib/urc/extensions.py\n  - header.txt: DO NOT EDIT warning + regeneration instructions\n  - extensions.py: documented subclass pattern with commented example\n  - Purpose: Files that codegen depends on or that establish the extension pattern\n  - _Requirements: R7, R8, R10_\n\n- [ ] 2. Add `urc:update-schema` Taskfile target\n  - Files: Taskfile.yml\n  - Downloads schema from Airbyte CDK repo, runs datamodel-codegen with all flags, runs ruff format\n  - All flags in one canonical place: --output-model-type pydantic.BaseModel, --target-python-version 3.9, --enum-field-as-literal all, --use-schema-description, --field-constraints, --use-unique-items-as-set, --disable-timestamp, --custom-file-header-path\n  - Purpose: Single command for deterministic regeneration\n  - _Requirements: R1, R3, R4, R5, R6, R7, R9_\n\n- [ ] 3. Run codegen and rename models.py to models_generated.py\n  - Files: ucc/urc_app/package/lib/urc/models_generated.py (new), ucc/urc_app/package/lib/urc/models.py (delete)\n  - Run `task urc:update-schema` to generate models_generated.py\n  - Delete old models.py\n  - Verify: no TypeN enums, schema descriptions as docstrings, field constraints present, no timestamp in header\n  - _Requirements: R4, R5, R6, R7, R8, R9_\n\n- [ ] 4. Update import sites (validate.py)\n  - Files: ucc/urc_app/package/lib/urc/validate.py\n  - Change `from urc.models import` to `from urc.models_generated import` (2 import sites: lines 7 and 61)\n  - Run existing tests to verify backward compatibility\n  - _Requirements: NF-3_\n\n## Phase 2: CI + Verification\n\n- [ ] 5. Add CI staleness check\n  - Files: .github/workflows/ci.yml (create or modify)\n  - New job: regenerate to temp file, diff against committed file, fail if different\n  - _Requirements: R2_\n\n- [ ] 6. Verify idempotency and backward compat\n  - Run codegen twice, assert byte-identical output\n  - Run all manifest validation tests, assert pass\n  - Grep for `class Type[0-9]` in generated file, assert 0 matches\n  - _Requirements: R1, R4, NF-3_\n",
+  "fileStats": {
+    "size": 2189,
+    "lines": 44,
+    "lastModified": "2026-03-30T23:05:57.034Z"
+  },
+  "comments": []
+}

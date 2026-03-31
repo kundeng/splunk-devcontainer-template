@@ -339,6 +339,12 @@ tasks:
             setfacl -R -m u:1000:rwX "$MNT" 2>/dev/null || true
             setfacl -R -d -m u:1000:rwX "$MNT" 2>/dev/null || true
           done
+          # Splunk log/run dirs: open for ansible (999) so splunk cmd python3 works without warnings
+          for MNT in /opt/splunk/var/log /opt/splunk/var/run; do
+            [ -d "$MNT" ] || continue
+            chmod 755 "$MNT" 2>/dev/null || true
+            chmod -R o+rX "$MNT" 2>/dev/null || true
+          done
         '
     desc: Sync symlinks in Splunk etc/apps/ for each app in dev-apps/ (idempotent)
 

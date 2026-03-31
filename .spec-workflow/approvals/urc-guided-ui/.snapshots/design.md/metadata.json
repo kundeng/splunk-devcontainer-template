@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/urc-guided-ui/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-03-30T13:53:19.888Z",
+      "trigger": "initial",
+      "approvalId": "approval_1774878799881_7c0z69wqz",
+      "approvalTitle": "URC Guided UI — Design Document (ASCII Mockups + Architecture)"
+    }
+  ]
+}

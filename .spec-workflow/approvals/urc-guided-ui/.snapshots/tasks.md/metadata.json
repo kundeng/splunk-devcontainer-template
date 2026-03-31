@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/urc-guided-ui/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-03-30T15:38:40.580Z",
+      "trigger": "initial",
+      "approvalId": "approval_1774885120573_f2ok3f75n",
+      "approvalTitle": "URC Guided UI — Tasks Document (18 tasks, 5 phases)"
+    }
+  ]
+}

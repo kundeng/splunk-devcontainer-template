@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/urc-guided-ui/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-03-30T00:32:36.335Z",
+      "trigger": "initial",
+      "approvalId": "approval_1774830756322_rmf0u4n45",
+      "approvalTitle": "URC Guided UI — Requirements Document"
+    }
+  ]
+}

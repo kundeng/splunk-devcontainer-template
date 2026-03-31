@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/urc-model-codegen/design.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-03-30T22:23:18.937Z",
+      "trigger": "initial",
+      "approvalId": "approval_1774909398930_xp8fh377h",
+      "approvalTitle": "URC Model Codegen — Design (minimal base class, no debug/tracing)"
+    }
+  ]
+}

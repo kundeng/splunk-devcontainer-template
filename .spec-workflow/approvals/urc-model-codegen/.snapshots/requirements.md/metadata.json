@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/urc-model-codegen/requirements.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-03-30T22:23:17.587Z",
+      "trigger": "initial",
+      "approvalId": "approval_1774909397575_ci8dx1tci",
+      "approvalTitle": "URC Model Codegen — Requirements (R4 simplified to Config-only base class)"
+    }
+  ]
+}

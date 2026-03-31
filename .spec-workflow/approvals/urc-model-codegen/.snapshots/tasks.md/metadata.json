@@ -1,0 +1,14 @@
+{
+  "filePath": ".spec-workflow/specs/urc-model-codegen/tasks.md",
+  "currentVersion": 1,
+  "snapshots": [
+    {
+      "version": 1,
+      "filename": "snapshot-001.json",
+      "timestamp": "2026-03-30T23:06:08.803Z",
+      "trigger": "initial",
+      "approvalId": "approval_1774911968795_in11orkcy",
+      "approvalTitle": "URC Model Codegen — Tasks (6 tasks, 2 phases)"
+    }
+  ]
+}
