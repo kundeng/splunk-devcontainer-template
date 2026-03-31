@@ -1,6 +1,6 @@
 ---
 name: REST connector app architecture plan
-description: Architecture for generic REST API connector — hybrid UCC+React, pip-installed Airbyte CDK 6.x, CIMplicity-style build
+description: Architecture for generic REST API connector — pure Python engine, hybrid UCC+React, pydantic v1 models
 type: project
 ---
 
@@ -18,22 +18,23 @@ globalConfig.json → ucc-gen build → REST handlers + conf + libs (KEEP)
 Custom React UI → @splunk/react-ui → calls UCC REST endpoints
 ```
 
-### Collection engine: pip-installed airbyte-cdk>=6
+### Collection engine: Pure Python from Airbyte schema (ADR-001)
 
-**Updated 2026-03-31:** airbyte-cdk>=6,<7 is declared in `requirements.txt` and installed by `ucc-gen build` into `package/lib/`. No vendoring, no custom engine.
+CDK 6.x was abandoned due to non-portable native deps (glibc-locked .so files).
+See `docs/adr-001-pure-python-engine.md` for full decision rationale.
 
-**History:** Hand-written @component engine was attempted for Python 3.9 compat, then CDK 6.x + Splunk 10.2 Python 3.13 made it unnecessary. All custom engine code removed.
-
-**Interface:** `cdk_bridge.py` bridges CDK's `ConcurrentDeclarativeSource` to Splunk events + KVStoreCheckpointer.
-
-**Post-build cleanup:** `ucc:build` task strips ~130 MB of unused transitive deps (pandas, numpy, grpcio, nltk, google-cloud, etc.) after install.
+**Engine:** ~7,400 lines pure Python implementing Airbyte declarative components.
+**Models:** ~3,800 lines auto-generated from schema via `datamodel-code-generator==0.25.9`.
+**Validation:** pydantic v1 (pure Python, `pip install 'pydantic<2' --no-binary=pydantic`).
 
 ### Checkpointing
 
-Airbyte cursor state → Splunk KV store:
-- `stream_descriptor.name` → KV store `_key`
-- `stream_state` dict → `state` dict in `ckpt.update()`
+Per-partition cursor state → Splunk KV store:
+- `stream_name` → KV store `_key` prefix
+- `partition_key` → nested state dict
+- `cursor_value` → datetime or integer high-water mark
 
-### Cross-platform permissions
-
-ACLs on bind-mounted dirs (`setfacl -R -m u:1000:rwX`) applied during dev lifecycle.
+### Cross-platform compatibility
+- Python 3.9+ (Splunk 9.x and 10.x)
+- Zero .so files, zero glibc dependency
+- ~2 MB package, passes AppInspect trivially

@@ -1,29 +1,32 @@
 ---
-name: URC architecture — pip-installed CDK 6.x on Splunk 10.2 / Python 3.13
-description: Current URC runtime architecture — airbyte-cdk pip-installed via requirements.txt, cdk_bridge.py interface, Python 3.13 opted-in on both devcontainer and Splunk container
+name: URC architecture — pure Python engine from Airbyte schema
+description: Pure Python declarative engine, pydantic v1, Python 3.9+, no native deps. See ADR-001.
 type: project
 ---
 
 ## URC Runtime Architecture (as of 2026-03-31)
 
-### Runtime stack
-- **Splunk Enterprise 10.2** with Python 3.13 opted-in
-- **Devcontainer** also runs Python 3.13 (matched to Splunk runtime)
-- **airbyte-cdk>=6,<7** declared in `requirements.txt`, installed by `ucc-gen build` into `package/lib/`
+### Decision: Pure Python engine (ADR-001)
 
-### Active code (3 files)
-1. `package/bin/urc_app_input_helper.py` — Splunk modular input handler
-2. `package/lib/urc/cdk_bridge.py` — wraps `ConcurrentDeclarativeSource`, yields `(stream_name, record, state)`
-3. `package/bin/urc_test_connection.py` — REST endpoint for connection testing
+CDK 6.x has non-portable native deps (pydantic_core, serpyco_rs, numpy, rpds — all require matching glibc). After evaluating 4 options (full CDK, stripped CDK, shipped Python, pure engine), chose pure Python implementation from Airbyte declarative schema.
 
-### Build pipeline
-- `task ucc:build` → `ucc-gen build` → installs deps from `requirements.txt` → strips unused transitive deps (~130 MB)
-- `task ucc:appinspect` → validates package for Splunkbase certification
-- `task ucc:package` → creates .tar.gz for deployment
+### Stack
+- **Python 3.9+** (works on Splunk 9.x and 10.x)
+- **pydantic<2** (v1, pure Python, `--no-binary=pydantic`) for model validation
+- **requests, Jinja2, PyYAML, dpath, isodate** — all pure Python
+- **Zero .so files**, zero glibc dependency, ~2 MB package
 
-### What was removed (2026-03-31 redirection)
-Custom engine code deleted: engine.py, components/ (10 files), interpolation.py, registry.py, manifest.py, validate.py, models.py, models_generated.py, extensions.py. CDK handles all of this natively.
+### Runtime
+- `models_generated.py` — auto-generated from Airbyte schema via `datamodel-code-generator==0.25.9`
+- `engine.py` — stream orchestrator
+- `components/` — auth, pagination, extraction, transforms, decoders, error handling
+- `manifest.py` — YAML parse, $ref resolution, type propagation
+- `interpolation.py` — Jinja2 with custom context
+- `registry.py` — @component factory pattern
 
-**Why:** CDK 6.x on Python 3.13 provides 100% Airbyte manifest compatibility with no custom code needed. The hand-written engine was a workaround for Python 3.9 limitations that no longer apply.
+### Key files
+- ADR: `docs/adr-001-pure-python-engine.md`
+- Schema: `ucc/urc_app/schema/declarative_component_schema.yaml` (pinned)
+- Models: `ucc/urc_app/package/lib/urc/models_generated.py`
 
-**How to apply:** All manifest execution goes through `cdk_bridge.py`. Tests use `test_manifests.py` which imports from `urc.cdk_bridge`.
+**How to apply:** All manifest execution goes through `urc.engine.collect()`. No CDK dependency. Schema updates via `task urc:update-schema` (pins codegen 0.25.9).

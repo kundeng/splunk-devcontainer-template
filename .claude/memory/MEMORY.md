@@ -11,12 +11,10 @@
 - [Research: UCC backend + custom UI](research_ucc_custom_ui.md) — UCC value without auto-generated UI, REST handler decoupling
 - [Research: CIMplicity app](research_cimplicity_app.md) — Hybrid UCC+React build pipeline, PersistentServerConnectionApplication, credential access
 - [Research: OrbStack permissions](research_orbstack_permissions.md) — VirtioFS UID mapping, bind mount ownership in Mac->devcontainer->Splunk chain, OrbStack vs Docker Desktop
-- [Project: REST connector plan](project_rest_connector_plan.md) — Architecture decisions: hybrid UCC+React, vendored Airbyte CDK (Option B), CIMplicity-style build, KV checkpointing, ACL permissions
+- [Project: REST connector plan](project_rest_connector_plan.md) — Pure Python engine, hybrid UCC+React, pydantic v1, per-partition checkpointing
 - [Feedback: use task primitives](feedback_use_task_primitives.md) — Dogfood Taskfile tasks as primary dev interface; fix/add tasks instead of working around them
-- [Feedback: deps via Taskfile](feedback_taskfile_deps.md) — Never pip install globally; deps go through Taskfile into app lib/
 - [Feedback: push often](feedback_push_often.md) — Push to origin frequently; workspace is in Dropbox, prevent corruption
 - [Feedback: non-interactive scaffold](feedback_noninteractive_scaffold.md) — Use splunk-create-noninteractive.mjs wrapper + Taskfile vars for automated scaffolding
-- [Project: URC architecture](project_urc_architecture.md) — Vendored airbyte-cdk>=6, cdk_bridge.py interface, Python 3.10+ (Splunk 10.2 Python 3.13)
+- [Project: URC architecture](project_urc_architecture.md) — Pure Python engine from Airbyte schema, pydantic v1, Python 3.9+, zero native deps
 - [Research: Airbyte Builder UI](research_airbyte_builder_ui.md) — Three-panel layout, schema-driven forms, dual mode, test panel tabs, AI assist, Splunk adaptation notes
 - [Research: Splunk binary deps](research_splunk_binary_deps.md) — Splunk Python 3.9 CAN load .so files; pydantic v2 works; "pure Python only" was wrong
-- [Project: CDK shift](project_cdk_shift.md) — pip-installed airbyte-cdk replaces custom engine; engine/components are dead code
