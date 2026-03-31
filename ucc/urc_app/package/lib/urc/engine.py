@@ -4,11 +4,13 @@ import datetime
 import hashlib
 import json
 import logging
+import time
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from urc import registry
 from urc.manifest import process_manifest
 from urc.interpolation import eval_string
+from urc.components.event_timestamp import CursorBasedTimestamp, FetchTimestamp
 
 # Import components to trigger registration
 import urc.components  # noqa: F401
@@ -100,6 +102,15 @@ def _collect_stream(
     for t_def in stream_def.get("transformations", []):
         transformations.append(registry.create(t_def, config))
 
+    # Build event timestamp resolver
+    ts_def = stream_def.get("event_timestamp")
+    if ts_def and ts_def.get("type"):
+        ts_resolver = registry.create(ts_def, config)
+    elif incremental_def and incremental_def.get("type") == "DatetimeBasedCursor":
+        ts_resolver = CursorBasedTimestamp({}, config)
+    else:
+        ts_resolver = FetchTimestamp({}, config)
+
     # Per-partition state manager
     state_mgr = PerPartitionStateManager(stream_name, checkpoint)
 
@@ -128,6 +139,9 @@ def _collect_stream(
                         stream_partition=merged_slice,
                         stream_name=stream_name,
                     )
+
+                # Resolve Splunk _time
+                record["_time"] = ts_resolver.resolve(record, config, stream_def)
 
                 record_count += 1
 

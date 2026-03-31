@@ -1,2 +1,2 @@
 # Import all component modules to trigger @component registration.
-from urc.components import auth, pagination, extraction, requester, retriever, error_handler, transformations, decoders, partition_router, async_retriever, rate_limiter
+from urc.components import auth, pagination, extraction, requester, retriever, error_handler, transformations, decoders, partition_router, async_retriever, rate_limiter, event_timestamp
