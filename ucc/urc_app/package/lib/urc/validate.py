@@ -1,12 +1,9 @@
 # Manifest validation — validate processed manifest dicts against Pydantic models.
 # Catches config errors with clear field-path messages BEFORE any HTTP requests.
 
-import logging
 from typing import Any, Dict, List, Optional
 
 from urc.models import DeclarativeSource1 as SourceModel
-
-logger = logging.getLogger(__name__)
 
 
 class ManifestValidationError(Exception):

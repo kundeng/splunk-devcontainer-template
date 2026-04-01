@@ -30,13 +30,13 @@
 
 ## Phase B: Integration
 
-- [-] 5. Wire instrumentation into registry + engine
+- [x] 5. Wire instrumentation into registry + engine
   - Modify `registry.py`: add `instrument()` call in `create()`
   - Modify `engine.py`: replace inline logger calls with emitter, add SkipRecord handler in record loop
   - Add hook registration in `__init__.py` or engine startup
   - Verify: `python ucc/urc_app/tests/test_manifests.py --validate` still passes
 
-- [ ] 6. Strip logging from all component files
+- [x] 6. Strip logging from all component files
   - Remove `import logging` and `logger = logging.getLogger(...)` from 9 files
   - Remove all 37 `logger.xxx()` calls from component code
   - Files: auth.py, decoders.py, event_timestamp.py, partition_router.py, rate_limiter.py, requester.py, retriever.py, async_retriever.py, engine.py
@@ -44,7 +44,7 @@
 
 ## Phase C: Tests
 
-- [ ] 7. Unit tests for instrumentation layer
+- [x] 7. Unit tests for instrumentation layer
   - File: `ucc/urc_app/tests/unit/test_instrumentation.py`
   - Test `instrument()` wraps public methods, skips private
   - Test hooks fire in order (before → method → after, or before → method → error)
@@ -53,13 +53,13 @@
   - Test SkipComponent passes through wrapper
   - Test `isinstance()` still works on instrumented instance
 
-- [ ] 8. Unit tests for structured logger and recovery
+- [x] 8. Unit tests for structured logger and recovery
   - Files: `ucc/urc_app/tests/unit/test_structured_logger.py`, `ucc/urc_app/tests/unit/test_recovery.py`
   - Structured logger: test emit() format, quoting, None filtering
   - Recovery: test policy lookup, skip vs raise, unknown defaults to raise
   - Lifecycle: test check_disabled, check_run_once, check_config_change
 
-- [ ] 9. Integration test: instrumented pipeline
+- [x] 9. Integration test: instrumented pipeline
   - File: `ucc/urc_app/tests/integration/test_instrumented_pipeline.py`
   - Test full collect() with instrumentation enabled, capture log output
   - Test SkipRecord: bad transform skips record, collection continues
@@ -68,7 +68,7 @@
 
 ## Phase D: Validation
 
-- [ ] 10. Run full test suite + build + appinspect
+- [x] 10. Run full test suite + build + appinspect
   - `pytest ucc/urc_app/tests/ -v` — all green
   - `python ucc/urc_app/tests/test_manifests.py --validate` — all valid
   - `python ucc/urc_app/tests/test_manifests.py --live jsonplaceholder` — e2e passes
@@ -76,7 +76,7 @@
   - `task ucc:appinspect` — 0 errors, 0 failures
   - Commit + push
 
-- [ ] 11. Verify no component file imports logging
+- [x] 11. Verify no component file imports logging
   - `grep -rn "import logging" ucc/urc_app/package/lib/urc/components/` — must return empty
   - `grep -rn "logger\." ucc/urc_app/package/lib/urc/components/` — must return empty
   - Only `structured_logger.py` should import `logging`
