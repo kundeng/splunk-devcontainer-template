@@ -1,5 +1,6 @@
 <nav>
-    <view name="builder" default="true"/>
+    <view name="streams" default="true"/>
+    <view name="builder"/>
     <view name="configuration"/>
     <view name="search"/>
 </nav>
