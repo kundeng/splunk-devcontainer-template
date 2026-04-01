@@ -115,6 +115,7 @@ class TestConnectionHandler(PersistentServerConnectionApplication):
             manifest_yaml = payload.get("manifest", "")
             account_name = payload.get("account_name", "")
             base_url = payload.get("base_url", "")
+            mode = payload.get("mode", "test")  # "validate" or "test"
 
             # ---- Validate required fields --------------------------------
             if not manifest_yaml:
@@ -123,6 +124,31 @@ class TestConnectionHandler(PersistentServerConnectionApplication):
                     "message": "Missing required field: manifest",
                 })
 
+            # ---- Validate manifest structure -----------------------------
+            try:
+                process_manifest(manifest_yaml)
+            except Exception as exc:
+                return _json_response(400, {
+                    "status": "error",
+                    "message": f"Manifest validation failed: {exc}",
+                })
+
+            # ---- Capability detection ------------------------------------
+            validation_results = []
+            try:
+                from urc.validate import validate_manifest_capabilities
+                validation_results = validate_manifest_capabilities(manifest_yaml)
+            except Exception as exc:
+                logger.warning("Capability detection failed: %s", exc)
+
+            # ---- Validate-only mode: return without network calls --------
+            if mode == "validate":
+                return _json_response(200, {
+                    "status": "success",
+                    "validation": validation_results,
+                })
+
+            # ---- Full test mode: need account credentials ----------------
             if not account_name:
                 return _json_response(400, {
                     "status": "error",
@@ -141,15 +167,6 @@ class TestConnectionHandler(PersistentServerConnectionApplication):
 
             config_dict = _build_config_dict(account_config, base_url)
 
-            # ---- Validate manifest ---------------------------------------
-            try:
-                process_manifest(manifest_yaml)
-            except Exception as exc:
-                return _json_response(400, {
-                    "status": "error",
-                    "message": f"Manifest validation failed: {exc}",
-                })
-
             # ---- Dry-run collection (first page, max N records) ----------
             records = []
             try:
@@ -167,12 +184,14 @@ class TestConnectionHandler(PersistentServerConnectionApplication):
                 return _json_response(502, {
                     "status": "error",
                     "message": f"Collection failed: {exc}",
+                    "validation": validation_results,
                 })
 
             return _json_response(200, {
                 "status": "success",
                 "records": records,
                 "record_count": len(records),
+                "validation": validation_results,
             })
 
         except Exception as exc:

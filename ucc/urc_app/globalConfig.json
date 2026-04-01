@@ -445,6 +445,22 @@
                             "help": "Event sourcetype.",
                             "defaultValue": "urc:api:json",
                             "required": false
+                        },
+                        {
+                            "type": "text",
+                            "label": "Tags",
+                            "field": "tags",
+                            "help": "Comma-separated tags for organizing streams (e.g. devops, security).",
+                            "required": false,
+                            "defaultValue": ""
+                        },
+                        {
+                            "type": "checkbox",
+                            "label": "Debug Logging",
+                            "field": "debug",
+                            "help": "Enable verbose debug logging for this stream.",
+                            "required": false,
+                            "defaultValue": false
                         }
                     ],
                     "inputHelperModule": "urc_app_input_helper",
@@ -477,6 +493,10 @@
                         "field": "index"
                     },
                     {
+                        "label": "Tags",
+                        "field": "tags"
+                    },
+                    {
                         "label": "Status",
                         "field": "disabled"
                     }
@@ -503,6 +523,14 @@
                         "field": "sourcetype"
                     },
                     {
+                        "label": "Tags",
+                        "field": "tags"
+                    },
+                    {
+                        "label": "Debug",
+                        "field": "debug"
+                    },
+                    {
                         "label": "Status",
                         "field": "disabled",
                         "mapping": {
@@ -524,7 +552,7 @@
     "meta": {
         "name": "urc_app",
         "restRoot": "urc_app",
-        "version": "0.0.0+9a22048a",
+        "version": "0.0.0+6ebfb1f7",
         "displayName": "Universal REST Client",
         "schemaVersion": "0.0.10",
         "supportedThemes": [

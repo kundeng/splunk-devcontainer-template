@@ -111,6 +111,12 @@ def stream_events(inputs: smi.InputDefinition, event_writer: smi.EventWriter):
                 conf_name=f"{ADDON_NAME}_settings",
             )
             logger.setLevel(log_level)
+
+            # Per-stream debug override
+            if input_item.get("debug") in ("1", "true", True):
+                logger.setLevel(logging.DEBUG)
+                logging.getLogger("urc.engine").setLevel(logging.DEBUG)
+
             log.modular_input_start(logger, normalized_input_name)
 
             # 1. Read config

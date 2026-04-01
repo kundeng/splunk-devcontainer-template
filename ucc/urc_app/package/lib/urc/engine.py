@@ -18,9 +18,10 @@ import urc.components  # noqa: F401
 
 # Register instrumentation hooks on first import
 from urc.instrumentation import register_hook
-from urc.structured_logger import after_hook, error_hook
+from urc.structured_logger import before_hook, after_hook, error_hook
 from urc.recovery import recovery_error_hook
 
+register_hook("before", before_hook)
 register_hook("after", after_hook)
 register_hook("error", error_hook)
 register_hook("error", recovery_error_hook)
