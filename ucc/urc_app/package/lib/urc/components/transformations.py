@@ -1,13 +1,10 @@
 # Record transformation components — modify records after extraction.
 
-import logging
 import re
 from typing import Any, Dict, List
 
 from urc.interpolation import eval_string
 from urc.registry import component
-
-logger = logging.getLogger(__name__)
 
 
 def _set_nested(record: dict, path: List[str], value: Any) -> dict:

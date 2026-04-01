@@ -8,14 +8,11 @@
 #   - MovingWindowRateLimiter: sliding window counter
 #   - APIBudget: per-endpoint rate limits with configurable policies
 
-import logging
 import time
 from collections import deque
 from typing import Any, Deque, Dict, List, Optional
 
 from urc.registry import component
-
-logger = logging.getLogger(__name__)
 
 
 # ── Token Bucket ──
@@ -238,11 +235,6 @@ class APIBudget:
             if policy.matches(url):
                 wait = policy.acquire()
                 total_wait += wait
-                if wait > 0:
-                    logger.debug(
-                        f"Rate limited on '{policy.matcher}': "
-                        f"waited {wait:.2f}s for {url}"
-                    )
         return total_wait
 
     def try_acquire(self, url: str) -> bool:

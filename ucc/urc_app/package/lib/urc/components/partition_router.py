@@ -1,13 +1,10 @@
 # Partition routers — generate stream slices from parent streams or static lists.
 
 import itertools
-import logging
 from typing import Any, Dict, Iterator, List, Optional
 
 from urc.interpolation import eval_string
 from urc.registry import component
-
-logger = logging.getLogger(__name__)
 
 
 @component("SubstreamPartitionRouter")
@@ -45,19 +42,9 @@ class SubstreamPartitionRouter:
             partition_field: str = psc.get("partition_field", "")
 
             if not parent_key or not partition_field:
-                logger.warning(
-                    "SubstreamPartitionRouter: skipping config with missing "
-                    "parent_key or partition_field"
-                )
                 continue
 
             parent_stream_name = parent_stream_def.get("name", "parent")
-
-            logger.debug(
-                "SubstreamPartitionRouter: collecting parent stream '%s'",
-                parent_stream_name,
-            )
-
             seen_values: set = set()
             for _name, record, _state in _collect_stream(
                 parent_stream_def, config, parent_stream_name, checkpoint
@@ -111,19 +98,10 @@ class ListPartitionRouter:
                 try:
                     evaluated = ast.literal_eval(evaluated)
                 except (ValueError, SyntaxError):
-                    logger.warning(
-                        "ListPartitionRouter: could not evaluate values "
-                        "expression '%s' to a list",
-                        values,
-                    )
                     return
             values = evaluated
 
         if not isinstance(values, (list, tuple)):
-            logger.warning(
-                "ListPartitionRouter: values is not a list (got %s)",
-                type(values).__name__,
-            )
             return
 
         for v in values:

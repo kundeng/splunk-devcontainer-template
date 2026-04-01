@@ -1,14 +1,11 @@
 # Retriever — orchestrates requester + paginator + record selector.
 
-import logging
 from typing import Any, Dict, Iterator, List, Optional
 
 import requests
 
 from urc.interpolation import eval_string
 from urc.registry import component
-
-logger = logging.getLogger(__name__)
 
 
 @component("SimpleRetriever")
@@ -62,11 +59,7 @@ class SimpleRetriever:
             )
 
             # Decode response
-            try:
-                decoded = self._decoder.decode(response)
-            except Exception:
-                logger.warning("Failed to decode response: %s", response.text[:200])
-                break
+            decoded = self._decoder.decode(response)
 
             # decoded is a list of dicts; treat the whole list as the response body
             # for extraction if it's a single-element wrapper, otherwise pass as-is
@@ -87,5 +80,4 @@ class SimpleRetriever:
             page_count += 1
 
             if page_count > 10000:
-                logger.error("Pagination safety limit reached (10000 pages)")
                 break

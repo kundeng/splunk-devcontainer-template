@@ -4,7 +4,6 @@ import csv
 import gzip
 import io
 import json
-import logging
 import zipfile
 from typing import List
 
@@ -16,8 +15,6 @@ try:
     import xmltodict
 except ImportError:
     xmltodict = None  # type: ignore[assignment]
-
-logger = logging.getLogger(__name__)
 
 
 @component("JsonDecoder")
@@ -52,10 +49,6 @@ class JsonlDecoder:
             try:
                 obj = json.loads(line)
             except json.JSONDecodeError:
-                logger.warning(
-                    "JsonlDecoder: skipping malformed JSON at line %d: %s",
-                    line_num, line[:200],
-                )
                 continue
             if isinstance(obj, dict):
                 records.append(obj)
@@ -95,7 +88,6 @@ class CsvDecoder:
             try:
                 records.append(dict(row))
             except Exception:
-                logger.warning("CsvDecoder: skipping malformed row %d", i)
                 continue
         return records
 

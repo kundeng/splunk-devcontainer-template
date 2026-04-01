@@ -2,13 +2,10 @@
 # Splunk-specific extension; no Airbyte CDK equivalent.
 
 import datetime
-import logging
 import time
 
 from urc.interpolation import eval_string
 from urc.registry import component
-
-logger = logging.getLogger(__name__)
 
 
 def _parse_time(value, fmt):
@@ -38,8 +35,7 @@ def _parse_time(value, fmt):
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=datetime.timezone.utc)
         return dt.timestamp()
-    except (ValueError, TypeError, OverflowError) as exc:
-        logger.warning("Failed to parse timestamp value=%r fmt=%r: %s", value, fmt, exc)
+    except (ValueError, TypeError, OverflowError):
         return time.time()
 
 

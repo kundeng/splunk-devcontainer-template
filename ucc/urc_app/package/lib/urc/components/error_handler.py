@@ -1,6 +1,5 @@
 # Error handling and backoff components.
 
-import logging
 import re
 import time
 from typing import Any, List, Optional
@@ -9,8 +8,6 @@ import requests
 
 from urc.interpolation import eval_string
 from urc.registry import component
-
-logger = logging.getLogger(__name__)
 
 
 class RetryableError(Exception):

@@ -1,7 +1,6 @@
 # Authentication components — apply credentials to HTTP requests.
 
 import base64
-import logging
 import time
 from typing import Any, Dict, Optional
 
@@ -9,8 +8,6 @@ import requests
 
 from urc.interpolation import eval_string
 from urc.registry import component
-
-logger = logging.getLogger(__name__)
 
 
 class BaseAuth:
@@ -123,16 +120,12 @@ class OAuth2Auth(BaseAuth):
         for k, v in self._refresh_request_headers.items():
             headers[k] = eval_string(v, config)
 
-        try:
-            resp = requests.post(token_url, data=body, headers=headers, timeout=30)
-            resp.raise_for_status()
-            data = resp.json()
-            self._access_token = data.get(self._access_token_name)
-            expires_in = data.get(self._expires_in_name, 3600)
-            self._token_expiry = time.time() + int(expires_in) - 60  # refresh 60s early
-        except Exception as e:
-            logger.error(f"OAuth2 token refresh failed: {e}")
-            raise
+        resp = requests.post(token_url, data=body, headers=headers, timeout=30)
+        resp.raise_for_status()
+        data = resp.json()
+        self._access_token = data.get(self._access_token_name)
+        expires_in = data.get(self._expires_in_name, 3600)
+        self._token_expiry = time.time() + int(expires_in) - 60  # refresh 60s early
 
 
 @component("SelectiveAuthenticator")
@@ -269,12 +262,9 @@ class SessionTokenAuth(BaseAuth):
                 td = isodate.parse_duration(self._expiration_duration_str)
                 self._expiration_seconds = td.total_seconds()
             except ImportError:
-                logger.warning(
-                    "isodate not available; expiration_duration will be ignored. "
-                    "Install it with: pip install isodate"
-                )
-            except Exception as e:
-                logger.warning(f"Failed to parse expiration_duration: {e}")
+                pass
+            except Exception:
+                pass
 
         self._session_token: Optional[str] = None
         self._token_obtained_at: float = 0
@@ -313,12 +303,8 @@ class SessionTokenAuth(BaseAuth):
 
     def apply(self, session: requests.Session, config: dict) -> Optional[Dict[str, Any]]:
         if self._is_token_expired():
-            try:
-                self._session_token = self._fetch_token(config)
-                self._token_obtained_at = time.time()
-            except Exception as e:
-                logger.error(f"SessionTokenAuthenticator login failed: {e}")
-                raise
+            self._session_token = self._fetch_token(config)
+            self._token_obtained_at = time.time()
 
         # Inject the token based on request_authentication config
         auth_type = self._request_authentication.get("type", "")

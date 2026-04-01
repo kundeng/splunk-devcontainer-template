@@ -13,7 +13,6 @@
 #   - status_mapping: maps API status strings to internal states
 #   - urls_extractor: extracts download URLs from the job response
 
-import logging
 import time
 from typing import Any, Dict, Iterator, List, Optional
 
@@ -21,8 +20,6 @@ import requests
 
 from urc.interpolation import eval_string, eval_dict
 from urc.registry import component, create as create_component
-
-logger = logging.getLogger(__name__)
 
 
 # ── Job status enum ──
@@ -59,7 +56,6 @@ class StatusMapping:
         if normalized in self._pending:
             return JobStatus.PENDING
         # Unknown status — treat as running to keep polling
-        logger.debug(f"Unknown job status '{status_value}', treating as RUNNING")
         return JobStatus.RUNNING
 
 
@@ -230,19 +226,13 @@ class AsyncRetriever:
         # Step 1: Create the job
         job_id, creation_body = self._create_job(config, stream_slice)
         if not job_id:
-            logger.error("AsyncRetriever: failed to extract job ID from creation response")
             return
-
-        logger.info(f"AsyncRetriever: created job '{job_id}'")
 
         # Step 2: Poll until completion
         job_context = {**(stream_slice or {}), "job_id": job_id}
         final_body = self._poll_job(config, job_context)
         if final_body is None:
-            logger.error(f"AsyncRetriever: job '{job_id}' failed or timed out")
             return
-
-        logger.info(f"AsyncRetriever: job '{job_id}' completed")
 
         # Step 3: Download results
         yield from self._download_results(config, job_context, final_body)
@@ -251,16 +241,12 @@ class AsyncRetriever:
         self, config: dict, stream_slice: Optional[dict]
     ) -> tuple:
         """Create the bulk job and return (job_id, response_body)."""
-        try:
-            response = self._creation_requester.send(
-                config, stream_slice=stream_slice,
-            )
-            body = self._decode_response(response)
-            job_id = self._extract_field(body, self._job_id_field_path)
-            return str(job_id) if job_id is not None else None, body
-        except Exception as e:
-            logger.error(f"AsyncRetriever: job creation failed: {e}")
-            raise
+        response = self._creation_requester.send(
+            config, stream_slice=stream_slice,
+        )
+        body = self._decode_response(response)
+        job_id = self._extract_field(body, self._job_id_field_path)
+        return str(job_id) if job_id is not None else None, body
 
     def _poll_job(
         self, config: dict, job_context: dict,
@@ -273,10 +259,6 @@ class AsyncRetriever:
         while True:
             elapsed = time.monotonic() - start_time
             if elapsed > self._max_poll_time:
-                logger.error(
-                    f"AsyncRetriever: job '{job_context.get('job_id')}' "
-                    f"timed out after {elapsed:.0f}s"
-                )
                 return None
 
             # Wait before polling (skip first iteration)
@@ -293,34 +275,23 @@ class AsyncRetriever:
                 status_value = self._extract_field(body, self._status_field_path)
 
                 if status_value is None:
-                    logger.warning("AsyncRetriever: could not extract status from poll response")
                     poll_count += 1
                     continue
 
                 status = self._status_mapping.resolve(str(status_value))
-                logger.debug(
-                    f"AsyncRetriever: job '{job_context.get('job_id')}' "
-                    f"status={status_value} → {status} (poll #{poll_count + 1}, "
-                    f"{elapsed:.0f}s elapsed)"
-                )
 
                 if status == JobStatus.COMPLETED:
                     return body
                 elif status == JobStatus.FAILED:
-                    error_msg = self._extract_field(body, ["error", "message"]) or \
-                                self._extract_field(body, ["errorMessage"]) or \
-                                str(body)
-                    logger.error(f"AsyncRetriever: job failed: {error_msg}")
                     return None
 
-            except Exception as e:
-                logger.warning(f"AsyncRetriever: poll error (will retry): {e}")
+            except Exception:
+                pass
 
             poll_count += 1
 
             # Safety limit
             if poll_count > 10000:
-                logger.error("AsyncRetriever: poll count safety limit reached")
                 return None
 
     def _download_results(

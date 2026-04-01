@@ -1,14 +1,11 @@
 # Pagination components — determine the next page of results.
 
-import logging
 from typing import Any, Dict, Optional
 
 import requests
 
 from urc.interpolation import eval_string
 from urc.registry import component
-
-logger = logging.getLogger(__name__)
 
 
 @component("NoPagination")

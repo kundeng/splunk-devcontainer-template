@@ -1,14 +1,11 @@
 # HTTP Requester — makes authenticated, paginated HTTP requests.
 
-import logging
 from typing import Any, Dict, List, Optional
 
 import requests
 
 from urc.interpolation import eval_string, eval_dict
 from urc.registry import component
-
-logger = logging.getLogger(__name__)
 
 
 # ── Request body type constants ──
@@ -184,9 +181,7 @@ class HttpRequester:
         for attempt in range(max_retries + 1):
             # Apply rate limiting before each request
             if self._rate_limiter:
-                wait = self._rate_limiter.acquire(url)
-                if wait > 0:
-                    logger.debug(f"Rate limiter waited {wait:.2f}s for {url}")
+                self._rate_limiter.acquire(url)
 
             try:
                 response = self._session.request(
@@ -206,10 +201,6 @@ class HttpRequester:
 
                 if self._error_handler.should_retry(response) and attempt < max_retries:
                     wait = self._error_handler.get_backoff_time(response, attempt)
-                    logger.warning(
-                        f"Request to {url} returned {response.status_code}, "
-                        f"retrying in {wait:.1f}s (attempt {attempt + 1}/{max_retries})"
-                    )
                     import time
                     time.sleep(wait)
                     continue
@@ -217,12 +208,11 @@ class HttpRequester:
                 # Non-retryable error
                 response.raise_for_status()
 
-            except requests.ConnectionError as e:
+            except requests.ConnectionError:
                 if attempt < max_retries:
                     wait = self._error_handler.get_backoff_time(
                         requests.Response(), attempt
                     )
-                    logger.warning(f"Connection error: {e}, retrying in {wait:.1f}s")
                     import time
                     time.sleep(wait)
                     continue

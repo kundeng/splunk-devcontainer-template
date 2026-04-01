@@ -3,19 +3,27 @@
 import datetime
 import hashlib
 import json
-import logging
 import time
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from urc import registry
 from urc.manifest import process_manifest
 from urc.interpolation import eval_string
+from urc.structured_logger import emit
+from urc.recovery import SkipRecord, SkipComponent
 from urc.components.event_timestamp import CursorBasedTimestamp, FetchTimestamp
 
 # Import components to trigger registration
 import urc.components  # noqa: F401
 
-logger = logging.getLogger(__name__)
+# Register instrumentation hooks on first import
+from urc.instrumentation import register_hook
+from urc.structured_logger import after_hook, error_hook
+from urc.recovery import recovery_error_hook
+
+register_hook("after", after_hook)
+register_hook("error", error_hook)
+register_hook("error", recovery_error_hook)
 
 
 # ── Partition key helpers ──
@@ -55,17 +63,20 @@ def collect(
 
     streams = manifest.get("streams", [])
     if not streams:
-        logger.warning("Manifest has no streams defined")
+        emit(action="warning", message="manifest has no streams defined")
         return
 
     for stream_def in streams:
         stream_name = stream_def.get("name", "default")
-        logger.info(f"Starting collection for stream '{stream_name}'")
+        emit(action="stream_start", stream=stream_name)
 
         try:
             yield from _collect_stream(stream_def, config, stream_name, checkpoint)
+        except SkipComponent:
+            emit(action="stream_skip", stream=stream_name)
         except Exception as e:
-            logger.error(f"Error collecting stream '{stream_name}': {e}")
+            emit(action="stream_error", stream=stream_name,
+                 error_type=type(e).__name__, error=str(e)[:200])
             raise
 
 
@@ -114,7 +125,9 @@ def _collect_stream(
     # Per-partition state manager
     state_mgr = PerPartitionStateManager(stream_name, checkpoint)
 
+    start_time = time.monotonic()
     record_count = 0
+    skip_count = 0
     for partition in partitions:
         pk = _partition_key(partition)
 
@@ -132,16 +145,20 @@ def _collect_stream(
         for stream_slice in slices:
             merged_slice = {**stream_slice, **partition}
             for record in retriever.read_records(config, stream_slice=merged_slice):
-                # Apply transformations
-                for t in transformations:
-                    record = t.transform(
-                        record, config,
-                        stream_partition=merged_slice,
-                        stream_name=stream_name,
-                    )
+                try:
+                    # Apply transformations
+                    for t in transformations:
+                        record = t.transform(
+                            record, config,
+                            stream_partition=merged_slice,
+                            stream_name=stream_name,
+                        )
 
-                # Resolve Splunk _time
-                record["_time"] = ts_resolver.resolve(record, config, stream_def)
+                    # Resolve Splunk _time
+                    record["_time"] = ts_resolver.resolve(record, config, stream_def)
+                except SkipRecord:
+                    skip_count += 1
+                    continue
 
                 record_count += 1
 
@@ -160,7 +177,10 @@ def _collect_stream(
     if final_state:
         yield (stream_name, {}, final_state)
 
-    logger.info(f"Stream '{stream_name}': collected {record_count} records")
+    elapsed = time.monotonic() - start_time
+    emit(action="stream_complete", stream=stream_name,
+         records=record_count, skipped=skip_count,
+         partitions=len(partitions), elapsed=f"{elapsed:.1f}")
 
 
 # ── Per-partition state manager ──
@@ -282,7 +302,7 @@ def _build_cursor(
     elif cursor_type == "IncrementingCountCursor":
         return IncrementingCountCursor(incremental_def, config, stream_name, partition_state)
     else:
-        logger.warning(f"Unknown cursor type '{cursor_type}', falling back to full refresh")
+        emit(action="warning", message=f"unknown cursor type '{cursor_type}', falling back to full refresh")
         return None
 
 
@@ -362,7 +382,7 @@ class DatetimeBasedCursor:
                 adjusted = dt - delta
                 return adjusted.strftime(self._datetime_format)
         except (ValueError, TypeError):
-            logger.debug(f"Could not apply lookback window to '{start_value}'")
+            pass  # silently fall back to original start value
         return start_value
 
     def _generate_time_windows(self, start: str, end: str) -> list:
@@ -391,12 +411,12 @@ class DatetimeBasedCursor:
 
                 # Safety: max 10000 windows
                 if len(windows) >= 10000:
-                    logger.warning("Time window safety limit reached (10000)")
+                    emit(action="warning", message="time window safety limit reached (10000)")
                     break
 
             return windows if windows else [{"start_time": start, "end_time": end}]
         except (ValueError, TypeError) as e:
-            logger.debug(f"Could not generate time windows: {e}")
+            pass  # silently fall back to single window
             return [{"start_time": start, "end_time": end}]
 
     def observe(self, record: dict) -> None:

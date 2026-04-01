@@ -42,4 +42,8 @@ def create(component_def: dict, config: dict, **kwargs) -> Any:
             f"Registered types: {sorted(REGISTRY.keys())}"
         )
 
-    return cls(component_def, config, **kwargs)
+    instance = cls(component_def, config, **kwargs)
+
+    # Wrap public methods with before/after/error hooks (AOP instrumentation)
+    from urc.instrumentation import instrument
+    return instrument(instance, type_name)

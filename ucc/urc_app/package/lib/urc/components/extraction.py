@@ -1,14 +1,11 @@
 # Record extraction components — extract records from HTTP responses.
 
-import logging
 from typing import Any, Dict, List
 
 import dpath
 
 from urc.interpolation import eval_string
 from urc.registry import component
-
-logger = logging.getLogger(__name__)
 
 
 @component("DpathExtractor")
