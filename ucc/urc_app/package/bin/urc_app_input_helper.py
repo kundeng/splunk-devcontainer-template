@@ -134,14 +134,16 @@ def stream_events(inputs: smi.InputDefinition, event_writer: smi.EventWriter):
 
             for stream_name, record, state in collect(manifest_yaml, config_dict, checkpoint):
                 if record:
-                    event_writer.write_event(
-                        smi.Event(
-                            data=json.dumps(record, ensure_ascii=False, default=str),
-                            index=index,
-                            sourcetype=sourcetype,
-                            source=f"urc:{normalized_input_name}:{stream_name}",
-                        )
+                    event_time = record.pop("_time", None)
+                    event = smi.Event(
+                        data=json.dumps(record, ensure_ascii=False, default=str),
+                        index=index,
+                        sourcetype=sourcetype,
+                        source=f"urc:{normalized_input_name}:{stream_name}",
                     )
+                    if event_time is not None:
+                        event.time = event_time
+                    event_writer.write_event(event)
                     record_count += 1
 
                 if state:
