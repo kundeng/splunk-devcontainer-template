@@ -6,6 +6,7 @@ import requests
 
 from urc.interpolation import eval_string, eval_dict
 from urc.registry import component
+from urc.structured_logger import emit
 
 
 # ── Request body type constants ──
@@ -201,6 +202,9 @@ class HttpRequester:
 
                 if self._error_handler.should_retry(response) and attempt < max_retries:
                     wait = self._error_handler.get_backoff_time(response, attempt)
+                    emit(action="http_retry", component="HttpRequester",
+                         url=url, status=response.status_code,
+                         wait=f"{wait:.1f}", attempt=f"{attempt + 1}/{max_retries}")
                     import time
                     time.sleep(wait)
                     continue
@@ -208,11 +212,14 @@ class HttpRequester:
                 # Non-retryable error
                 response.raise_for_status()
 
-            except requests.ConnectionError:
+            except requests.ConnectionError as e:
                 if attempt < max_retries:
                     wait = self._error_handler.get_backoff_time(
                         requests.Response(), attempt
                     )
+                    emit(action="http_retry", component="HttpRequester",
+                         url=url, error_type="ConnectionError",
+                         wait=f"{wait:.1f}", attempt=f"{attempt + 1}/{max_retries}")
                     import time
                     time.sleep(wait)
                     continue

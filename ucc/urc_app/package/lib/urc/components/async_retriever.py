@@ -20,6 +20,7 @@ import requests
 
 from urc.interpolation import eval_string, eval_dict
 from urc.registry import component, create as create_component
+from urc.structured_logger import emit
 
 
 # ── Job status enum ──
@@ -226,13 +227,19 @@ class AsyncRetriever:
         # Step 1: Create the job
         job_id, creation_body = self._create_job(config, stream_slice)
         if not job_id:
+            emit(action="job_create_failed", component="AsyncRetriever")
             return
+
+        emit(action="job_created", component="AsyncRetriever", job_id=job_id)
 
         # Step 2: Poll until completion
         job_context = {**(stream_slice or {}), "job_id": job_id}
         final_body = self._poll_job(config, job_context)
         if final_body is None:
+            emit(action="job_failed", component="AsyncRetriever", job_id=job_id)
             return
+
+        emit(action="job_completed", component="AsyncRetriever", job_id=job_id)
 
         # Step 3: Download results
         yield from self._download_results(config, job_context, final_body)
@@ -279,6 +286,11 @@ class AsyncRetriever:
                     continue
 
                 status = self._status_mapping.resolve(str(status_value))
+
+                emit(action="job_poll", component="AsyncRetriever",
+                     job_id=job_context.get("job_id"),
+                     status=status_value, resolved=status,
+                     poll=poll_count + 1, elapsed=f"{elapsed:.0f}")
 
                 if status == JobStatus.COMPLETED:
                     return body

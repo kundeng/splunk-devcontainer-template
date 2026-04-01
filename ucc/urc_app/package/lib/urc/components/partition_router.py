@@ -5,6 +5,7 @@ from typing import Any, Dict, Iterator, List, Optional
 
 from urc.interpolation import eval_string
 from urc.registry import component
+from urc.structured_logger import emit
 
 
 @component("SubstreamPartitionRouter")
@@ -45,6 +46,8 @@ class SubstreamPartitionRouter:
                 continue
 
             parent_stream_name = parent_stream_def.get("name", "parent")
+            emit(action="parent_collect", component="SubstreamPartitionRouter",
+                 parent=parent_stream_name, partition_field=partition_field)
             seen_values: set = set()
             for _name, record, _state in _collect_stream(
                 parent_stream_def, config, parent_stream_name, checkpoint
