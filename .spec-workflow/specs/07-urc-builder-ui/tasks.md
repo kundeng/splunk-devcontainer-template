@@ -48,7 +48,7 @@
 
 ## Phase B: Schema-to-Form Generation
 
-- [ ] 5. Create build-time schema-to-form generator script
+- [x] 5. Create build-time schema-to-form generator script
   - Files: `react/packages/urc-builder/scripts/generate-form-schema.js`, `react/packages/urc-builder/src/schema/form-schema.ts` (generated output)
   - Write a Node.js script that:
     - Reads `ucc/urc_app/schema/declarative_component_schema.yaml` via `js-yaml`
@@ -65,7 +65,7 @@
 
 ## Phase C: Core React Infrastructure
 
-- [ ] 6. Create shared types, Splunk API service, and manifest serializer
+- [x] 6. Create shared types, Splunk API service, and manifest serializer
   - Files: `react/packages/urc-builder/src/types.ts`, `react/packages/urc-builder/src/services/splunk-api.ts`, `react/packages/urc-builder/src/services/manifest-serializer.ts`
   - `types.ts`: TypeScript interfaces — InputSummary, SavedInput, ValidationResult, TestResult, StreamConfig, BuilderState, BuilderAction, FormFieldDef, ComponentFormDef
   - `splunk-api.ts`: REST client using `@splunk/splunk-utils` createRESTURL + fetch. Methods: listInputs, getInput, createInput, updateInput, deleteInput, toggleInput, listAccounts, listIndexes, testConnection, validateManifest. Handles Splunk's JSON response envelope format.
