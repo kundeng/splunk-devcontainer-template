@@ -1,15 +1,19 @@
 import React from 'react';
 import layout from '@splunk/react-page';
 import { getUserTheme } from '@splunk/splunk-utils/themes';
-import UrcBuilder from '@splunk/urc-builder';
+import { StreamBuilder } from '@splunk/urc-builder';
 
 import { StyledContainer } from './Styles';
+
+// Read input name from URL query params for edit mode
+const params = new URLSearchParams(window.location.search);
+const inputName = params.get('input') || undefined;
 
 getUserTheme()
     .then((theme) => {
         layout(
             <StyledContainer>
-                <UrcBuilder />
+                <StreamBuilder inputName={inputName} />
             </StyledContainer>,
             {
                 theme,

@@ -84,7 +84,7 @@
 
 ## Phase D: Stream Dashboard (Screen 1)
 
-- [-] 8. Build StreamDashboard, StreamTable, TagFilter, SummaryCards, BulkActions
+- [x] 8. Build StreamDashboard, StreamTable, TagFilter, SummaryCards, BulkActions
   - Files: `react/packages/urc-builder/src/dashboard/StreamDashboard.tsx`, `react/packages/urc-builder/src/dashboard/StreamTable.tsx`, `react/packages/urc-builder/src/dashboard/TagFilter.tsx`, `react/packages/urc-builder/src/dashboard/SummaryCards.tsx`, `react/packages/urc-builder/src/dashboard/BulkActions.tsx`
   - `StreamDashboard`: Top-level component. On mount, calls `listInputs()`. Wraps children in DashboardProvider. Renders SummaryCards, TagFilter, BulkActions, StreamTable.
   - `StreamTable`: Splunk `<Table>` component with columns: Name, Tags (as Chips), Account, Status (badge), Interval. Row click navigates to `/app/urc_app/builder?input=<name>`. Row selection via checkboxes for bulk actions.
@@ -107,7 +107,7 @@
 
 ## Phase E: Stream Builder (Screen 2) — Shell & Tabs
 
-- [ ] 10. Build StreamBuilder tabbed container and ConnectionTab
+- [x] 10. Build StreamBuilder tabbed container and ConnectionTab
   - Files: `react/packages/urc-builder/src/builder/StreamBuilder.tsx`, `react/packages/urc-builder/src/builder/tabs/ConnectionTab.tsx`
   - `StreamBuilder`: Top-level builder component. Reads `?input=<name>` from URL to determine create vs edit mode. On edit: fetches input via `getInput()`, dispatches LOAD_INPUT. Renders `<TabLayout>` with 5 tabs. Renders Save/Cancel buttons in a sticky footer. Save: calls `formStateToManifest()`, then `createInput()` or `updateInput()`.
   - `ConnectionTab`: Account dropdown (from `listAccounts()`), Base URL text field, HTTP Method selector (GET/POST). Read-only auth type summary below account dropdown. All fields wired to BuilderContext via SET_FIELD.
@@ -116,7 +116,7 @@
   - _Requirements: R2, R3_
   - _Prompt: Implement the task for spec 07-urc-builder-ui, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Form Developer specializing in Splunk UI | Task: Build the StreamBuilder shell component and ConnectionTab. StreamBuilder reads the URL query param `input` to determine create vs edit mode. In edit mode, it fetches the input via getInput() and dispatches LOAD_INPUT to populate form state. It renders a TabLayout with 5 tab labels (Connection, Data Mapping, Splunk Output, Schedule & Tags, Test & Preview). Only implement ConnectionTab content in this task — other tabs render placeholder text. ConnectionTab renders: Account dropdown (populated from listAccounts()), Base URL text input, HTTP Method select (GET/POST). Below the account dropdown, show a read-only text line summarizing the auth type (e.g., "Auth: API Key via X-API-Key header"). Save button in a sticky footer serializes form state to manifest YAML and calls createInput or updateInput. Cancel navigates back to streams page. | Restrictions: Use TabLayout from @splunk/react-ui, not a custom tab implementation. Form fields must dispatch SET_FIELD actions to BuilderContext — no local state for form values. The Save button must be in a sticky footer that's always visible regardless of scroll position. Account dropdown must show account names only — never expose encrypted credentials. | _Leverage: @splunk/react-ui (TabLayout, Select, Text, ControlGroup, Button, Message), react/packages/urc-builder/src/context/BuilderContext.tsx, react/packages/urc-builder/src/services/splunk-api.ts (getInput, listAccounts, createInput, updateInput), react/packages/urc-builder/src/services/manifest-serializer.ts (formStateToManifest, manifestToFormState) | _Requirements: R2.1, R2.2, R2.3, R2.4, R3.1, R3.2, R3.3 | Success: TabLayout renders 5 tabs. ConnectionTab shows account dropdown and base URL. Edit mode populates fields from saved input. Save serializes and calls UCC API. Tab switching preserves form state. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x] when done._
 
-- [ ] 11. Build SchemaSection, SchemaField, TypeSelector, ValidationBanner
+- [x] 11. Build SchemaSection, SchemaField, TypeSelector, ValidationBanner
   - Files: `react/packages/urc-builder/src/builder/form/SchemaSection.tsx`, `react/packages/urc-builder/src/builder/form/SchemaField.tsx`, `react/packages/urc-builder/src/builder/form/TypeSelector.tsx`, `react/packages/urc-builder/src/builder/form/NestedObjectField.tsx`, `react/packages/urc-builder/src/builder/form/ValidationBanner.tsx`
   - `SchemaSection`: Takes a `ComponentFormDef`, renders a `<CollapsiblePanel>` with title and description. Inside: a `TypeSelector` for the component type, then `SchemaField` for each field in the selected type's definition.
   - `SchemaField`: Dispatches rendering by field type — text→Text, number→Number, boolean→Switch, enum→Select, template→Text with indicator, object→NestedObjectField, array→list with add/remove.
@@ -127,7 +127,7 @@
   - _Requirements: R4, R5_
   - _Prompt: Implement the task for spec 07-urc-builder-ui, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Form Component Developer | Task: Build the generic, schema-driven form rendering system as 5 components. SchemaSection renders a CollapsiblePanel with a TypeSelector and the fields for the selected type. SchemaField is a switch component that renders the appropriate @splunk/react-ui input based on field type: text→Text, number→Number, boolean→Switch, enum→Select with options from enumValues, template→Text with a small "{{ }}" badge, object→NestedObjectField, array→list with add/remove buttons. TypeSelector renders a Select dropdown grouped into "Supported" and "Unsupported" sections — unsupported types show a warning icon. NestedObjectField recursively renders SchemaField for each property in a $ref-resolved object. ValidationBanner renders Message components for validation results matching the section's manifest path. All field changes dispatch SET_FIELD to BuilderContext. | Restrictions: Must be generic — these components know nothing about specific API types, only about FormFieldDef/ComponentFormDef shapes. Do not hardcode field names. Help text from the schema (helpText field) must appear below each form field via ControlGroup's help prop. Limit recursion depth to 3 levels for nested objects. Use @splunk/react-ui components exclusively. | _Leverage: react/packages/urc-builder/src/schema/form-schema.ts (ComponentFormDef, FormFieldDef types from task 5), @splunk/react-ui (CollapsiblePanel, Select, Text, Number, Switch, ControlGroup, Message, Button), react/packages/urc-builder/src/context/BuilderContext.tsx (SET_FIELD dispatch) | _Requirements: R4.1, R4.2, R4.3, R4.4, R4.5, R4.6 | Success: SchemaSection renders fields for any ComponentFormDef. TypeSelector shows supported/unsupported grouping. SchemaField renders correct input for each type. ValidationBanner shows warnings for unsupported types. All fields dispatch to BuilderContext. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x] when done._
 
-- [ ] 12. Build DataMappingTab using schema-driven form components
+- [x] 12. Build DataMappingTab using schema-driven form components
   - File: `react/packages/urc-builder/src/builder/tabs/DataMappingTab.tsx`
   - Renders collapsible sections for: Record Selector (extractors), Pagination (paginators), Incremental Sync (cursors), Transformations (array of transformation sections), Error Handling.
   - Each section uses `<SchemaSection>` with the appropriate category from `form-schema.ts`.
@@ -139,7 +139,7 @@
 
 ## Phase F: Remaining Builder Tabs
 
-- [ ] 13. Build SplunkOutputTab with timestamp picker
+- [x] 13. Build SplunkOutputTab with timestamp picker
   - Files: `react/packages/urc-builder/src/builder/tabs/SplunkOutputTab.tsx`, `react/packages/urc-builder/src/builder/test/TimestampPicker.tsx`
   - `SplunkOutputTab`: Index dropdown (from `listIndexes()`), Sourcetype text (default `urc:api:json`), Source override (optional), Host override (optional). Timestamp section: if test results exist in BuilderContext, show TimestampPicker; otherwise show "Run a test fetch to detect timestamp fields" with link to Tab 5.
   - `TimestampPicker`: Analyzes test result records. Detects datetime candidates by field name heuristic (`*_at`, `*_date`, `*_time`, `timestamp`, `created`, `updated`, `modified`) and value heuristic (`Date.parse()`, epoch detection). Renders radio buttons with field name, sample value, parsed preview. Selection dispatches SET_FIELD for timestampField.
@@ -147,7 +147,7 @@
   - _Requirements: R5_
   - _Prompt: Implement the task for spec 07-urc-builder-ui, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Data Display Developer | Task: Build SplunkOutputTab and TimestampPicker. SplunkOutputTab renders: Index dropdown populated from listIndexes(), Sourcetype text input (default urc:api:json), optional Source and Host override text inputs. Below those, a Timestamp section that conditionally renders TimestampPicker (when test results exist in BuilderContext) or a message linking to the Test tab. TimestampPicker analyzes sample records from test results: detect datetime candidate fields by name heuristic (*_at, *_date, *_time, timestamp, created, updated, modified) and value heuristic (Date.parse succeeds, epoch integers > 946684800). Render each candidate as a RadioBar option showing field name, a sample value from the first record, and the parsed Date preview. Selection updates state.timestampField via SET_FIELD. | Restrictions: TimestampPicker must handle records with no datetime fields gracefully (show "No timestamp candidates detected"). Index dropdown must handle Splunk API errors (show Message with retry). Do not auto-select a timestamp field — let the user choose explicitly. | _Leverage: @splunk/react-ui (Select, Text, RadioBar, ControlGroup, Message), react/packages/urc-builder/src/services/splunk-api.ts (listIndexes), react/packages/urc-builder/src/context/BuilderContext.tsx (testResult state, SET_FIELD dispatch) | _Requirements: R5.1, R5.2, R5.3, R5.4, R5.5 | Success: SplunkOutputTab renders index dropdown and text fields. TimestampPicker correctly detects datetime fields from test results. Radio selection updates BuilderContext. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x] when done._
 
-- [ ] 14. Build ScheduleTagsTab
+- [x] 14. Build ScheduleTagsTab
   - File: `react/packages/urc-builder/src/builder/tabs/ScheduleTagsTab.tsx`
   - Interval: Number input (10-86400 seconds) with ControlGroup validation
   - Tags: Text input for comma-separated values
@@ -158,7 +158,7 @@
   - _Requirements: R6, R9_
   - _Prompt: Implement the task for spec 07-urc-builder-ui, first run spec-workflow-guide to get the workflow guide then implement the task: Role: React Form Developer | Task: Build ScheduleTagsTab with four form sections. Interval: Number input (min 10, max 86400) with help text "Collection interval in seconds". Tags: Text input with help text "Comma-separated tags for organizing streams (e.g. devops, security)". Debug Logging: Switch toggle with help text "Enable verbose debug logging for this stream". Enabled: Switch toggle with help text "Enable or disable this stream". All fields dispatch SET_FIELD to BuilderContext (interval, tags, debug, enabled paths). | Restrictions: Use @splunk/react-ui Number component with min/max validation, not a plain text input for interval. Keep the layout clean — use ControlGroup for each field with labels and help text. | _Leverage: @splunk/react-ui (Number, Text, Switch, ControlGroup), react/packages/urc-builder/src/context/BuilderContext.tsx | _Requirements: R6.1, R6.2, R9.1 | Success: All four fields render correctly and dispatch to BuilderContext. Interval validates min/max. Values persist across tab switches. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x] when done._
 
-- [ ] 15. Build TestPreviewTab with TestPanel, RecordPreview, FieldDetector
+- [x] 15. Build TestPreviewTab with TestPanel, RecordPreview, FieldDetector
   - Files: `react/packages/urc-builder/src/builder/tabs/TestPreviewTab.tsx`, `react/packages/urc-builder/src/builder/test/TestPanel.tsx`, `react/packages/urc-builder/src/builder/test/RecordPreview.tsx`, `react/packages/urc-builder/src/builder/test/FieldDetector.tsx`
   - `TestPreviewTab`: Container rendering TestPanel, and when results exist: RecordPreview + FieldDetector side by side.
   - `TestPanel`: "Test Connection" button. On click: serializes current form state to manifest YAML, calls `testConnection()` from splunk-api. Shows WaitSpinner during request. On success: dispatches SET_TEST_RESULT and SET_VALIDATION. Shows success/error Message. For non-GET methods, shows confirmation dialog before test.
@@ -171,7 +171,7 @@
 
 ## Phase G: Update Builder Page Entry Point
 
-- [ ] 16. Update builder page entry point to mount StreamBuilder
+- [x] 16. Update builder page entry point to mount StreamBuilder
   - File: `react/packages/urc-app/src/main/webapp/pages/builder/index.tsx`
   - Replace the placeholder UrcBuilder import with StreamBuilder from `@splunk/urc-builder`
   - Pass URL query params to StreamBuilder for edit mode detection
@@ -181,7 +181,7 @@
 
 ## Phase H: Build, Test, Validate
 
-- [ ] 17. Update urc-builder exports, shared styles, and ensure build succeeds
+- [x] 17. Update urc-builder exports, shared styles, and ensure build succeeds
   - Files: `react/packages/urc-builder/src/index.ts`, `react/packages/urc-builder/src/styles/shared.ts`, `react/packages/urc-builder/package.json`, `react/packages/urc-app/package.json`
   - Update `index.ts` to export StreamDashboard, StreamBuilder, and all context providers
   - Create shared styled-components using @splunk/themes variables
@@ -192,7 +192,7 @@
   - _Requirements: all_
   - _Prompt: Implement the task for spec 07-urc-builder-ui, first run spec-workflow-guide to get the workflow guide then implement the task: Role: Build Engineer | Task: Wire everything together. Update urc-builder/src/index.ts to export StreamDashboard, StreamBuilder, BuilderProvider, DashboardProvider, and all public types. Create styles/shared.ts with common styled-components (containers, section wrappers, sticky footer) using @splunk/themes variables. Add js-yaml as a runtime dependency. Ensure yarn build succeeds in both urc-builder and urc-app packages. Run yarn lint and fix issues. | Restrictions: Do not modify webpack configs unless absolutely necessary. Do not add dependencies beyond js-yaml. Remove the old placeholder UrcBuilder component and its tests. | _Leverage: react/packages/urc-builder/src/index.ts (existing barrel file), react/packages/urc-builder/package.json, react/packages/urc-app/package.json | _Requirements: all NFRs | Success: yarn build succeeds in both packages. yarn lint passes. StreamDashboard and StreamBuilder are importable from @splunk/urc-builder. Stage output contains both streams.js and builder.js page bundles. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x] when done._
 
-- [ ] 18. Run full backend test suite, build UCC, run appinspect
+- [x] 18. Run full backend test suite, build UCC, run appinspect
   - Run `pytest ucc/urc_app/tests/ -v` — all tests pass (including new validation tests)
   - Run `task ucc:build` — succeeds with new globalConfig fields
   - Run `task ucc:appinspect` — 0 errors, 0 failures
@@ -200,7 +200,7 @@
   - _Requirements: all_
   - _Prompt: Implement the task for spec 07-urc-builder-ui, first run spec-workflow-guide to get the workflow guide then implement the task: Role: QA Engineer | Task: Run the full validation suite. (1) pytest ucc/urc_app/tests/ -v — all tests must pass including the new test_validate.py and updated test_structured_logger.py. (2) task ucc:build — must succeed with the updated globalConfig.json (tags and debug fields). (3) task ucc:appinspect — must return 0 errors and 0 failures. Fix any issues found in each step before proceeding to the next. | Restrictions: Do not skip failing tests — fix them. Do not modify appinspect rules. | _Leverage: existing Taskfile tasks (ucc:build, ucc:appinspect), pytest config | _Requirements: all | Success: All pytest tests pass. UCC build succeeds. Appinspect returns 0 errors, 0 failures. Mark task [-] in tasks.md before starting, log implementation with log-implementation tool after completion, then mark [x] when done._
 
-- [ ] 19. Commit and push all changes
+- [-] 19. Commit and push all changes
   - Git add all new and modified files
   - Commit with descriptive message
   - Push to origin feature/urc-app
