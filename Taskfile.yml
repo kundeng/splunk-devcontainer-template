@@ -728,6 +728,24 @@ tasks:
         # Strip all .so files — pure Python only, portable across all platforms
         find "${APP}/lib" -name "*.so" -delete 2>/dev/null || true
 
+        # Merge custom conf fragments from package/default.d/ into UCC output.
+        # UCC generates restmap.conf, web.conf, etc. — custom entries go in
+        # default.d/ to avoid overwriting UCC output via package/default/.
+        FRAGMENTS="${UCC_PATH}/package/default.d"
+        if [ -d "${FRAGMENTS}" ]; then
+          for frag in "${FRAGMENTS}"/*.conf; do
+            [ -f "${frag}" ] || continue
+            target="${APP}/default/$(basename "${frag}")"
+            echo "" >> "${target}"
+            cat "${frag}" >> "${target}"
+            echo "  Merged fragment: $(basename "${frag}")"
+          done
+        fi
+
+        # Remove local/ and local.meta from build output (created at dev-time, fails AppInspect)
+        rm -rf "${APP}/local" 2>/dev/null
+        rm -f "${APP}/metadata/local.meta" 2>/dev/null
+
         echo "Build complete → {{.UCC_OUTPUT_DIR}}/${UCC_ADDON}/"
     desc: Build UCC add-on (generates REST handlers, UI, conf files)
 
@@ -744,19 +762,96 @@ tasks:
         # UCC output is bind-mounted at /opt/splunk/ucc-apps/ in the Splunk container
         CONTAINER_PATH="/opt/splunk/ucc-apps/${UCC_ADDON}"
         echo "Linking ${CONTAINER_PATH} → /opt/splunk/etc/apps/${UCC_ADDON} ..."
+        # Ensure local/ and metadata/ are writable by Splunk (inputs.conf writes)
+        mkdir -p "${OUTPUT_APP}/local"
         docker exec --user root {{.SPLUNK_CONTAINER}} bash -c "
           LINK=/opt/splunk/etc/apps/${UCC_ADDON}
           [ -L \"\$LINK\" ] && rm -f \"\$LINK\"
           [ -e \"\$LINK\" ] && rm -rf \"\$LINK\"
           ln -s ${CONTAINER_PATH} \"\$LINK\"
+          chown -R splunk:splunk ${CONTAINER_PATH}/local/ 2>/dev/null || true
+          chown splunk:splunk ${CONTAINER_PATH}/metadata/ 2>/dev/null || true
           echo \"Linked: \$LINK → ${CONTAINER_PATH}\"
         "
     desc: Symlink UCC build output into dev Splunk
+
+  ucc:merge-react:
+    deps: [__ucc:resolve, __react:resolve]
+    cmds:
+      - |
+        . .task/ucc-env
+        . .task/react-env
+        STAGE="${REACT_APP_PATH}/stage"
+        OUTPUT="{{.UCC_OUTPUT_DIR}}/${UCC_ADDON}"
+
+        if [ ! -d "${STAGE}" ]; then
+          echo "No React stage/ found — skipping merge."
+          exit 0
+        fi
+
+        echo "Merging React assets into UCC output..."
+
+        # Copy page bundles (JS) — strip execute perms for AppInspect
+        if [ -d "${STAGE}/appserver/static/pages" ]; then
+          mkdir -p "${OUTPUT}/appserver/static/pages"
+          cp "${STAGE}"/appserver/static/pages/*.js "${OUTPUT}/appserver/static/pages/"
+          chmod 644 "${OUTPUT}"/appserver/static/pages/*.js 2>/dev/null
+          echo "  Copied page bundles"
+        fi
+
+        # Copy Mako templates — strip execute perms for AppInspect
+        if [ -d "${STAGE}/appserver/templates" ]; then
+          cp "${STAGE}"/appserver/templates/*.html "${OUTPUT}/appserver/templates/"
+          chmod 644 "${OUTPUT}"/appserver/templates/*.html 2>/dev/null
+          echo "  Copied Mako templates"
+        fi
+
+        # Copy view XMLs (additive — don't overwrite UCC views)
+        if [ -d "${STAGE}/default/data/ui/views" ]; then
+          for xml in "${STAGE}"/default/data/ui/views/*.xml; do
+            name=$(basename "${xml}")
+            if [ ! -f "${OUTPUT}/default/data/ui/views/${name}" ]; then
+              cp "${xml}" "${OUTPUT}/default/data/ui/views/"
+              chmod 644 "${OUTPUT}/default/data/ui/views/${name}" 2>/dev/null
+              echo "  Added view: ${name}"
+            fi
+          done
+        fi
+
+        # Merge nav entries: add React views right after <nav>
+        NAV="${OUTPUT}/default/data/ui/nav/default.xml"
+        if [ -f "${NAV}" ]; then
+          # Remove any existing default="true"
+          sed -i 's/ default="true"//g' "${NAV}"
+          # Collect React views to add (reverse order since each inserts after <nav>)
+          REACT_VIEWS=""
+          for xml in "${STAGE}"/default/data/ui/views/*.xml; do
+            view=$(basename "${xml}" .xml)
+            if ! grep -q "name=\"${view}\"" "${NAV}"; then
+              REACT_VIEWS="${view} ${REACT_VIEWS}"
+            fi
+          done
+          # Insert each view after <nav> line
+          for view in ${REACT_VIEWS}; do
+            sed -i "/<nav>/a\\    <view name=\"${view}\"/>" "${NAV}"
+            echo "  Added nav entry: ${view}"
+          done
+          # Make first React view the default
+          FIRST_VIEW=$(ls "${STAGE}"/default/data/ui/views/*.xml 2>/dev/null | head -1 | xargs basename 2>/dev/null | sed 's/\.xml//')
+          if [ -n "${FIRST_VIEW}" ] && grep -q "name=\"${FIRST_VIEW}\"" "${NAV}"; then
+            sed -i "s|name=\"${FIRST_VIEW}\"|name=\"${FIRST_VIEW}\" default=\"true\"|" "${NAV}"
+          fi
+        fi
+
+        echo "React merge complete."
+    desc: Merge React page bundles and views into UCC build output
 
   ucc:dev:
     deps: [__ucc:resolve]
     cmds:
       - task: ucc:build
+      - task: ucc:merge-react
+        ignore_error: true
       - task: ucc:link
       - task: dev:refresh
         ignore_error: true
