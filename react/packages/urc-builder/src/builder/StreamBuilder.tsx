@@ -44,8 +44,8 @@ const StepBarWrapper = styled.div`
 const StepDescription = styled.div`
     display: flex;
     align-items: center;
-    gap: ${variables.spacingSmall};
-    padding: ${variables.spacingSmall} ${variables.spacingMedium};
+    gap: 10px;
+    padding: 10px 16px;
     margin-bottom: ${variables.spacingMedium};
     color: ${variables.contentColorMuted};
     font-size: ${variables.fontSizeSmall};
@@ -55,9 +55,9 @@ const StepDescription = styled.div`
 `;
 
 const StepIcon = styled.span`
-    color: ${variables.infoColor};
-    font-size: 18px;
     display: inline-flex;
+    align-items: center;
+    color: ${variables.infoColor};
     flex-shrink: 0;
 `;
 

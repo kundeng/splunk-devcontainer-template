@@ -41,9 +41,12 @@ const EmptyHero = styled.div`
 
 const HeroIcon = styled.div`
     color: ${variables.contentColorMuted};
-    font-size: 48px;
     margin-bottom: ${variables.spacingMedium};
-    opacity: 0.4;
+    opacity: 0.3;
+    & svg {
+        width: 56px;
+        height: 56px;
+    }
 `;
 
 const NameLink = styled.span`

@@ -26,10 +26,13 @@ const CardAccent = styled.div<AccentProps>`
 
 const IconWrap = styled.div<AccentProps>`
     color: ${(p) => p.$color};
-    font-size: 28px;
     display: flex;
     align-items: center;
-    opacity: 0.8;
+    opacity: 0.7;
+    & svg {
+        width: 28px;
+        height: 28px;
+    }
 `;
 
 const CardContent = styled.div``;

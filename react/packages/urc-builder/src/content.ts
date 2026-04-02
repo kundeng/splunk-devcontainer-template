@@ -22,6 +22,17 @@ import Key from '@splunk/react-icons/Key';
 import Plus from '@splunk/react-icons/Plus';
 import ControlPlayCircle from '@splunk/react-icons/ControlPlayCircle';
 
+// ── Helpers ──
+
+/** Create an icon element with consistent sizing. */
+function icon(component: any, size = 20) {
+    return React.createElement(component, { width: size, height: size });
+}
+
+function iconSm(component: any) {
+    return icon(component, 16);
+}
+
 // ── Types ──
 
 interface StepDef {
@@ -47,22 +58,22 @@ interface FieldDef {
 export const STEPS: StepDef[] = [
     {
         label: 'Connect',
-        icon: React.createElement(Globe),
+        icon: icon(Globe),
         description: 'Identify your stream and configure the API connection.',
     },
     {
         label: 'Configure',
-        icon: React.createElement(Cogs),
+        icon: icon(Cogs),
         description: 'Define how records are extracted, paginated, and transformed.',
     },
     {
         label: 'Output',
-        icon: React.createElement(Cylinder),
+        icon: icon(Cylinder),
         description: 'Choose where data lands in Splunk and how often to collect.',
     },
     {
         label: 'Test & Save',
-        icon: React.createElement(CheckCircle),
+        icon: icon(CheckCircle),
         description: 'Validate the connection and save your stream configuration.',
     },
 ];
@@ -72,61 +83,61 @@ export const STEPS: StepDef[] = [
 export const SECTIONS = {
     streamIdentity: {
         title: 'Stream Identity',
-        icon: React.createElement(IdentityCard),
+        icon: icon(IdentityCard),
         description: 'Give this data stream a unique name.',
     } as SectionDef,
 
     apiConnection: {
         title: 'API Connection',
-        icon: React.createElement(Globe),
+        icon: icon(Globe),
         description: 'Configure the API endpoint and authentication.',
     } as SectionDef,
 
     recordSelector: {
         title: 'Record Selector',
-        icon: React.createElement(Filter),
+        icon: icon(Filter),
         description: 'Define how individual records are extracted from the API response.',
     } as SectionDef,
 
     pagination: {
         title: 'Pagination',
-        icon: React.createElement(LinesThree),
+        icon: icon(LinesThree),
         description: 'Configure how to retrieve multiple pages of results.',
     } as SectionDef,
 
     incrementalSync: {
         title: 'Incremental Sync',
-        icon: React.createElement(Clock),
+        icon: icon(Clock),
         description: 'Track a cursor field to only fetch new or updated records.',
     } as SectionDef,
 
     transformations: {
         title: 'Transformations',
-        icon: React.createElement(Wrench),
+        icon: icon(Wrench),
         description: 'Apply transformations to records before indexing.',
     } as SectionDef,
 
     errorHandling: {
         title: 'Error Handling',
-        icon: React.createElement(Shield),
+        icon: icon(Shield),
         description: 'Configure retry behavior and error response handling.',
     } as SectionDef,
 
     destination: {
         title: 'Destination',
-        icon: React.createElement(Cylinder),
+        icon: icon(Cylinder),
         description: 'Choose the Splunk index and sourcetype for collected events.',
     } as SectionDef,
 
     schedule: {
         title: 'Schedule',
-        icon: React.createElement(Calendar),
+        icon: icon(Calendar),
         description: 'Set the collection interval and organize with tags.',
     } as SectionDef,
 
     testConnection: {
         title: 'Test Connection',
-        icon: React.createElement(ControlPlayCircle),
+        icon: icon(ControlPlayCircle),
         description: 'Run a live test against the API to verify your configuration.',
     } as SectionDef,
 };
@@ -210,9 +221,9 @@ export const DASHBOARD = {
     },
 
     cards: {
-        total: { label: 'Total Streams', icon: React.createElement(Globe) },
-        active: { label: 'Active', icon: React.createElement(CheckCircle) },
-        disabled: { label: 'Disabled', icon: React.createElement(CrossCircle) },
+        total: { label: 'Total Streams', icon: icon(Globe) },
+        active: { label: 'Active', icon: icon(CheckCircle) },
+        disabled: { label: 'Disabled', icon: icon(CrossCircle) },
     },
 
     statusFilter: {

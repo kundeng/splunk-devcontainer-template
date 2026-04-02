@@ -1,5 +1,5 @@
 /**
- * SectionHeader — Reusable section header with icon, title, and description.
+ * SectionHeader — Section header with aligned icon, title, and help tooltip.
  */
 
 import React from 'react';
@@ -10,46 +10,31 @@ import QuestionCircle from '@splunk/react-icons/QuestionCircle';
 
 const Header = styled.div`
     display: flex;
-    align-items: flex-start;
-    gap: ${variables.spacingSmall};
+    align-items: center;
+    gap: 10px;
     margin-bottom: ${variables.spacingMedium};
 `;
 
-const IconWrap = styled.div`
+const IconWrap = styled.span`
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     color: ${variables.infoColor};
-    font-size: 20px;
-    margin-top: 2px;
     flex-shrink: 0;
 `;
 
-const Content = styled.div`
-    flex: 1;
-`;
-
-const TitleRow = styled.div`
-    display: flex;
-    align-items: center;
-    gap: ${variables.spacingXSmall};
-`;
-
-const Title = styled.div`
+const Title = styled.span`
     font-weight: 600;
     font-size: 1rem;
     color: ${variables.contentColorDefault};
 `;
 
-const HelpIcon = styled.span`
-    color: ${variables.contentColorMuted};
-    font-size: 14px;
-    cursor: help;
+const HelpTrigger = styled.span`
     display: inline-flex;
     align-items: center;
-`;
-
-const Description = styled.div`
-    font-size: ${variables.fontSizeSmall};
     color: ${variables.contentColorMuted};
-    margin-top: 2px;
+    cursor: help;
+    margin-left: 4px;
 `;
 
 interface SectionHeaderProps {
@@ -62,17 +47,14 @@ export function SectionHeader({ icon, title, description }: SectionHeaderProps) 
     return (
         <Header>
             <IconWrap>{icon}</IconWrap>
-            <Content>
-                <TitleRow>
-                    <Title>{title}</Title>
-                    {description && (
-                        <Tooltip content={description}>
-                            <HelpIcon><QuestionCircle /></HelpIcon>
-                        </Tooltip>
-                    )}
-                </TitleRow>
-                {description && <Description>{description}</Description>}
-            </Content>
+            <Title>{title}</Title>
+            {description && (
+                <Tooltip content={description}>
+                    <HelpTrigger>
+                        <QuestionCircle width={14} height={14} />
+                    </HelpTrigger>
+                </Tooltip>
+            )}
         </Header>
     );
 }
