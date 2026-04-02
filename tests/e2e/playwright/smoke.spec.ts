@@ -30,67 +30,48 @@ test.describe.serial('URC App Smoke Tests', () => {
         await expect(heading).toBeVisible({ timeout: 15_000 });
     });
 
-    test('builder page loads with tabs', async ({ page }) => {
+    test('builder wizard loads with stepper', async ({ page }) => {
         await splunkLogin(page);
         await navigateTo(page, 'builder');
         await waitForReactMount(page);
 
-        // Should show the tabbed builder — use role selector to avoid ambiguity
-        const connectionTab = page.getByRole('tab', { name: 'Connection' });
-        await expect(connectionTab).toBeVisible({ timeout: 15_000 });
+        // Should show breadcrumbs and step bar
+        await expect(page.getByText('New Stream')).toBeVisible({ timeout: 15_000 });
 
-        // Verify all tabs are present
-        await expect(page.getByRole('tab', { name: 'Data Mapping' })).toBeVisible();
-        await expect(page.getByRole('tab', { name: 'Splunk Output' })).toBeVisible();
-        await expect(page.getByRole('tab', { name: 'Schedule & Tags' })).toBeVisible();
-        await expect(page.getByRole('tab', { name: 'Test & Preview' })).toBeVisible();
-
-        // Verify form fields on Connection tab (use label selectors to avoid nav menu ambiguity)
-        await expect(page.locator('label:text-is("Account")')).toBeVisible();
+        // Verify Step 1 form fields
+        await expect(page.locator('label:text-is("Stream Name")')).toBeVisible();
         await expect(page.locator('label:text-is("Base URL")')).toBeVisible();
-        await expect(page.locator('label:text-is("HTTP Method")')).toBeVisible();
 
-        // Verify Save and Cancel buttons
-        await expect(page.getByRole('button', { name: 'Save' })).toBeVisible();
+        // Verify Cancel and Next buttons (no Save on step 1)
         await expect(page.getByRole('button', { name: 'Cancel' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Next' })).toBeVisible();
     });
 
-    test('create stream — fill all tabs and screenshot', async ({ page }) => {
+    test('walk through all wizard steps', async ({ page }) => {
         await splunkLogin(page);
-        await deleteAllStreams(page);
-
-        // Navigate to builder (new stream mode)
         await navigateTo(page, 'builder');
         await waitForReactMount(page);
 
-        // --- Connection tab (active by default) ---
-        await expect(page.getByRole('tab', { name: 'Connection' })).toBeVisible({ timeout: 15_000 });
-
-        // Account stays (none) — JSONPlaceholder needs no auth
-        // Fill Base URL
-        const baseUrlInput = page.getByPlaceholder('https://api.example.com/v1');
+        // Step 1: Connect — fill Base URL and advance
+        await expect(page.getByText('New Stream')).toBeVisible({ timeout: 15_000 });
+        const baseUrlInput = page.getByPlaceholder('https://api.example.com/v1/resources');
         await expect(baseUrlInput).toBeVisible();
         await baseUrlInput.fill('https://jsonplaceholder.typicode.com/posts');
-        await page.screenshot({ path: 'tests/e2e/playwright/screenshots/01-connection-tab.png' });
+        await page.getByRole('button', { name: 'Next' }).click();
+        await page.waitForTimeout(500);
 
-        // --- Data Mapping tab ---
-        await page.getByRole('tab', { name: 'Data Mapping' }).click();
-        await page.waitForTimeout(1000);
-        await page.screenshot({ path: 'tests/e2e/playwright/screenshots/02-data-mapping-tab.png' });
+        // Step 2: Configure — collapsible sections visible
+        await expect(page.getByText('Record Selector')).toBeVisible();
+        await page.getByRole('button', { name: 'Next' }).click();
+        await page.waitForTimeout(500);
 
-        // --- Splunk Output tab ---
-        await page.getByRole('tab', { name: 'Splunk Output' }).click();
-        await page.waitForTimeout(1000);
-        await page.screenshot({ path: 'tests/e2e/playwright/screenshots/03-splunk-output-tab.png' });
+        // Step 3: Output — two-column layout
+        await expect(page.getByText('Destination')).toBeVisible();
+        await expect(page.getByText('Schedule')).toBeVisible();
+        await page.getByRole('button', { name: 'Next' }).click();
+        await page.waitForTimeout(500);
 
-        // --- Schedule & Tags tab ---
-        await page.getByRole('tab', { name: 'Schedule & Tags' }).click();
-        await page.waitForTimeout(1000);
-        await page.screenshot({ path: 'tests/e2e/playwright/screenshots/04-schedule-tags-tab.png' });
-
-        // --- Test & Preview tab ---
-        await page.getByRole('tab', { name: 'Test & Preview' }).click();
-        await page.waitForTimeout(1000);
-        await page.screenshot({ path: 'tests/e2e/playwright/screenshots/05-test-preview-tab.png' });
+        // Step 4: Test & Save — Save button appears
+        await expect(page.getByRole('button', { name: 'Save' })).toBeVisible();
     });
 });

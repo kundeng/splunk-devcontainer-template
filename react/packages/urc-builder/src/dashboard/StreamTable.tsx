@@ -1,18 +1,29 @@
 /**
- * StreamTable — data table displaying all filtered streams with row selection.
+ * StreamTable — data table with badges, chips, row actions, and empty state hero.
  */
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import styled from 'styled-components';
 import Table from '@splunk/react-ui/Table';
+import Button from '@splunk/react-ui/Button';
+import Badge from '@splunk/react-ui/Badge';
+import Chip from '@splunk/react-ui/Chip';
+import Heading from '@splunk/react-ui/Heading';
+import Paragraph from '@splunk/react-ui/Paragraph';
+import Menu from '@splunk/react-ui/Menu';
+import Dropdown from '@splunk/react-ui/Dropdown';
+import Tooltip from '@splunk/react-ui/Tooltip';
 import WaitSpinner from '@splunk/react-ui/WaitSpinner';
 import { variables } from '@splunk/themes';
+import Globe from '@splunk/react-icons/Globe';
+import Plus from '@splunk/react-icons/Plus';
+import Pencil from '@splunk/react-icons/Pencil';
+import TrashCanCross from '@splunk/react-icons/TrashCanCross';
+import DotsThreeVertical from '@splunk/react-icons/DotsThreeVertical';
+import ControlPlay from '@splunk/react-icons/ControlPlay';
+import ControlPause from '@splunk/react-icons/ControlPause';
 import { useDashboard } from '../context/DashboardContext';
-
-const StatusBadge = styled.span<{ $active: boolean }>`
-    color: ${(props) => (props.$active ? variables.accentColorPositive : variables.contentColorMuted)};
-    font-weight: 600;
-`;
+import { toggleInput, deleteInput, listInputs } from '../services/splunk-api';
 
 const SpinnerWrapper = styled.div`
     display: flex;
@@ -20,14 +31,43 @@ const SpinnerWrapper = styled.div`
     padding: ${variables.spacingXLarge} 0;
 `;
 
-const EmptyMessage = styled.div`
+const EmptyHero = styled.div`
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 64px ${variables.spacingXLarge};
     text-align: center;
-    padding: ${variables.spacingXLarge} 0;
+`;
+
+const HeroIcon = styled.div`
     color: ${variables.contentColorMuted};
+    font-size: 48px;
+    margin-bottom: ${variables.spacingMedium};
+    opacity: 0.4;
+`;
+
+const NameLink = styled.span`
+    color: ${variables.infoColor};
+    font-weight: 600;
+    cursor: pointer;
+    &:hover {
+        text-decoration: underline;
+    }
+`;
+
+const TagGroup = styled.div`
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+`;
+
+const ActionsCell = styled.div`
+    display: flex;
+    justify-content: flex-end;
 `;
 
 export default function StreamTable() {
-    const { filteredInputs, state, setSelectedRows } = useDashboard();
+    const { filteredInputs, state, setInputs, setSelectedRows, setError } = useDashboard();
     const { loading, selectedRows } = state;
 
     const handleRowClick = useCallback((name: string) => {
@@ -53,6 +93,28 @@ export default function StreamTable() {
         }
     }, [selectedRows, filteredInputs, setSelectedRows]);
 
+    const handleToggle = useCallback(async (name: string, disabled: boolean) => {
+        try {
+            await toggleInput(name, !disabled);
+            const inputs = await listInputs();
+            setInputs(inputs);
+        } catch (err: any) {
+            setError(err.message);
+        }
+    }, [setInputs, setError]);
+
+    const handleDelete = useCallback(async (name: string) => {
+        if (!window.confirm(`Delete stream "${name}"? This cannot be undone.`)) return;
+        try {
+            await deleteInput(name);
+            const inputs = await listInputs();
+            setInputs(inputs);
+            setSelectedRows([]);
+        } catch (err: any) {
+            setError(err.message);
+        }
+    }, [setInputs, setSelectedRows, setError]);
+
     if (loading) {
         return (
             <SpinnerWrapper>
@@ -62,7 +124,22 @@ export default function StreamTable() {
     }
 
     if (filteredInputs.length === 0) {
-        return <EmptyMessage>No streams found. Create one to get started.</EmptyMessage>;
+        return (
+            <EmptyHero>
+                <HeroIcon><Globe /></HeroIcon>
+                <Heading level={2}>No API streams configured yet</Heading>
+                <Paragraph style={{ color: variables.contentColorMuted, maxWidth: 420, marginBottom: variables.spacingMedium }}>
+                    Create your first stream to start collecting data from a REST API.
+                    The wizard will guide you through connection, configuration, and testing.
+                </Paragraph>
+                <Button
+                    appearance="primary"
+                    icon={<Plus />}
+                    label="Create Stream"
+                    onClick={() => { window.location.href = 'builder'; }}
+                />
+            </EmptyHero>
+        );
     }
 
     const allSelected = selectedRows.length === filteredInputs.length && filteredInputs.length > 0;
@@ -79,47 +156,94 @@ export default function StreamTable() {
                     />
                 </Table.HeadCell>
                 <Table.HeadCell>Name</Table.HeadCell>
+                <Table.HeadCell>Status</Table.HeadCell>
                 <Table.HeadCell>Tags</Table.HeadCell>
                 <Table.HeadCell>Account</Table.HeadCell>
-                <Table.HeadCell>Status</Table.HeadCell>
                 <Table.HeadCell>Interval</Table.HeadCell>
+                <Table.HeadCell align="right">Actions</Table.HeadCell>
             </Table.Head>
             <Table.Body>
-                {filteredInputs.map((input) => (
-                    <Table.Row key={input.name}>
-                        <Table.Cell>
-                            <input
-                                type="checkbox"
-                                checked={selectedRows.includes(input.name)}
-                                onChange={() => handleCheckboxChange(input.name)}
-                                onClick={(e) => e.stopPropagation()}
-                                aria-label={`Select ${input.name}`}
-                            />
-                        </Table.Cell>
-                        <Table.Cell
-                            onClick={() => handleRowClick(input.name)}
-                            style={{ cursor: 'pointer' }}
-                        >
-                            {input.name}
-                        </Table.Cell>
-                        <Table.Cell>
-                            {input.tags
-                                ? input.tags
-                                      .split(',')
-                                      .map((t) => t.trim())
-                                      .filter(Boolean)
-                                      .join(', ')
-                                : '\u2014'}
-                        </Table.Cell>
-                        <Table.Cell>{input.account || '\u2014'}</Table.Cell>
-                        <Table.Cell>
-                            <StatusBadge $active={!input.disabled}>
-                                {input.disabled ? 'Disabled' : 'Active'}
-                            </StatusBadge>
-                        </Table.Cell>
-                        <Table.Cell>{input.interval}s</Table.Cell>
-                    </Table.Row>
-                ))}
+                {filteredInputs.map((input) => {
+                    const tags = input.tags
+                        ? input.tags.split(',').map((t) => t.trim()).filter(Boolean)
+                        : [];
+
+                    return (
+                        <Table.Row key={input.name}>
+                            <Table.Cell>
+                                <input
+                                    type="checkbox"
+                                    checked={selectedRows.includes(input.name)}
+                                    onChange={() => handleCheckboxChange(input.name)}
+                                    onClick={(e) => e.stopPropagation()}
+                                    aria-label={`Select ${input.name}`}
+                                />
+                            </Table.Cell>
+                            <Table.Cell>
+                                <NameLink onClick={() => handleRowClick(input.name)}>
+                                    {input.name}
+                                </NameLink>
+                            </Table.Cell>
+                            <Table.Cell>
+                                <Tooltip content={input.disabled ? 'Stream is paused' : `Collecting every ${input.interval}s`}>
+                                    <Badge
+                                        label={input.disabled ? 'Disabled' : 'Active'}
+                                        backgroundColor={input.disabled ? variables.contentColorMuted : variables.accentColorPositive}
+                                        foregroundColor="#fff"
+                                    />
+                                </Tooltip>
+                            </Table.Cell>
+                            <Table.Cell>
+                                {tags.length > 0 ? (
+                                    <TagGroup>
+                                        {tags.map((tag) => (
+                                            <Chip key={tag} appearance="outline">{tag}</Chip>
+                                        ))}
+                                    </TagGroup>
+                                ) : (
+                                    <span style={{ color: variables.contentColorMuted }}>{'\u2014'}</span>
+                                )}
+                            </Table.Cell>
+                            <Table.Cell>{input.account || '\u2014'}</Table.Cell>
+                            <Table.Cell>{input.interval}s</Table.Cell>
+                            <Table.Cell>
+                                <ActionsCell onClick={(e) => e.stopPropagation()}>
+                                    <Dropdown
+                                        toggle={
+                                            <Button
+                                                appearance="subtle"
+                                                icon={<DotsThreeVertical />}
+                                                aria-label={`Actions for ${input.name}`}
+                                            />
+                                        }
+                                    >
+                                        <Menu>
+                                            <Menu.Item
+                                                icon={<Pencil />}
+                                                onClick={() => handleRowClick(input.name)}
+                                            >
+                                                Edit
+                                            </Menu.Item>
+                                            <Menu.Item
+                                                icon={input.disabled ? <ControlPlay /> : <ControlPause />}
+                                                onClick={() => handleToggle(input.name, input.disabled)}
+                                            >
+                                                {input.disabled ? 'Enable' : 'Disable'}
+                                            </Menu.Item>
+                                            <Menu.Divider />
+                                            <Menu.Item
+                                                icon={<TrashCanCross />}
+                                                onClick={() => handleDelete(input.name)}
+                                            >
+                                                Delete
+                                            </Menu.Item>
+                                        </Menu>
+                                    </Dropdown>
+                                </ActionsCell>
+                            </Table.Cell>
+                        </Table.Row>
+                    );
+                })}
             </Table.Body>
         </Table>
     );

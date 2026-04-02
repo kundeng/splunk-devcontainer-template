@@ -1,17 +1,19 @@
 /**
- * StreamBuilder — Top-level builder container.
+ * StreamBuilder — Wizard-style stream builder with StepBar navigation.
  *
- * Wraps the entire builder form in BuilderProvider, handles loading
- * existing inputs, tab navigation, and save/cancel actions.
+ * 4 steps: Connect → Configure → Output → Test & Save
  */
 
 import React, { useState, useEffect, useCallback } from 'react';
 import styled from 'styled-components';
 import { variables } from '@splunk/themes';
-import TabLayout from '@splunk/react-ui/TabLayout';
+import StepBar from '@splunk/react-ui/StepBar';
 import Button from '@splunk/react-ui/Button';
+import Breadcrumbs from '@splunk/react-ui/Breadcrumbs';
 import WaitSpinner from '@splunk/react-ui/WaitSpinner';
 import Message from '@splunk/react-ui/Message';
+import Divider from '@splunk/react-ui/Divider';
+import ChevronLeft from '@splunk/react-icons/ChevronLeft';
 
 import { BuilderProvider, useBuilder } from '../context/BuilderContext';
 import { getInput, createInput, updateInput, toggleInput } from '../services/splunk-api';
@@ -20,25 +22,47 @@ import type { InputPayload } from '../types';
 import { ConnectionTab } from './tabs/ConnectionTab';
 import { DataMappingTab } from './tabs/DataMappingTab';
 import SplunkOutputTab from './tabs/SplunkOutputTab';
-import ScheduleTagsTab from './tabs/ScheduleTagsTab';
 import TestPreviewTab from './tabs/TestPreviewTab';
+
+const STEPS = ['Connect', 'Configure', 'Output', 'Test & Save'];
 
 // ── Styled wrappers ──
 
-const Container = styled.div`
+const WizardContainer = styled.div`
+    max-width: 960px;
+    margin: 0 auto;
     padding: ${variables.spacingLarge};
 `;
 
-const Footer = styled.div`
+const BreadcrumbRow = styled.div`
+    margin-bottom: ${variables.spacingMedium};
+`;
+
+const StepBarWrapper = styled.div`
+    margin-bottom: ${variables.spacingLarge};
+`;
+
+const StepContent = styled.div`
+    min-height: 300px;
+    padding: ${variables.spacingSmall} 0;
+`;
+
+const WizardFooter = styled.div`
     position: sticky;
     bottom: 0;
     display: flex;
-    gap: ${variables.spacingSmall};
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     padding: ${variables.spacingMedium} ${variables.spacingLarge};
+    margin: ${variables.spacingLarge} -${variables.spacingLarge} -${variables.spacingLarge};
     background: ${variables.backgroundColorSection};
     border-top: 1px solid ${variables.borderColor};
     z-index: 10;
+`;
+
+const FooterRight = styled.div`
+    display: flex;
+    gap: ${variables.spacingSmall};
 `;
 
 const CenteredSpinner = styled.div`
@@ -51,12 +75,14 @@ const CenteredSpinner = styled.div`
 
 function StreamBuilderInner({ inputName }: { inputName?: string }) {
     const { state, dispatch } = useBuilder();
-    const [activeTab, setActiveTab] = useState('connection');
+    const [activeStep, setActiveStep] = useState(0);
     const [loading, setLoading] = useState(!!inputName);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [stepError, setStepError] = useState<string | null>(null);
 
-    // Load existing input on mount
+    const isEditing = state.mode === 'edit';
+
     useEffect(() => {
         if (!inputName) return;
         let cancelled = false;
@@ -79,6 +105,20 @@ function StreamBuilderInner({ inputName }: { inputName?: string }) {
         return () => { cancelled = true; };
     }, [inputName, dispatch]);
 
+    const handleNext = useCallback(() => {
+        setStepError(null);
+        if (activeStep === 0 && !state.baseUrl) {
+            setStepError('Enter a Base URL before continuing.');
+            return;
+        }
+        setActiveStep((s) => Math.min(s + 1, STEPS.length - 1));
+    }, [activeStep, state.baseUrl]);
+
+    const handleBack = useCallback(() => {
+        setStepError(null);
+        setActiveStep((s) => Math.max(s - 1, 0));
+    }, []);
+
     const handleSave = useCallback(async () => {
         setSaving(true);
         setError(null);
@@ -97,11 +137,10 @@ function StreamBuilderInner({ inputName }: { inputName?: string }) {
                 debug: state.debug ? '1' : '0',
             };
 
-            if (state.mode === 'edit' && state.inputName) {
+            if (isEditing && state.inputName) {
                 await updateInput(state.inputName, { ...payload, disabled: state.enabled ? '0' : '1' });
             } else {
                 await createInput(payload);
-                // Set disabled state after creation if needed
                 if (!state.enabled) {
                     await toggleInput(payload.name, true);
                 }
@@ -113,7 +152,7 @@ function StreamBuilderInner({ inputName }: { inputName?: string }) {
         } finally {
             setSaving(false);
         }
-    }, [state]);
+    }, [state, isEditing]);
 
     const handleCancel = useCallback(() => {
         window.location.href = 'streams';
@@ -127,45 +166,77 @@ function StreamBuilderInner({ inputName }: { inputName?: string }) {
         );
     }
 
+    const streamName = state.inputName || state.streams[0]?.name || 'New Stream';
+
     return (
-        <Container>
+        <WizardContainer>
+            <BreadcrumbRow>
+                <Breadcrumbs>
+                    <Breadcrumbs.Item label="Streams" to="streams" />
+                    <Breadcrumbs.Item label={isEditing ? `Edit: ${streamName}` : 'New Stream'} to="#" />
+                </Breadcrumbs>
+            </BreadcrumbRow>
+
+            <StepBarWrapper>
+                <StepBar activeStepId={activeStep}>
+                    {STEPS.map((label, idx) => (
+                        <StepBar.Step key={label} stepId={idx}>
+                            {label}
+                        </StepBar.Step>
+                    ))}
+                </StepBar>
+            </StepBarWrapper>
+
             {error && (
                 <Message type="error" onRequestRemove={() => setError(null)}>
                     {error}
                 </Message>
             )}
+            {stepError && (
+                <Message type="warning" onRequestRemove={() => setStepError(null)}>
+                    {stepError}
+                </Message>
+            )}
 
-            <TabLayout
-                activePanelId={activeTab}
-                onChange={(e: any, { activePanelId }: any) => setActiveTab(activePanelId)}
-            >
-                <TabLayout.Panel label="Connection" panelId="connection">
-                    <ConnectionTab />
-                </TabLayout.Panel>
-                <TabLayout.Panel label="Data Mapping" panelId="data-mapping">
-                    <DataMappingTab />
-                </TabLayout.Panel>
-                <TabLayout.Panel label="Splunk Output" panelId="splunk-output">
-                    <SplunkOutputTab />
-                </TabLayout.Panel>
-                <TabLayout.Panel label="Schedule & Tags" panelId="schedule-tags">
-                    <ScheduleTagsTab />
-                </TabLayout.Panel>
-                <TabLayout.Panel label="Test & Preview" panelId="test-preview">
-                    <TestPreviewTab />
-                </TabLayout.Panel>
-            </TabLayout>
+            <StepContent>
+                {activeStep === 0 && <ConnectionTab />}
+                {activeStep === 1 && <DataMappingTab />}
+                {activeStep === 2 && <SplunkOutputTab />}
+                {activeStep === 3 && <TestPreviewTab />}
+            </StepContent>
 
-            <Footer>
-                <Button label="Cancel" onClick={handleCancel} />
-                <Button
-                    label={saving ? 'Saving...' : 'Save'}
-                    appearance="primary"
-                    onClick={handleSave}
-                    disabled={saving}
-                />
-            </Footer>
-        </Container>
+            <WizardFooter>
+                <div>
+                    {activeStep === 0 ? (
+                        <Button label="Cancel" onClick={handleCancel} />
+                    ) : (
+                        <Button
+                            icon={<ChevronLeft />}
+                            label="Back"
+                            onClick={handleBack}
+                        />
+                    )}
+                </div>
+                <FooterRight>
+                    {activeStep < STEPS.length - 1 ? (
+                        <Button
+                            appearance="primary"
+                            label="Next"
+                            onClick={handleNext}
+                        />
+                    ) : (
+                        <>
+                            <Button
+                                label={saving ? 'Saving...' : 'Save'}
+                                appearance="primary"
+                                onClick={handleSave}
+                                disabled={saving}
+                            />
+                        </>
+                    )}
+                </FooterRight>
+            </WizardFooter>
+        </WizardContainer>
     );
 }
 

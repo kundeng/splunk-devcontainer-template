@@ -839,6 +839,8 @@ tasks:
               sed -i "s|name=\"${FIRST_VIEW}\"|name=\"${FIRST_VIEW}\" default=\"true\"|" "${NAV}"
             fi
           fi
+          # Remove UCC "inputs" view — React Streams dashboard replaces it
+          sed -i '/<view name="inputs"\/>/d' "${NAV}"
         fi
 
         echo "React merge complete."

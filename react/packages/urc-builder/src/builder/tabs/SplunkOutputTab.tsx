@@ -1,17 +1,38 @@
 /**
- * SplunkOutputTab — Tab 3: Index, sourcetype, source, host, and timestamp picker.
+ * SplunkOutputTab — Step 3: Destination + Schedule in a two-column layout.
+ *
+ * Merges the former SplunkOutput and ScheduleTags tabs into one step.
  */
 
 import React, { useEffect, useState } from 'react';
+import styled from 'styled-components';
+import { variables } from '@splunk/themes';
+import ColumnLayout from '@splunk/react-ui/ColumnLayout';
 import ControlGroup from '@splunk/react-ui/ControlGroup';
 import Select from '@splunk/react-ui/Select';
 import Text from '@splunk/react-ui/Text';
+import Number from '@splunk/react-ui/Number';
 import Message from '@splunk/react-ui/Message';
-import Heading from '@splunk/react-ui/Heading';
+import CollapsiblePanel from '@splunk/react-ui/CollapsiblePanel';
+import Switch from '@splunk/react-ui/Switch';
 
 import { useBuilder } from '../../context/BuilderContext';
 import { listIndexes } from '../../services/splunk-api';
-import { TimestampPicker } from '../test/TimestampPicker';
+
+const SectionCard = styled.div`
+    background: ${variables.backgroundColorPage};
+    border: 1px solid ${variables.borderColor};
+    border-radius: ${variables.borderRadius};
+    padding: ${variables.spacingMedium} ${variables.spacingLarge};
+    margin-bottom: ${variables.spacingMedium};
+`;
+
+const SectionHeader = styled.div`
+    font-weight: 600;
+    font-size: 1rem;
+    color: ${variables.contentColorDefault};
+    margin-bottom: ${variables.spacingMedium};
+`;
 
 const SplunkOutputTab: React.FC = () => {
     const { state, dispatch } = useBuilder();
@@ -28,62 +49,85 @@ const SplunkOutputTab: React.FC = () => {
         dispatch({ type: 'SET_FIELD', path, value: data.value });
     };
 
+    const setSwitch = (path: string) => (e: any, data: any) => {
+        dispatch({ type: 'SET_FIELD', path, value: data.selected });
+    };
+
     return (
-        <div>
-            <Heading level={3}>Splunk Destination</Heading>
+        <ColumnLayout gutter={16}>
+            <ColumnLayout.Row>
+                <ColumnLayout.Column span={7}>
+                    <SectionCard>
+                        <SectionHeader>Destination</SectionHeader>
 
-            <ControlGroup label="Index" help="Splunk index for collected events.">
-                {indexError ? (
-                    <Message type="warning">Unable to load indexes: {indexError}</Message>
-                ) : (
-                    <Select value={state.index} onChange={setField('index')}>
-                        {indexes.map((idx) => (
-                            <Select.Option key={idx} label={idx} value={idx} />
-                        ))}
-                    </Select>
-                )}
-            </ControlGroup>
+                        <ControlGroup label="Index" help="Splunk index for collected events.">
+                            {indexError ? (
+                                <Message type="warning">Unable to load indexes: {indexError}</Message>
+                            ) : (
+                                <Select value={state.index} onChange={setField('index')}>
+                                    {indexes.map((idx) => (
+                                        <Select.Option key={idx} label={idx} value={idx} />
+                                    ))}
+                                </Select>
+                            )}
+                        </ControlGroup>
 
-            <ControlGroup label="Sourcetype" help="Event sourcetype (default: urc:api:json).">
-                <Text
-                    value={state.sourcetype}
-                    onChange={setField('sourcetype')}
-                />
-            </ControlGroup>
+                        <ControlGroup label="Sourcetype" help="Event sourcetype (default: urc:api:json).">
+                            <Text value={state.sourcetype} onChange={setField('sourcetype')} />
+                        </ControlGroup>
 
-            <ControlGroup label="Source Override" help="Optional. Override the event source field.">
-                <Text
-                    value={state.sourceOverride}
-                    onChange={setField('sourceOverride')}
-                    placeholder="Leave empty for default (urc:<input>:<stream>)"
-                />
-            </ControlGroup>
+                        <ControlGroup label="Source Override" help="Optional. Override the event source field.">
+                            <Text
+                                value={state.sourceOverride}
+                                onChange={setField('sourceOverride')}
+                                placeholder="Leave empty for default"
+                            />
+                        </ControlGroup>
+                    </SectionCard>
+                </ColumnLayout.Column>
 
-            <ControlGroup label="Host Override" help="Optional. Override the event host field.">
-                <Text
-                    value={state.hostOverride}
-                    onChange={setField('hostOverride')}
-                    placeholder="Leave empty for default"
-                />
-            </ControlGroup>
+                <ColumnLayout.Column span={5}>
+                    <SectionCard>
+                        <SectionHeader>Schedule</SectionHeader>
 
-            <Heading level={3} style={{ marginTop: '24px' }}>Event Timestamp</Heading>
+                        <ControlGroup label="Interval (seconds)" help="How often to collect data (10–86400).">
+                            <Number
+                                value={state.interval}
+                                onChange={setField('interval')}
+                                min={10}
+                                max={86400}
+                                step={10}
+                            />
+                        </ControlGroup>
 
-            {state.testResult && state.testResult.timestampCandidates.length > 0 ? (
-                <TimestampPicker
-                    candidates={state.testResult.timestampCandidates}
-                    value={state.timestampField}
-                    onChange={(field) =>
-                        dispatch({ type: 'SET_FIELD', path: 'timestampField', value: field })
-                    }
-                />
-            ) : (
-                <Message type="info">
-                    Run a test fetch in the <strong>Test &amp; Preview</strong> tab to detect
-                    available timestamp fields from your API response.
-                </Message>
-            )}
-        </div>
+                        <ControlGroup label="Tags" help="Comma-separated tags for organizing streams.">
+                            <Text
+                                value={state.tags}
+                                onChange={setField('tags')}
+                                placeholder="e.g. devops, security"
+                            />
+                        </ControlGroup>
+                    </SectionCard>
+
+                    <CollapsiblePanel title="Advanced">
+                        <ControlGroup label="Debug Logging" help="Enable verbose logging for troubleshooting.">
+                            <Switch
+                                selected={state.debug}
+                                onChange={setSwitch('debug')}
+                                appearance="toggle"
+                            />
+                        </ControlGroup>
+                        <ControlGroup label="Host Override" help="Optional. Override the event host field.">
+                            <Text
+                                value={state.hostOverride}
+                                onChange={setField('hostOverride')}
+                                placeholder="Leave empty for default"
+                            />
+                        </ControlGroup>
+                    </CollapsiblePanel>
+                </ColumnLayout.Column>
+            </ColumnLayout.Row>
+        </ColumnLayout>
     );
 };
 
