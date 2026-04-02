@@ -48,16 +48,12 @@ const StepContent = styled.div`
 `;
 
 const WizardFooter = styled.div`
-    position: sticky;
-    bottom: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: ${variables.spacingMedium} ${variables.spacingLarge};
-    margin: ${variables.spacingLarge} -${variables.spacingLarge} -${variables.spacingLarge};
-    background: ${variables.backgroundColorSection};
+    padding: ${variables.spacingMedium} 0;
+    margin-top: ${variables.spacingLarge};
     border-top: 1px solid ${variables.borderColor};
-    z-index: 10;
 `;
 
 const FooterRight = styled.div`
