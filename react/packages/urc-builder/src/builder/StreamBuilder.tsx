@@ -14,11 +14,14 @@ import WaitSpinner from '@splunk/react-ui/WaitSpinner';
 import Message from '@splunk/react-ui/Message';
 
 import { BuilderProvider, useBuilder } from '../context/BuilderContext';
-import { getInput, createInput, updateInput } from '../services/splunk-api';
+import { getInput, createInput, updateInput, toggleInput } from '../services/splunk-api';
 import { formStateToManifest } from '../services/manifest-serializer';
 import type { InputPayload } from '../types';
 import { ConnectionTab } from './tabs/ConnectionTab';
 import { DataMappingTab } from './tabs/DataMappingTab';
+import SplunkOutputTab from './tabs/SplunkOutputTab';
+import ScheduleTagsTab from './tabs/ScheduleTagsTab';
+import TestPreviewTab from './tabs/TestPreviewTab';
 
 // ── Styled wrappers ──
 
@@ -92,13 +95,16 @@ function StreamBuilderInner({ inputName }: { inputName?: string }) {
                 sourcetype: state.sourcetype,
                 tags: state.tags,
                 debug: state.debug ? '1' : '0',
-                disabled: state.enabled ? '0' : '1',
             };
 
             if (state.mode === 'edit' && state.inputName) {
-                await updateInput(state.inputName, payload);
+                await updateInput(state.inputName, { ...payload, disabled: state.enabled ? '0' : '1' });
             } else {
                 await createInput(payload);
+                // Set disabled state after creation if needed
+                if (!state.enabled) {
+                    await toggleInput(payload.name, true);
+                }
             }
 
             window.location.href = 'streams';
@@ -140,13 +146,13 @@ function StreamBuilderInner({ inputName }: { inputName?: string }) {
                     <DataMappingTab />
                 </TabLayout.Panel>
                 <TabLayout.Panel label="Splunk Output" panelId="splunk-output">
-                    <div>Splunk Output tab — coming soon</div>
+                    <SplunkOutputTab />
                 </TabLayout.Panel>
                 <TabLayout.Panel label="Schedule & Tags" panelId="schedule-tags">
-                    <div>Schedule & Tags tab — coming soon</div>
+                    <ScheduleTagsTab />
                 </TabLayout.Panel>
                 <TabLayout.Panel label="Test & Preview" panelId="test-preview">
-                    <div>Test & Preview tab — coming soon</div>
+                    <TestPreviewTab />
                 </TabLayout.Panel>
             </TabLayout>
 

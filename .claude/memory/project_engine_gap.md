@@ -1,44 +1,30 @@
 ---
-name: URC engine gap analysis — ~3000 lines remaining for 99.9% CDK parity
-description: Component-by-component delta after completing CRITICAL+HIGH+MEDIUM priorities
+name: URC engine gap analysis — all priorities complete, builder UI implemented
+description: Component-by-component delta after completing all specs through 07-urc-builder-ui
 type: project
 ---
 
-## Engine Gap Analysis (updated 2026-03-31)
+## Engine Gap Analysis (updated 2026-04-01)
 
-Current engine: 3510 runtime lines (excl. generated models), 49 components.
-Test suite: 176 tests, 3151 lines, 0.19s execution.
+Current engine: ~7400 runtime lines (excl. generated models), 50 components.
+Test suite: 239 tests (unit + integration), 0.30s execution.
+React UI: ~4000 lines across 25 components in @splunk/urc-builder.
 
 ### Completed
 
-**Per-partition state — DONE**
-- PerPartitionStateManager, lookback windows, time window slicing
+**Per-partition state, AsyncRetriever, Rate limiting, Event Timestamp, Decoders, Transformations, Partition Router — DONE** (spec 05)
 
-**AsyncRetriever — DONE**
-- Create → poll → download lifecycle, status mapping, URL extraction
+**AOP Instrumentation — DONE** (spec 06)
+- inspect + functools wrapping, structured k=v logging, centralized recovery
 
-**Rate limiting — DONE**
-- TokenBucket, MovingWindowRateLimiter, APIBudget
-
-**Event Timestamp — DONE (URC extension)**
-- CursorBasedTimestamp, FieldBasedTimestamp, FetchTimestamp
-- Separate extension schema (urc_extensions_schema.yaml)
-- Auto-derives _time from DatetimeBasedCursor
-
-**Decoders — DONE**
-- CsvDecoder (BOM, malformed rows), JsonlDecoder, ZipfileDecoder
-
-**Transformations — DONE**
-- DpathFlattenFields, KeysReplace, SchemaNormalization
-
-**Partition Router — DONE**
-- CartesianProductStreamSlicer (itertools.product, 100k limit)
-
-**Test Suite — DONE**
-- 157 unit tests + 19 integration tests = 176 total
-- Covers: auth, pagination, decoders, transforms, error handling, rate limiting,
-  event timestamp, manifest parsing, registry, full pipeline, incremental sync,
-  per-partition state, async retriever, modular input with mocked Splunk SDK
+**Builder UI — DONE** (spec 07)
+- Stream Dashboard: table, tag filter, summary cards, bulk actions
+- Stream Builder: 5-tab editor (Connection, Data Mapping, Splunk Output, Schedule/Tags, Test/Preview)
+- Schema-driven forms: generated from declarative_component_schema.yaml
+- Manifest validation: capability detection for unsupported types
+- Debug logging: per-stream toggle, enriched AOP hooks at DEBUG level
+- Tags: stored in inputs.conf via UCC, filterable in dashboard
+- test_connection extended with mode=validate
 
 ### Remaining gaps (LOW priority)
 
@@ -64,4 +50,4 @@ Test suite: 176 tests, 3151 lines, 0.19s execution.
 - JWT RS256/ES256 signing — needs cryptography lib
 - OAuth2 PKCE — needs cryptographic code verifier
 
-**How to apply:** All CRITICAL, HIGH, and MEDIUM priorities are done. Remaining items are LOW priority — implement as needed when specific manifests require them.
+**How to apply:** All CRITICAL, HIGH, and MEDIUM priorities are done. Builder UI is complete. Remaining items are LOW priority — implement as needed when specific manifests require them.

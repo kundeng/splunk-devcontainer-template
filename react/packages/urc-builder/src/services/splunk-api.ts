@@ -6,19 +6,21 @@
  */
 
 import { createRESTURL } from '@splunk/splunk-utils/url';
+import { getDefaultFetchInit } from '@splunk/splunk-utils/fetch';
 import type { InputSummary, AccountSummary, InputPayload, TestResult, ValidationResult } from '../types';
 
 const JSON_PARAMS = 'output_mode=json&count=0';
-
 async function splunkFetch(path: string, init?: RequestInit): Promise<any> {
     const url = createRESTURL(path);
     const separator = url.includes('?') ? '&' : '?';
     const fullUrl = `${url}${separator}${JSON_PARAMS}`;
 
+    const defaults = getDefaultFetchInit();
     const resp = await fetch(fullUrl, {
-        credentials: 'include',
+        ...defaults,
         ...init,
         headers: {
+            ...defaults.headers,
             'Content-Type': 'application/x-www-form-urlencoded',
             ...init?.headers,
         },
