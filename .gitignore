@@ -98,5 +98,12 @@ splunk/stage/*
 # UCC build output (generated, rebuild from source)
 ucc/output/
 
+# Playwright test artifacts
+test-results/
+playwright-report/
+
+# Spec workflow approvals (generated)
+.spec-workflow/approvals/
+
 # Reference repos (cloned for study, not committed)
 .ref/
