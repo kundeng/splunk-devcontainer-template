@@ -14,6 +14,8 @@ import Key from '@splunk/react-icons/Key';
 
 import { useBuilder } from '../../context/BuilderContext';
 import { listAccounts } from '../../services/splunk-api';
+import { SECTIONS, FIELDS } from '../../content';
+import { SectionHeader } from '../SectionHeader';
 import type { AccountSummary } from '../../types';
 
 const StepContent = styled.div`
@@ -28,20 +30,8 @@ const SectionCard = styled.div`
     margin-bottom: ${variables.spacingMedium};
 `;
 
-const SectionHeader = styled.div`
-    font-weight: 600;
-    font-size: 1rem;
-    color: ${variables.contentColorDefault};
-    margin-bottom: ${variables.spacingMedium};
-    display: flex;
-    align-items: center;
-    gap: ${variables.spacingSmall};
-`;
-
-const AccountRow = styled.div`
-    display: flex;
-    align-items: center;
-    gap: ${variables.spacingSmall};
+const AuthBadgeWrap = styled.div`
+    margin-left: auto;
 `;
 
 export function ConnectionTab() {
@@ -74,32 +64,39 @@ export function ConnectionTab() {
     return (
         <StepContent>
             <SectionCard>
-                <SectionHeader>Stream Identity</SectionHeader>
-                <ControlGroup label="Stream Name" help="A unique identifier for this data stream (letters, numbers, underscores).">
+                <SectionHeader
+                    icon={SECTIONS.streamIdentity.icon}
+                    title={SECTIONS.streamIdentity.title}
+                    description={SECTIONS.streamIdentity.description}
+                />
+                <ControlGroup label={FIELDS.streamName.label} help={FIELDS.streamName.help}>
                     <Text
                         value={state.streams[0]?.name || ''}
-                        onChange={(e: any, { value }: any) => {
-                            setField('streams[0].name', value);
-                        }}
-                        placeholder="e.g. github_issues, jira_tickets"
+                        onChange={(e: any, { value }: any) => setField('streams[0].name', value)}
+                        placeholder={FIELDS.streamName.placeholder}
                     />
                 </ControlGroup>
             </SectionCard>
 
             <SectionCard>
-                <SectionHeader>
-                    API Connection
-                    {selectedAccount && (
+                <SectionHeader
+                    icon={SECTIONS.apiConnection.icon}
+                    title={SECTIONS.apiConnection.title}
+                    description={SECTIONS.apiConnection.description}
+                />
+
+                {selectedAccount && (
+                    <div style={{ marginBottom: variables.spacingSmall }}>
                         <Badge
                             label={selectedAccount.authType || 'none'}
                             icon={<Key />}
                             backgroundColor={variables.infoColor}
                             foregroundColor="#fff"
                         />
-                    )}
-                </SectionHeader>
+                    </div>
+                )}
 
-                <ControlGroup label="Account" help="Select the authentication account for this API. Create accounts in Configuration.">
+                <ControlGroup label={FIELDS.account.label} help={FIELDS.account.help}>
                     {loadingAccounts ? (
                         <WaitSpinner />
                     ) : (
@@ -107,27 +104,23 @@ export function ConnectionTab() {
                             value={state.account}
                             onChange={(e: any, { value }: any) => setField('account', value)}
                         >
-                            <Select.Option label="(none — no authentication)" value="" />
+                            <Select.Option label={FIELDS.account.placeholder!} value="" />
                             {accounts.map((acct) => (
-                                <Select.Option
-                                    key={acct.name}
-                                    label={acct.name}
-                                    value={acct.name}
-                                />
+                                <Select.Option key={acct.name} label={acct.name} value={acct.name} />
                             ))}
                         </Select>
                     )}
                 </ControlGroup>
 
-                <ControlGroup label="Base URL" help="The root URL of the API endpoint to collect from.">
+                <ControlGroup label={FIELDS.baseUrl.label} help={FIELDS.baseUrl.help}>
                     <Text
                         value={state.baseUrl}
                         onChange={(e: any, { value }: any) => setField('baseUrl', value)}
-                        placeholder="https://api.example.com/v1/resources"
+                        placeholder={FIELDS.baseUrl.placeholder}
                     />
                 </ControlGroup>
 
-                <ControlGroup label="HTTP Method" help="HTTP method for API requests. Use POST only for APIs that require it.">
+                <ControlGroup label={FIELDS.httpMethod.label} help={FIELDS.httpMethod.help}>
                     <Select
                         value={state.httpMethod}
                         onChange={(e: any, { value }: any) => setField('httpMethod', value)}

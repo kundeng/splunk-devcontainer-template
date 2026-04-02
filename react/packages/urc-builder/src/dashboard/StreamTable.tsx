@@ -15,8 +15,8 @@ import Dropdown from '@splunk/react-ui/Dropdown';
 import Tooltip from '@splunk/react-ui/Tooltip';
 import WaitSpinner from '@splunk/react-ui/WaitSpinner';
 import { variables } from '@splunk/themes';
-import Globe from '@splunk/react-icons/Globe';
 import Plus from '@splunk/react-icons/Plus';
+import { DASHBOARD } from '../content';
 import Pencil from '@splunk/react-icons/Pencil';
 import TrashCanCross from '@splunk/react-icons/TrashCanCross';
 import DotsThreeVertical from '@splunk/react-icons/DotsThreeVertical';
@@ -126,16 +126,15 @@ export default function StreamTable() {
     if (filteredInputs.length === 0) {
         return (
             <EmptyHero>
-                <HeroIcon><Globe /></HeroIcon>
-                <Heading level={2}>No API streams configured yet</Heading>
+                <HeroIcon>{DASHBOARD.cards.total.icon}</HeroIcon>
+                <Heading level={2}>{DASHBOARD.emptyState.heading}</Heading>
                 <Paragraph style={{ color: variables.contentColorMuted, maxWidth: 420, marginBottom: variables.spacingMedium }}>
-                    Create your first stream to start collecting data from a REST API.
-                    The wizard will guide you through connection, configuration, and testing.
+                    {DASHBOARD.emptyState.description}
                 </Paragraph>
                 <Button
                     appearance="primary"
                     icon={<Plus />}
-                    label="Create Stream"
+                    label={DASHBOARD.emptyState.cta}
                     onClick={() => { window.location.href = 'builder'; }}
                 />
             </EmptyHero>

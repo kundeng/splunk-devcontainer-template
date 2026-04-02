@@ -18,19 +18,14 @@ import Switch from '@splunk/react-ui/Switch';
 
 import { useBuilder } from '../../context/BuilderContext';
 import { listIndexes } from '../../services/splunk-api';
+import { SECTIONS, FIELDS } from '../../content';
+import { SectionHeader } from '../SectionHeader';
 
 const SectionCard = styled.div`
     background: ${variables.backgroundColorPage};
     border: 1px solid ${variables.borderColor};
     border-radius: ${variables.borderRadius};
     padding: ${variables.spacingMedium} ${variables.spacingLarge};
-    margin-bottom: ${variables.spacingMedium};
-`;
-
-const SectionHeader = styled.div`
-    font-weight: 600;
-    font-size: 1rem;
-    color: ${variables.contentColorDefault};
     margin-bottom: ${variables.spacingMedium};
 `;
 
@@ -58,9 +53,13 @@ const SplunkOutputTab: React.FC = () => {
             <ColumnLayout.Row>
                 <ColumnLayout.Column span={7}>
                     <SectionCard>
-                        <SectionHeader>Destination</SectionHeader>
+                        <SectionHeader
+                            icon={SECTIONS.destination.icon}
+                            title={SECTIONS.destination.title}
+                            description={SECTIONS.destination.description}
+                        />
 
-                        <ControlGroup label="Index" help="Splunk index for collected events.">
+                        <ControlGroup label={FIELDS.index.label} help={FIELDS.index.help}>
                             {indexError ? (
                                 <Message type="warning">Unable to load indexes: {indexError}</Message>
                             ) : (
@@ -72,11 +71,11 @@ const SplunkOutputTab: React.FC = () => {
                             )}
                         </ControlGroup>
 
-                        <ControlGroup label="Sourcetype" help="Event sourcetype (default: urc:api:json).">
+                        <ControlGroup label={FIELDS.sourcetype.label} help={FIELDS.sourcetype.help}>
                             <Text value={state.sourcetype} onChange={setField('sourcetype')} />
                         </ControlGroup>
 
-                        <ControlGroup label="Source Override" help="Optional. Override the event source field.">
+                        <ControlGroup label={FIELDS.sourceOverride.label} help={FIELDS.sourceOverride.help}>
                             <Text
                                 value={state.sourceOverride}
                                 onChange={setField('sourceOverride')}
@@ -88,9 +87,13 @@ const SplunkOutputTab: React.FC = () => {
 
                 <ColumnLayout.Column span={5}>
                     <SectionCard>
-                        <SectionHeader>Schedule</SectionHeader>
+                        <SectionHeader
+                            icon={SECTIONS.schedule.icon}
+                            title={SECTIONS.schedule.title}
+                            description={SECTIONS.schedule.description}
+                        />
 
-                        <ControlGroup label="Interval (seconds)" help="How often to collect data (10–86400).">
+                        <ControlGroup label={FIELDS.interval.label} help={FIELDS.interval.help}>
                             <Number
                                 value={state.interval}
                                 onChange={setField('interval')}
@@ -100,7 +103,7 @@ const SplunkOutputTab: React.FC = () => {
                             />
                         </ControlGroup>
 
-                        <ControlGroup label="Tags" help="Comma-separated tags for organizing streams.">
+                        <ControlGroup label={FIELDS.tags.label} help={FIELDS.tags.help}>
                             <Text
                                 value={state.tags}
                                 onChange={setField('tags')}
@@ -110,14 +113,14 @@ const SplunkOutputTab: React.FC = () => {
                     </SectionCard>
 
                     <CollapsiblePanel title="Advanced">
-                        <ControlGroup label="Debug Logging" help="Enable verbose logging for troubleshooting.">
+                        <ControlGroup label={FIELDS.debug.label} help={FIELDS.debug.help}>
                             <Switch
                                 selected={state.debug}
                                 onChange={setSwitch('debug')}
                                 appearance="toggle"
                             />
                         </ControlGroup>
-                        <ControlGroup label="Host Override" help="Optional. Override the event host field.">
+                        <ControlGroup label={FIELDS.hostOverride.label} help={FIELDS.hostOverride.help}>
                             <Text
                                 value={state.hostOverride}
                                 onChange={setField('hostOverride')}

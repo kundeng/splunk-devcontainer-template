@@ -19,12 +19,11 @@ import { BuilderProvider, useBuilder } from '../context/BuilderContext';
 import { getInput, createInput, updateInput, toggleInput } from '../services/splunk-api';
 import { formStateToManifest } from '../services/manifest-serializer';
 import type { InputPayload } from '../types';
+import { STEPS } from '../content';
 import { ConnectionTab } from './tabs/ConnectionTab';
 import { DataMappingTab } from './tabs/DataMappingTab';
 import SplunkOutputTab from './tabs/SplunkOutputTab';
 import TestPreviewTab from './tabs/TestPreviewTab';
-
-const STEPS = ['Connect', 'Configure', 'Output', 'Test & Save'];
 
 // ── Styled wrappers ──
 
@@ -39,7 +38,27 @@ const BreadcrumbRow = styled.div`
 `;
 
 const StepBarWrapper = styled.div`
-    margin-bottom: ${variables.spacingLarge};
+    margin-bottom: ${variables.spacingSmall};
+`;
+
+const StepDescription = styled.div`
+    display: flex;
+    align-items: center;
+    gap: ${variables.spacingSmall};
+    padding: ${variables.spacingSmall} ${variables.spacingMedium};
+    margin-bottom: ${variables.spacingMedium};
+    color: ${variables.contentColorMuted};
+    font-size: ${variables.fontSizeSmall};
+    background: ${variables.backgroundColorPage};
+    border: 1px solid ${variables.borderColor};
+    border-radius: ${variables.borderRadius};
+`;
+
+const StepIcon = styled.span`
+    color: ${variables.infoColor};
+    font-size: 18px;
+    display: inline-flex;
+    flex-shrink: 0;
 `;
 
 const StepContent = styled.div`
@@ -175,13 +194,18 @@ function StreamBuilderInner({ inputName }: { inputName?: string }) {
 
             <StepBarWrapper>
                 <StepBar activeStepId={activeStep}>
-                    {STEPS.map((label, idx) => (
-                        <StepBar.Step key={label} stepId={idx}>
-                            {label}
+                    {STEPS.map((step, idx) => (
+                        <StepBar.Step key={step.label} stepId={idx}>
+                            {step.label}
                         </StepBar.Step>
                     ))}
                 </StepBar>
             </StepBarWrapper>
+
+            <StepDescription>
+                <StepIcon>{STEPS[activeStep].icon}</StepIcon>
+                {STEPS[activeStep].description}
+            </StepDescription>
 
             {error && (
                 <Message type="error" onRequestRemove={() => setError(null)}>

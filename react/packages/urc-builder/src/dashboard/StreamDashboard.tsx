@@ -14,6 +14,7 @@ import Message from '@splunk/react-ui/Message';
 import Divider from '@splunk/react-ui/Divider';
 import { variables } from '@splunk/themes';
 import Plus from '@splunk/react-icons/Plus';
+import { DASHBOARD } from '../content';
 import { DashboardProvider, useDashboard } from '../context/DashboardContext';
 import { listInputs } from '../services/splunk-api';
 import SummaryCards from './SummaryCards';
@@ -73,13 +74,13 @@ function DashboardInner() {
         <PageWrapper>
             <PageHeader>
                 <HeaderLeft>
-                    <Heading level={1}>REST API Streams</Heading>
-                    <Subtitle>Configure and monitor data collection from REST APIs</Subtitle>
+                    <Heading level={1}>{DASHBOARD.title}</Heading>
+                    <Subtitle>{DASHBOARD.subtitle}</Subtitle>
                 </HeaderLeft>
                 <Button
                     appearance="primary"
                     icon={<Plus />}
-                    label="New Stream"
+                    label={DASHBOARD.newStreamCta}
                     onClick={() => { window.location.href = 'builder'; }}
                 />
             </PageHeader>

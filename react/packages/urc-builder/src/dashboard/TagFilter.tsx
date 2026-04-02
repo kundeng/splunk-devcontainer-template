@@ -7,6 +7,7 @@ import styled from 'styled-components';
 import RadioBar from '@splunk/react-ui/RadioBar';
 import Chip from '@splunk/react-ui/Chip';
 import { variables } from '@splunk/themes';
+import { DASHBOARD } from '../content';
 import { useDashboard } from '../context/DashboardContext';
 
 const FilterRow = styled.div`
@@ -64,9 +65,9 @@ export default function TagFilter() {
             <FilterGroup>
                 <FilterLabel>Status:</FilterLabel>
                 <RadioBar value={selectedStatus} onChange={handleStatusChange}>
-                    <RadioBar.Option value="all" label="All" />
-                    <RadioBar.Option value="active" label="Active" />
-                    <RadioBar.Option value="disabled" label="Disabled" />
+                    <RadioBar.Option value="all" label={DASHBOARD.statusFilter.all} />
+                    <RadioBar.Option value="active" label={DASHBOARD.statusFilter.active} />
+                    <RadioBar.Option value="disabled" label={DASHBOARD.statusFilter.disabled} />
                 </RadioBar>
             </FilterGroup>
 

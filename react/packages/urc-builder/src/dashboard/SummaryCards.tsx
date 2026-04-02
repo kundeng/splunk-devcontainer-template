@@ -6,9 +6,7 @@ import React from 'react';
 import styled from 'styled-components';
 import ColumnLayout from '@splunk/react-ui/ColumnLayout';
 import { variables } from '@splunk/themes';
-import Globe from '@splunk/react-icons/Globe';
-import CheckCircle from '@splunk/react-icons/CheckCircle';
-import CrossCircle from '@splunk/react-icons/CrossCircle';
+import { DASHBOARD } from '../content';
 import { useDashboard } from '../context/DashboardContext';
 
 interface AccentProps {
@@ -58,9 +56,9 @@ export default function SummaryCards() {
     const disabled = state.inputs.filter((i) => i.disabled).length;
 
     const cards = [
-        { label: 'Total Streams', value: total, color: variables.infoColor, icon: <Globe /> },
-        { label: 'Active', value: active, color: variables.accentColorPositive, icon: <CheckCircle /> },
-        { label: 'Disabled', value: disabled, color: variables.contentColorMuted, icon: <CrossCircle /> },
+        { ...DASHBOARD.cards.total, value: total, color: variables.infoColor },
+        { ...DASHBOARD.cards.active, value: active, color: variables.accentColorPositive },
+        { ...DASHBOARD.cards.disabled, value: disabled, color: variables.contentColorMuted },
     ];
 
     return (
