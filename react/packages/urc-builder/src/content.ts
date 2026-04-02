@@ -21,6 +21,8 @@ import Calendar from '@splunk/react-icons/Calendar';
 import Key from '@splunk/react-icons/Key';
 import Plus from '@splunk/react-icons/Plus';
 import ControlPlayCircle from '@splunk/react-icons/ControlPlayCircle';
+import NodeBranch from '@splunk/react-icons/NodeBranch';
+import FileText from '@splunk/react-icons/FileText';
 
 // ── Helpers ──
 
@@ -133,6 +135,18 @@ export const SECTIONS = {
         title: 'Schedule',
         icon: icon(Calendar),
         description: 'Set the collection interval and organize with tags.',
+    } as SectionDef,
+
+    partitionRouter: {
+        title: 'Partition Router',
+        icon: icon(NodeBranch),
+        description: 'Split collection into partitions. Use SubstreamPartitionRouter for parent-child relationships (e.g. repos then issues per repo).',
+    } as SectionDef,
+
+    decoder: {
+        title: 'Decoder',
+        icon: icon(FileText),
+        description: 'Choose how to decode the API response. Default is JSON. Use CSV, XML, or compressed decoders for non-JSON APIs.',
     } as SectionDef,
 
     testConnection: {

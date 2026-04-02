@@ -6,7 +6,12 @@
  */
 
 import React, { useCallback, useMemo } from 'react';
+import styled from 'styled-components';
+import { variables } from '@splunk/themes';
 import CollapsiblePanel from '@splunk/react-ui/CollapsiblePanel';
+import Chip from '@splunk/react-ui/Chip';
+import Tooltip from '@splunk/react-ui/Tooltip';
+import QuestionCircle from '@splunk/react-icons/QuestionCircle';
 
 import { useBuilder } from '../../context/BuilderContext';
 import type { ComponentFormDef, ValidationResult } from '../../types';
@@ -14,9 +19,33 @@ import { TypeSelector } from './TypeSelector';
 import { SchemaField } from './SchemaField';
 import { ValidationBanner } from './ValidationBanner';
 
+const PanelTitle = styled.span`
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+`;
+
+const TitleIcon = styled.span`
+    display: inline-flex;
+    align-items: center;
+    color: ${variables.infoColor};
+`;
+
+const HelpTrigger = styled.span`
+    display: inline-flex;
+    align-items: center;
+    color: ${variables.contentColorMuted};
+    cursor: help;
+    margin-left: 2px;
+`;
+
 export interface SchemaSectionProps {
     /** Display title for the collapsible section */
     title: string;
+    /** Icon element for the section header */
+    icon?: React.ReactNode;
+    /** Help text shown in tooltip */
+    description?: string;
     /** Array of ComponentFormDef from form-schema.ts */
     components: ComponentFormDef[];
     /** Current config object for this section */
@@ -29,6 +58,8 @@ export interface SchemaSectionProps {
 
 export function SchemaSection({
     title,
+    icon,
+    description,
     components,
     value,
     basePath,
@@ -67,8 +98,23 @@ export function SchemaSection({
         [basePath, dispatch]
     );
 
+    const panelTitle = (
+        <PanelTitle>
+            {icon && <TitleIcon>{icon}</TitleIcon>}
+            {title}
+            {currentType && (
+                <Chip appearance="info">{currentType}</Chip>
+            )}
+            {description && (
+                <Tooltip content={description}>
+                    <HelpTrigger><QuestionCircle width={14} height={14} /></HelpTrigger>
+                </Tooltip>
+            )}
+        </PanelTitle>
+    );
+
     return (
-        <CollapsiblePanel title={title}>
+        <CollapsiblePanel title={title ? panelTitle : undefined}>
             <ValidationBanner results={validationResults} pathPrefix={basePath} />
 
             <TypeSelector

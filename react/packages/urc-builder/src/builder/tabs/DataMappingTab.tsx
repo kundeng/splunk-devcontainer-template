@@ -1,17 +1,19 @@
 /**
- * DataMappingTab — Tab 2 of the stream builder.
+ * DataMappingTab — Step 2: Configure how data is extracted, paginated, and transformed.
  *
- * Renders SchemaSection for each data-mapping aspect of the stream config:
- * Record Selector, Pagination, Incremental Sync, Transformations, Error Handling.
+ * All sections are schema-driven from form-schema.ts (auto-generated from Airbyte YAML).
  */
 
 import React, { useCallback } from 'react';
 import styled from 'styled-components';
 import { variables } from '@splunk/themes';
 import Button from '@splunk/react-ui/Button';
-import Heading from '@splunk/react-ui/Heading';
+import Plus from '@splunk/react-icons/Plus';
+import TrashCanCross from '@splunk/react-icons/TrashCanCross';
 
 import { useBuilder } from '../../context/BuilderContext';
+import { SECTIONS } from '../../content';
+import { SectionHeader } from '../SectionHeader';
 import { SchemaSection } from '../form/SchemaSection';
 import {
     EXTRACTORS,
@@ -19,19 +21,19 @@ import {
     INCREMENTAL_CURSORS,
     TRANSFORMATIONS,
     ERROR_HANDLERS,
+    PARTITION_ROUTERS,
+    DECODERS,
 } from '../../schema/form-schema';
 
 const TabContent = styled.div`
-    padding: ${variables.spacingLarge} 0;
-    max-width: 720px;
+    max-width: 760px;
 `;
 
 const TransformationItem = styled.div`
     border: 1px solid ${variables.borderColor};
     border-radius: ${variables.borderRadius};
-    padding: ${variables.spacingSmall};
+    padding: ${variables.spacingSmall} ${variables.spacingMedium};
     margin-bottom: ${variables.spacingSmall};
-    position: relative;
 `;
 
 const TransformationHeader = styled.div`
@@ -39,11 +41,17 @@ const TransformationHeader = styled.div`
     justify-content: space-between;
     align-items: center;
     margin-bottom: ${variables.spacingXSmall};
+    font-weight: 600;
+    font-size: ${variables.fontSizeSmall};
+    color: ${variables.contentColorMuted};
 `;
 
-const AddButton = styled.div`
-    margin-top: ${variables.spacingSmall};
+const SectionGroup = styled.div`
     margin-bottom: ${variables.spacingMedium};
+`;
+
+const AddRow = styled.div`
+    margin: ${variables.spacingSmall} 0 ${variables.spacingMedium} 0;
 `;
 
 export function DataMappingTab() {
@@ -51,26 +59,22 @@ export function DataMappingTab() {
     const stream = state.streams[0];
     const validationResults = state.validationResults;
 
-    // ── Transformations array management ──
-
     const transformations = stream?.transformations || [];
 
     const handleAddTransformation = useCallback(() => {
-        const next = [...transformations, { type: '' }];
         dispatch({
             type: 'SET_FIELD',
             path: 'streams[0].transformations',
-            value: next,
+            value: [...transformations, { type: '' }],
         });
     }, [transformations, dispatch]);
 
     const handleRemoveTransformation = useCallback(
         (index: number) => {
-            const next = transformations.filter((_: any, i: number) => i !== index);
             dispatch({
                 type: 'SET_FIELD',
                 path: 'streams[0].transformations',
-                value: next,
+                value: transformations.filter((_: any, i: number) => i !== index),
             });
         },
         [transformations, dispatch]
@@ -78,8 +82,11 @@ export function DataMappingTab() {
 
     return (
         <TabContent>
+            {/* Core extraction */}
             <SchemaSection
                 title="Record Selector"
+                icon={SECTIONS.recordSelector.icon}
+                description={SECTIONS.recordSelector.description}
                 components={EXTRACTORS}
                 value={stream?.retriever?.recordSelector?.extractor || {}}
                 basePath="streams[0].retriever.recordSelector.extractor"
@@ -88,6 +95,8 @@ export function DataMappingTab() {
 
             <SchemaSection
                 title="Pagination"
+                icon={SECTIONS.pagination.icon}
+                description={SECTIONS.pagination.description}
                 components={PAGINATORS}
                 value={stream?.retriever?.paginator || {}}
                 basePath="streams[0].retriever.paginator"
@@ -96,43 +105,78 @@ export function DataMappingTab() {
 
             <SchemaSection
                 title="Incremental Sync"
+                icon={SECTIONS.incrementalSync.icon}
+                description={SECTIONS.incrementalSync.description}
                 components={INCREMENTAL_CURSORS}
                 value={stream?.incrementalSync || {}}
                 basePath="streams[0].incrementalSync"
                 validationResults={validationResults}
             />
 
-            {/* Transformations — array with add/remove */}
-            <Heading level={3}>Transformations</Heading>
-            {transformations.map((t: Record<string, any>, idx: number) => (
-                <TransformationItem key={idx}>
-                    <TransformationHeader>
-                        <span>Transformation {idx + 1}</span>
-                        <Button
-                            label="Remove"
-                            appearance="destructive"
-                            onClick={() => handleRemoveTransformation(idx)}
-                        />
-                    </TransformationHeader>
-                    <SchemaSection
-                        title=""
-                        components={TRANSFORMATIONS}
-                        value={t}
-                        basePath={`streams[0].transformations[${idx}]`}
-                        validationResults={validationResults}
-                    />
-                </TransformationItem>
-            ))}
-            <AddButton>
-                <Button
-                    label="Add Transformation"
-                    appearance="secondary"
-                    onClick={handleAddTransformation}
-                />
-            </AddButton>
+            {/* Substreams / partition routing */}
+            <SchemaSection
+                title="Partition Router"
+                icon={SECTIONS.partitionRouter.icon}
+                description={SECTIONS.partitionRouter.description}
+                components={PARTITION_ROUTERS}
+                value={stream?.retriever?.partition_router || {}}
+                basePath="streams[0].retriever.partition_router"
+                validationResults={validationResults}
+            />
 
+            {/* Response decoding */}
+            <SchemaSection
+                title="Decoder"
+                icon={SECTIONS.decoder.icon}
+                description={SECTIONS.decoder.description}
+                components={DECODERS}
+                value={stream?.decoder || {}}
+                basePath="streams[0].decoder"
+                validationResults={validationResults}
+            />
+
+            {/* Transformations — array with add/remove */}
+            <SectionGroup>
+                <SectionHeader
+                    icon={SECTIONS.transformations.icon}
+                    title={SECTIONS.transformations.title}
+                    description={SECTIONS.transformations.description}
+                />
+                {transformations.map((t: Record<string, any>, idx: number) => (
+                    <TransformationItem key={idx}>
+                        <TransformationHeader>
+                            <span>Transformation {idx + 1}</span>
+                            <Button
+                                icon={<TrashCanCross width={14} height={14} />}
+                                label="Remove"
+                                appearance="destructive"
+                                onClick={() => handleRemoveTransformation(idx)}
+                            />
+                        </TransformationHeader>
+                        <SchemaSection
+                            title=""
+                            components={TRANSFORMATIONS}
+                            value={t}
+                            basePath={`streams[0].transformations[${idx}]`}
+                            validationResults={validationResults}
+                        />
+                    </TransformationItem>
+                ))}
+                <AddRow>
+                    <Button
+                        icon={<Plus width={14} height={14} />}
+                        label="Add Transformation"
+                        appearance="secondary"
+                        onClick={handleAddTransformation}
+                    />
+                </AddRow>
+            </SectionGroup>
+
+            {/* Error handling */}
             <SchemaSection
                 title="Error Handling"
+                icon={SECTIONS.errorHandling.icon}
+                description={SECTIONS.errorHandling.description}
                 components={ERROR_HANDLERS}
                 value={stream?.retriever?.requester?.error_handler || {}}
                 basePath="streams[0].retriever.requester.error_handler"
