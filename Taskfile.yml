@@ -729,6 +729,20 @@ tasks:
         # Strip all .so files — pure Python only, portable across all platforms
         find "${APP}/lib" -name "*.so" -delete 2>/dev/null || true
 
+        # Merge custom conf fragments from package/default.d/ into UCC output.
+        # UCC generates restmap.conf, web.conf, etc. — custom entries go in
+        # default.d/ to avoid overwriting UCC output via package/default/.
+        FRAGMENTS="${UCC_PATH}/package/default.d"
+        if [ -d "${FRAGMENTS}" ]; then
+          for frag in "${FRAGMENTS}"/*.conf; do
+            [ -f "${frag}" ] || continue
+            target="${APP}/default/$(basename "${frag}")"
+            echo "" >> "${target}"
+            cat "${frag}" >> "${target}"
+            echo "  Merged fragment: $(basename "${frag}")"
+          done
+        fi
+
         echo "Build complete → {{.UCC_OUTPUT_DIR}}/${UCC_ADDON}/"
     desc: Build UCC add-on (generates REST handlers, UI, conf files)
 
