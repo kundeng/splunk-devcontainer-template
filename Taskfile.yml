@@ -743,6 +743,10 @@ tasks:
           done
         fi
 
+        # Remove local/ and local.meta from build output (created at dev-time, fails AppInspect)
+        rm -rf "${APP}/local" 2>/dev/null
+        rm -f "${APP}/metadata/local.meta" 2>/dev/null
+
         echo "Build complete → {{.UCC_OUTPUT_DIR}}/${UCC_ADDON}/"
     desc: Build UCC add-on (generates REST handlers, UI, conf files)
 
@@ -788,16 +792,18 @@ tasks:
 
         echo "Merging React assets into UCC output..."
 
-        # Copy page bundles (JS)
+        # Copy page bundles (JS) — strip execute perms for AppInspect
         if [ -d "${STAGE}/appserver/static/pages" ]; then
           mkdir -p "${OUTPUT}/appserver/static/pages"
           cp "${STAGE}"/appserver/static/pages/*.js "${OUTPUT}/appserver/static/pages/"
+          chmod 644 "${OUTPUT}"/appserver/static/pages/*.js 2>/dev/null
           echo "  Copied page bundles"
         fi
 
-        # Copy Mako templates
+        # Copy Mako templates — strip execute perms for AppInspect
         if [ -d "${STAGE}/appserver/templates" ]; then
           cp "${STAGE}"/appserver/templates/*.html "${OUTPUT}/appserver/templates/"
+          chmod 644 "${OUTPUT}"/appserver/templates/*.html 2>/dev/null
           echo "  Copied Mako templates"
         fi
 
@@ -807,6 +813,7 @@ tasks:
             name=$(basename "${xml}")
             if [ ! -f "${OUTPUT}/default/data/ui/views/${name}" ]; then
               cp "${xml}" "${OUTPUT}/default/data/ui/views/"
+              chmod 644 "${OUTPUT}/default/data/ui/views/${name}" 2>/dev/null
               echo "  Added view: ${name}"
             fi
           done
