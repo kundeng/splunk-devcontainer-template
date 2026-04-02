@@ -1,6 +1,6 @@
 ---
-name: URC engine gap analysis — all priorities complete, builder UI implemented
-description: Component-by-component delta after completing all specs through 07-urc-builder-ui
+name: URC engine gap analysis — all priorities complete, UI redesigned with wizard
+description: Component-by-component delta after completing specs 01-07 + UI redesign
 type: project
 ---
 
@@ -8,7 +8,10 @@ type: project
 
 Current engine: ~7400 runtime lines (excl. generated models), 50 components.
 Test suite: 239 tests (unit + integration), 0.30s execution.
-React UI: ~4000 lines across 25 components in @splunk/urc-builder.
+React UI: ~4500 lines across 28 components in @splunk/urc-builder.
+Builder: 4-step wizard (StepBar), schema-driven forms, content.ts registry.
+Dashboard: Badge/Chip/Menu components, status filter, empty-state hero.
+Playwright e2e: 5 tests covering login, dashboard, wizard navigation, stream creation.
 
 ### Completed
 

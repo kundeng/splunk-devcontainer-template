@@ -16,7 +16,7 @@ A practical guide to understanding and extending the React UI for the URC (Unive
 4. [Build Pipeline: From React to Splunk](#4-build-pipeline-from-react-to-splunk)
 5. [UrcBuilder Architecture](#5-urcbuilder-architecture)
 6. [State Management with Context + Reducer](#6-state-management-with-context--reducer)
-7. [The Five Builder Tabs](#7-the-five-builder-tabs)
+7. [The Four Builder Steps](#7-the-four-builder-steps)
 8. [TypeScript Types and Validation](#8-typescript-types-and-validation)
 9. [REST API Communication](#9-rest-api-communication)
 10. [Common Patterns and Best Practices](#10-common-patterns-and-best-practices)
@@ -206,28 +206,39 @@ Understanding this pipeline is crucial because the UI doesn't auto-sync to Splun
 
 ## 5. UrcBuilder Architecture
 
-The UrcBuilder is the heart of the UI. It manages creating and editing REST API collection manifests through an interactive 5-tab form.
+The UrcBuilder is the heart of the UI. It manages creating and editing REST API collection manifests through a 4-step wizard.
 
 ### High-Level Structure
 
 ```
 Screen 1: StreamDashboard
   ├─ DashboardProvider (context for filters + selection)
-  ├─ SummaryCards (total/active/disabled counts)
-  ├─ TagFilter (clickable tag chips)
+  ├─ PageHeader (title + "New Stream" CTA)
+  ├─ SummaryCards (total/active/disabled with icons and colored accents)
+  ├─ TagFilter (RadioBar status filter + Chip tag toggles)
   ├─ BulkActions (enable/disable/delete selected)
-  └─ StreamTable (sortable table, row click → builder)
+  └─ StreamTable (Badge status, Chip tags, kebab Menu per row, empty-state hero)
 
-Screen 2: StreamBuilder
+Screen 2: StreamBuilder (4-step wizard)
   ├─ BuilderProvider (context + useReducer for form state)
+  ├─ Breadcrumbs ("Streams / New Stream" or "Streams / Edit: {name}")
+  ├─ StepBar (Connect → Configure → Output → Test & Save)
+  ├─ Step description banner (icon + contextual help)
   │
-  └─ TabLayout (5 tabs)
-      ├─ Tab 1: ConnectionTab       (account, base URL, HTTP method)
-      ├─ Tab 2: DataMappingTab      (schema-driven: extraction, pagination, sync, transforms)
-      ├─ Tab 3: SplunkOutputTab     (index, sourcetype, timestamp picker)
-      ├─ Tab 4: ScheduleTagsTab     (interval, tags, debug toggle)
-      └─ Tab 5: TestPreviewTab      (test the API, preview data, detect fields)
+  ├─ Step 1: ConnectionTab        (stream name, account, base URL, HTTP method)
+  ├─ Step 2: DataMappingTab       (schema-driven: extractor, pagination, sync,
+  │                                 partition router, decoder, transforms, errors)
+  ├─ Step 3: SplunkOutputTab      (index + sourcetype | interval + tags, advanced)
+  └─ Step 4: TestPreviewTab       (test connection, save)
+
+  Footer: [Cancel] [← Back] [Next →] or [← Back] [Save] on final step
 ```
+
+**Content registry:** All UI copy, icons, and help text live in `content.ts` — a single source of truth. Components import from this file; no strings are hardcoded.
+
+**Schema-driven forms:** The Configure step renders forms from `form-schema.ts`, which is auto-generated from the Airbyte declarative YAML schema. 53 component types across 11 categories — see `docs/schema-components-guide.md`.
+
+**Splunk UI components used:** StepBar, Card, Badge, Chip, Menu, Tooltip, Breadcrumbs, CollapsiblePanel, RadioBar, ColumnLayout, DefinitionList, plus 15+ icons from @splunk/react-icons.
 
 ### Example: How Editing Works
 
@@ -428,17 +439,19 @@ The generator checks each type against a hardcoded SUPPORTED_TYPES list (mirrori
 
 ---
 
-## 8. The Five Builder Tabs
+## 8. The Four Builder Steps
 
-Each tab serves a specific purpose. Together they define a complete REST API collection.
+The wizard uses a `StepBar` with 4 steps. Each step renders a dedicated component. The footer shows contextual navigation (Cancel/Next for steps 1-3, Back/Save for step 4). Step state is local (`useState`), not in the reducer.
 
-### Tab 1: ConnectionTab
+### Step 1: ConnectionTab
 
 **What it collects:**
-- Account (username/password or OAuth token)
+- Stream name (unique identifier for the input)
+- Account (authentication — links to UCC Configuration page)
 - Base URL (the API endpoint root)
-- HTTP method (GET, POST, etc.)
-- Auth type (read-only display)
+- HTTP method (GET, POST)
+
+**Layout:** Two card sections ("Stream Identity" and "API Connection") with `SectionHeader` icons and help tooltips. Auth type shown as a `Badge` when an account is selected.
 
 **Key code patterns:**
 

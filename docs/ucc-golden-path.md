@@ -475,63 +475,78 @@ async function postToEndpoint(endpoint: string, body: object) {
 
 ## 8. Build Pipeline
 
-### Two-Stage Build
+### The Key Rule: Never Override UCC-Generated Files
 
-```bash
-# Stage 1: UCC generates the add-on
-ucc-gen build --source ucc/your_app -o ucc/output/
+UCC's `ucc-gen build` generates `restmap.conf`, `web.conf`, and other conf files from `globalConfig.json`. If you put a custom `restmap.conf` in `package/default/`, UCC's file-copy step will silently **overwrite** the auto-generated version, breaking the admin REST handlers and SplunkWeb proxy.
 
-# Stage 2: Build React UI
-cd react && yarn workspace @splunk/your-app build
+**The pattern:** Put custom conf entries in `package/default.d/*.conf`. The build task appends these fragments to the UCC-generated files after `ucc-gen build` completes.
 
-# Stage 3: Merge React into UCC output
-cp -r react/packages/your-app/stage/appserver/ ucc/output/your_app/appserver/
-# Also overlay: nav.xml, views/*.xml, templates/*.html
-
-# Stage 4: Package
-ucc-gen package --path ucc/output/your_app -o dist/
+```
+ucc/your_app/
+├── package/
+│   ├── default/
+│   │   ├── collections.conf     ← OK: UCC doesn't generate this
+│   │   └── transforms.conf      ← OK: UCC doesn't generate this
+│   │   ❌ restmap.conf           ← NEVER: would overwrite UCC's admin handlers
+│   │   ❌ web.conf               ← NEVER: would overwrite UCC's expose entries
+│   ├── default.d/
+│   │   ├── restmap.conf         ← Custom REST endpoints (appended after build)
+│   │   └── web.conf             ← Custom expose entries (appended after build)
+│   ├── bin/                     ← Custom scripts (modular inputs, REST handlers)
+│   └── lib/                     ← Python libraries
+└── globalConfig.json            ← UCC schema (generates restmap, web.conf, handlers)
 ```
 
-### Taskfile Integration
+### Build Stages
 
 ```bash
-# React scaffolding (non-interactive when variables provided)
-task react:create APP_NAME=MyApp              # Scaffold standalone React Splunk app
-task react:add-page PAGE_NAME=x APP_NAME=y    # Add page to existing app
-task react:add-component COMPONENT_NAME=x     # Create component library
+# Stage 1: UCC generates the add-on from globalConfig.json
+task ucc:build
+# Runs ucc-gen build, then appends default.d/*.conf fragments
 
-# UCC + React (the golden path)
-task ucc:add-react APP_NAME=your_app          # Scaffold + adapt + build React for UCC
-task ucc:build-full                           # UCC build + React build + merge
+# Stage 2: Build React UI (webpack)
+task react:build
 
-# All tasks fall back to interactive mode when variables are omitted
+# Stage 3: Merge React assets into UCC output
+task ucc:merge-react
+# Copies: page JS bundles, Mako templates, view XMLs
+# Merges: nav entries (adds streams/builder, removes inputs)
+
+# Stage 4: Link into Splunk + refresh
+task ucc:link
+task dev:refresh
+
+# Or all at once:
+task ucc:dev   # = ucc:build + ucc:merge-react + ucc:link + dev:refresh
 ```
 
-```yaml
-ucc:build:
-  cmds:
-    - ucc-gen build --source ucc/your_app -o ucc/output/
+### What Each Stage Produces
 
-ucc:build-ui:
-  cmds:
-    - cd react && yarn workspace @splunk/your-app build
+| Stage | What's Generated | Source of Truth |
+|---|---|---|
+| `ucc:build` | REST handlers, conf files, UCC UI, admin endpoints | `globalConfig.json` |
+| `ucc:build` post-step | Appended custom REST + expose entries | `package/default.d/*.conf` |
+| `react:build` | `streams.js`, `builder.js` page bundles | `react/packages/urc-app/src/` |
+| `ucc:merge-react` | Combined app with UCC + React assets | React stage/ output |
 
-ucc:merge-ui:
-  cmds:
-    - cp -r react/packages/your-app/stage/appserver/ ucc/output/your_app/appserver/
+### What's Safe to Put Where
 
-ucc:build-full:
-  cmds:
-    - task: ucc:build
-    - task: ucc:build-ui
-    - task: ucc:merge-ui
+| Location | Safe Contents | Unsafe Contents |
+|---|---|---|
+| `package/default/` | Files UCC doesn't generate (collections, transforms) | restmap.conf, web.conf, app.conf, inputs.conf |
+| `package/default.d/` | Custom conf fragments to append | Anything that needs to replace (not append) |
+| `package/bin/` | Custom Python scripts | Anything with same name as UCC-generated script |
+| `package/lib/` | Python libraries | Conflicts with UCC's vendored libs |
 
-ucc:dev:
-  desc: Build + link + refresh (fast iteration)
-  cmds:
-    - task: ucc:build-full
-    - task: ucc:link
-    - task: dev:refresh
+### Taskfile Commands
+
+```bash
+task react:build     # Webpack compile → stage/appserver/static/pages/{streams,builder}.js
+task ucc:dev         # Full pipeline: UCC build + merge React + link + refresh
+task ucc:build       # Just UCC: ucc-gen build + default.d/ fragment merge
+task ucc:merge-react # Just merge: copy React bundles + templates + views into UCC output
+task ucc:link        # Just link: symlink UCC output into Splunk + fix permissions
+task dev:refresh     # Just refresh: reload Splunk configs + restart SplunkWeb
 ```
 
 ## 9. Testing Strategy
