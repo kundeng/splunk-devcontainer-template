@@ -259,6 +259,16 @@ Phase 0 is critical — no point building an MCP server that duplicates 80% of w
 
 ---
 
+## Key Design Tensions
+
+**1. MCP workflows vs. YAML plans** — deslicer's "missing data troubleshooting" workflow runs 10+ checks autonomously inside the MCP server. If that pattern scales, the "YAML plan + dumb runner" layer becomes overhead rather than value. The right answer might be: YAML for **repeatable regression tests** (deterministic, committed to git, reviewed), MCP workflows for **ad-hoc investigation** (exploratory, interactive, oncall).
+
+**2. "Non-AI runner" purity** — The goal is "best case, a non-AI runner can execute the plan." But for browser automation against Splunk's hostile DOM, a truly non-AI runner will break whenever Splunk updates their UI. A pragmatic middle ground: the runner is deterministic for REST/SPL assertions (90% of value), but uses Playwright MCP's accessibility-tree snapshots (not AI, but smarter than raw CSS selectors) for browser steps.
+
+**3. Where the intelligence lives** — The explorer agent generates plans. The runner executes them. But when the MCP server itself encapsulates multi-step workflows as callable tools, intelligence moves into the MCP layer. This is fine — it just means Phase 0 (evaluating community MCPs) determines how much custom infrastructure we actually need to build.
+
+---
+
 ## Open Questions
 
 1. **Build vs. extend vs. compose** — Does deslicer/mcp-for-splunk or livehybrid/splunk-mcp cover enough of the admin gap that we should extend rather than build from scratch?

@@ -19,3 +19,6 @@
 - [Research: Airbyte Builder UI](research_airbyte_builder_ui.md) — Three-panel layout, schema-driven forms, dual mode, test panel tabs, AI assist, Splunk adaptation notes
 - [Research: Splunk binary deps](research_splunk_binary_deps.md) — Splunk Python 3.9 CAN load .so files; pydantic v2 works; "pure Python only" was wrong
 - [Project: Engine gap](project_engine_gap.md) — 5300 lines to 99.9% CDK parity, priority breakdown by component
+- [Project: OAuth AuthCode gap](project_oauth_authcode_gap.md) — URC lacks Authorization Code flow; UCC handles it natively, needs wiring
+- [Research: Splunk test agent](research_splunk_test_agent.md) — Two-phase explore/execute architecture, MCP landscape, community server evaluation needed
+- [Project: Next session — tests](project_next_session_tests.md) — Narrowed test approach: Playwright E2E for new GUI features, full agent framework is separate project
