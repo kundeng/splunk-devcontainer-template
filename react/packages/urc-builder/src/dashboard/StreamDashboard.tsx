@@ -5,7 +5,7 @@
  * and orchestrates layout of summary cards, filters, bulk actions, and table.
  */
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import styled from 'styled-components';
 import Button from '@splunk/react-ui/Button';
 import Heading from '@splunk/react-ui/Heading';
@@ -16,11 +16,13 @@ import { variables } from '@splunk/themes';
 import Plus from '@splunk/react-icons/Plus';
 import { DASHBOARD } from '../content';
 import { DashboardProvider, useDashboard } from '../context/DashboardContext';
-import { listInputs } from '../services/splunk-api';
+import { listInputs, getStreamHealth } from '../services/splunk-api';
+import { useGroupBy } from '../hooks/useGroupBy';
 import SummaryCards from './SummaryCards';
 import TagFilter from './TagFilter';
 import BulkActions from './BulkActions';
 import StreamTable from './StreamTable';
+import ImportModal from './ImportModal';
 
 const PageWrapper = styled.div`
     max-width: 1200px;
@@ -47,17 +49,54 @@ const Section = styled.div`
     margin-bottom: ${variables.spacingMedium};
 `;
 
+const GroupHeader = styled.div`
+    display: flex;
+    align-items: center;
+    gap: ${variables.spacingSmall};
+    padding: ${variables.spacingSmall} 0;
+    margin-top: ${variables.spacingMedium};
+    border-bottom: 1px solid ${variables.borderColor};
+`;
+
+const GroupLabel = styled.span`
+    font-weight: 600;
+    font-size: ${variables.fontSizeSmall};
+`;
+
+const GroupCount = styled.span`
+    font-size: ${variables.fontSizeSmall};
+    color: ${variables.contentColorMuted};
+`;
+
 function DashboardInner() {
-    const { setInputs, setError, state } = useDashboard();
+    const { setInputs, setError, state, filteredInputs, groupBy, setHealthMap } = useDashboard();
+    const { groups } = useGroupBy(filteredInputs, groupBy);
+    const [importOpen, setImportOpen] = useState(false);
+
+    const handleImportComplete = useCallback(async () => {
+        try {
+            const inputs = await listInputs();
+            setInputs(inputs);
+        } catch { /* ignore */ }
+        setImportOpen(false);
+    }, [setInputs]);
 
     useEffect(() => {
         let cancelled = false;
 
-        async function fetchInputs() {
+        async function fetchData() {
             try {
-                const inputs = await listInputs();
+                const [inputs, healthList] = await Promise.all([
+                    listInputs(),
+                    getStreamHealth(),
+                ]);
                 if (!cancelled) {
                     setInputs(inputs);
+                    const map: Record<string, any> = {};
+                    for (const h of healthList) {
+                        map[h.name] = h;
+                    }
+                    setHealthMap(map);
                 }
             } catch (err: any) {
                 if (!cancelled) {
@@ -66,9 +105,9 @@ function DashboardInner() {
             }
         }
 
-        fetchInputs();
+        fetchData();
         return () => { cancelled = true; };
-    }, [setInputs, setError]);
+    }, [setInputs, setError, setHealthMap]);
 
     return (
         <PageWrapper>
@@ -77,13 +116,27 @@ function DashboardInner() {
                     <Heading level={1}>{DASHBOARD.title}</Heading>
                     <Subtitle>{DASHBOARD.subtitle}</Subtitle>
                 </HeaderLeft>
-                <Button
-                    appearance="primary"
-                    icon={<Plus />}
-                    label={DASHBOARD.newStreamCta}
-                    onClick={() => { window.location.href = 'builder'; }}
-                />
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <Button
+                        appearance="secondary"
+                        label="Import"
+                        onClick={() => setImportOpen(true)}
+                    />
+                    <Button
+                        appearance="primary"
+                        icon={<Plus />}
+                        label={DASHBOARD.newStreamCta}
+                        onClick={() => { window.location.href = 'builder'; }}
+                    />
+                </div>
             </PageHeader>
+
+            <ImportModal
+                open={importOpen}
+                onClose={() => setImportOpen(false)}
+                existingInputs={state.inputs}
+                onComplete={handleImportComplete}
+            />
 
             <Divider />
 
@@ -101,9 +154,21 @@ function DashboardInner() {
 
             <BulkActions />
 
-            <Section>
-                <StreamTable />
-            </Section>
+            {groups ? (
+                groups.map((group) => (
+                    <Section key={group.label}>
+                        <GroupHeader>
+                            <GroupLabel>{group.label}</GroupLabel>
+                            <GroupCount>({group.items.length})</GroupCount>
+                        </GroupHeader>
+                        <StreamTable items={group.items} />
+                    </Section>
+                ))
+            ) : (
+                <Section>
+                    <StreamTable />
+                </Section>
+            )}
         </PageWrapper>
     );
 }

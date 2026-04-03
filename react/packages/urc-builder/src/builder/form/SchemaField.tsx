@@ -15,6 +15,7 @@ import ControlGroup from '@splunk/react-ui/ControlGroup';
 import Button from '@splunk/react-ui/Button';
 
 import type { FormFieldDef } from '../../types';
+import { TemplatePreview } from './TemplatePreview';
 
 const NestedFieldset = styled.fieldset`
     border: 1px solid ${variables.borderColor};
@@ -112,6 +113,10 @@ export function SchemaField({ field, value, onChange }: SchemaFieldProps) {
                         value={value ?? field.defaultValue ?? ''}
                         onChange={(e: any, { value: v }: any) => onChange(v)}
                         placeholder={field.examples?.[0] || ''}
+                    />
+                    <TemplatePreview
+                        template={value ?? ''}
+                        context={field.interpolationContext?.reduce((acc: Record<string, string>, v: string) => ({ ...acc, [v]: `<${v}>` }), {}) || {}}
                     />
                 </ControlGroup>
             );

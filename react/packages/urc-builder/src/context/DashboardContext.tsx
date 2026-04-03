@@ -5,7 +5,7 @@
  */
 
 import React, { createContext, useContext, useState, useMemo, useCallback } from 'react';
-import type { InputSummary, DashboardState } from '../types';
+import type { InputSummary, DashboardState, StreamHealth } from '../types';
 
 interface DashboardContextValue {
     state: DashboardState;
@@ -17,6 +17,12 @@ interface DashboardContextValue {
     setError: (error: string | null) => void;
     filteredInputs: InputSummary[];
     allTags: string[];
+    searchQuery: string;
+    setSearchQuery: (q: string) => void;
+    groupBy: string | null;
+    setGroupBy: (key: string | null) => void;
+    healthMap: Record<string, StreamHealth>;
+    setHealthMap: (map: Record<string, StreamHealth>) => void;
 }
 
 const DashboardContext = createContext<DashboardContextValue | null>(null);
@@ -32,6 +38,9 @@ const INITIAL_STATE: DashboardState = {
 
 export function DashboardProvider({ children }: { children: React.ReactNode }) {
     const [state, setState] = useState<DashboardState>(INITIAL_STATE);
+    const [searchQuery, setSearchQuery] = useState('');
+    const [groupBy, setGroupBy] = useState<string | null>(null);
+    const [healthMap, setHealthMap] = useState<Record<string, StreamHealth>>({});
 
     const setInputs = useCallback((inputs: InputSummary[]) => {
         setState((s) => ({ ...s, inputs, loading: false, error: null }));
@@ -71,7 +80,7 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
         return Array.from(tagSet).sort();
     }, [state.inputs]);
 
-    // Derived: filtered inputs
+    // Derived: filtered inputs (tags + status + search)
     const filteredInputs = useMemo(() => {
         let result = state.inputs;
 
@@ -88,15 +97,25 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             result = result.filter((input) => {
                 if (state.selectedStatus === 'active') return !input.disabled;
                 if (state.selectedStatus === 'disabled') return input.disabled;
-                // 'error' status — we don't have runtime error state from UCC REST yet,
-                // so this filters nothing for now. Will be enhanced when we add
-                // runtime status from structured logs.
+                if (state.selectedStatus === 'error') {
+                    const health = healthMap[input.name];
+                    return health?.lastStatus === 'error';
+                }
                 return true;
             });
         }
 
+        // Filter by search query
+        if (searchQuery.trim()) {
+            const q = searchQuery.trim().toLowerCase();
+            result = result.filter((input) =>
+                input.name.toLowerCase().includes(q) ||
+                input.baseUrl.toLowerCase().includes(q)
+            );
+        }
+
         return result;
-    }, [state.inputs, state.selectedTags, state.selectedStatus]);
+    }, [state.inputs, state.selectedTags, state.selectedStatus, searchQuery, healthMap]);
 
     const value = useMemo(
         () => ({
@@ -109,8 +128,14 @@ export function DashboardProvider({ children }: { children: React.ReactNode }) {
             setError,
             filteredInputs,
             allTags,
+            searchQuery,
+            setSearchQuery,
+            groupBy,
+            setGroupBy,
+            healthMap,
+            setHealthMap,
         }),
-        [state, filteredInputs, allTags, setInputs, setSelectedTags, setSelectedStatus, setSelectedRows, setLoading, setError]
+        [state, filteredInputs, allTags, searchQuery, groupBy, healthMap, setInputs, setSelectedTags, setSelectedStatus, setSelectedRows, setLoading, setError]
     );
 
     return (

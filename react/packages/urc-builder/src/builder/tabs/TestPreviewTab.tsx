@@ -10,6 +10,7 @@ import { useBuilder } from '../../context/BuilderContext';
 import { TestPanel } from '../test/TestPanel';
 import { RecordPreview } from '../test/RecordPreview';
 import { FieldDetector } from '../test/FieldDetector';
+import { TransformPreview } from '../test/TransformPreview';
 
 const TestPreviewTab: React.FC = () => {
     const { state } = useBuilder();
@@ -33,6 +34,14 @@ const TestPreviewTab: React.FC = () => {
                         </ColumnLayout.Row>
                     </ColumnLayout>
                 </>
+            )}
+
+            {hasResults && state.streams[0]?.transformations?.length > 0 && (
+                <TransformPreview
+                    rawRecords={state.testResult!.records}
+                    transformedRecords={state.testResult!.records}
+                    hasTransformations={true}
+                />
             )}
         </div>
     );

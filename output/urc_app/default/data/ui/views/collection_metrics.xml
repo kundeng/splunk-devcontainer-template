@@ -1,0 +1,268 @@
+<dashboard version="2" theme="dark">
+    <label>Collection Metrics</label>
+    <description>Monitor URC stream collection health, throughput, and errors</description>
+    <definition><![CDATA[
+{
+    "dataSources": {
+        "ds_healthy": {
+            "type": "ds.search",
+            "options": {
+                "query": "| inputlookup urc_stream_health | search last_status=success | stats count"
+            }
+        },
+        "ds_errored": {
+            "type": "ds.search",
+            "options": {
+                "query": "| inputlookup urc_stream_health | search last_status=error | stats count"
+            }
+        },
+        "ds_disabled": {
+            "type": "ds.search",
+            "options": {
+                "query": "| rest /services/data/inputs/urc_app_input | search disabled=1 | stats count"
+            }
+        },
+        "ds_ingestion_rate": {
+            "type": "ds.search",
+            "options": {
+                "query": "index=_internal sourcetype=urc_app_collection | timechart span=5m count by stream_name",
+                "queryParameters": {
+                    "earliest": "$global_time.earliest$",
+                    "latest": "$global_time.latest$"
+                }
+            }
+        },
+        "ds_error_rate": {
+            "type": "ds.search",
+            "options": {
+                "query": "index=_internal sourcetype=urc_app_collection level=ERROR | timechart span=1h count by stream_name",
+                "queryParameters": {
+                    "earliest": "$global_time.earliest$",
+                    "latest": "$global_time.latest$"
+                }
+            }
+        },
+        "ds_top_errors": {
+            "type": "ds.search",
+            "options": {
+                "query": "index=_internal sourcetype=urc_app_collection level=ERROR | stats count, latest(message) as last_error by stream_name | sort -count",
+                "queryParameters": {
+                    "earliest": "$global_time.earliest$",
+                    "latest": "$global_time.latest$"
+                }
+            }
+        },
+        "ds_last_collection": {
+            "type": "ds.search",
+            "options": {
+                "query": "| inputlookup urc_stream_health | table stream_name, last_run, last_status, last_record_count, error_count_24h | sort -last_run"
+            }
+        }
+    },
+    "visualizations": {
+        "viz_healthy": {
+            "type": "splunk.singlevalue",
+            "dataSources": {
+                "primary": "ds_healthy"
+            },
+            "title": "Healthy Streams",
+            "options": {
+                "majorColor": "#53a051",
+                "backgroundColor": "transparent",
+                "sparklineDisplay": "off",
+                "trendDisplay": "off",
+                "unit": "streams"
+            }
+        },
+        "viz_errored": {
+            "type": "splunk.singlevalue",
+            "dataSources": {
+                "primary": "ds_errored"
+            },
+            "title": "Errored Streams",
+            "options": {
+                "majorColor": "#dc4e41",
+                "backgroundColor": "transparent",
+                "sparklineDisplay": "off",
+                "trendDisplay": "off",
+                "unit": "streams"
+            }
+        },
+        "viz_disabled": {
+            "type": "splunk.singlevalue",
+            "dataSources": {
+                "primary": "ds_disabled"
+            },
+            "title": "Disabled Streams",
+            "options": {
+                "majorColor": "#f8be34",
+                "backgroundColor": "transparent",
+                "sparklineDisplay": "off",
+                "trendDisplay": "off",
+                "unit": "streams"
+            }
+        },
+        "viz_ingestion_rate": {
+            "type": "splunk.line",
+            "dataSources": {
+                "primary": "ds_ingestion_rate"
+            },
+            "title": "Event Ingestion Rate",
+            "options": {
+                "xAxisTitleText": "Time",
+                "yAxisTitleText": "Events",
+                "legendDisplay": "bottom",
+                "showSplitSeries": false,
+                "seriesColorsByField": {}
+            }
+        },
+        "viz_error_rate": {
+            "type": "splunk.line",
+            "dataSources": {
+                "primary": "ds_error_rate"
+            },
+            "title": "Error Rate Over Time",
+            "options": {
+                "xAxisTitleText": "Time",
+                "yAxisTitleText": "Errors",
+                "legendDisplay": "bottom",
+                "showSplitSeries": false,
+                "seriesColors": ["#dc4e41", "#f8be34", "#ff6f3a"]
+            }
+        },
+        "viz_top_errors": {
+            "type": "splunk.table",
+            "dataSources": {
+                "primary": "ds_top_errors"
+            },
+            "title": "Top Errors by Stream",
+            "options": {
+                "columnFormat": {
+                    "count": {
+                        "dataType": "number"
+                    }
+                }
+            }
+        },
+        "viz_last_collection": {
+            "type": "splunk.table",
+            "dataSources": {
+                "primary": "ds_last_collection"
+            },
+            "title": "Last Collection per Stream",
+            "options": {
+                "columnFormat": {
+                    "last_record_count": {
+                        "dataType": "number"
+                    },
+                    "error_count_24h": {
+                        "dataType": "number"
+                    }
+                }
+            }
+        }
+    },
+    "inputs": {
+        "input_time": {
+            "type": "input.timerange",
+            "title": "Time Range",
+            "options": {
+                "token": "global_time",
+                "defaultValue": "-24h@h,now"
+            }
+        }
+    },
+    "layout": {
+        "type": "grid",
+        "options": {
+            "width": 1440,
+            "height": 960
+        },
+        "structure": [
+            {
+                "item": "input_time",
+                "type": "input",
+                "position": {
+                    "x": 0,
+                    "y": 0,
+                    "w": 1440,
+                    "h": 50
+                }
+            },
+            {
+                "item": "viz_healthy",
+                "type": "block",
+                "position": {
+                    "x": 0,
+                    "y": 60,
+                    "w": 480,
+                    "h": 120
+                }
+            },
+            {
+                "item": "viz_errored",
+                "type": "block",
+                "position": {
+                    "x": 480,
+                    "y": 60,
+                    "w": 480,
+                    "h": 120
+                }
+            },
+            {
+                "item": "viz_disabled",
+                "type": "block",
+                "position": {
+                    "x": 960,
+                    "y": 60,
+                    "w": 480,
+                    "h": 120
+                }
+            },
+            {
+                "item": "viz_ingestion_rate",
+                "type": "block",
+                "position": {
+                    "x": 0,
+                    "y": 190,
+                    "w": 720,
+                    "h": 300
+                }
+            },
+            {
+                "item": "viz_error_rate",
+                "type": "block",
+                "position": {
+                    "x": 720,
+                    "y": 190,
+                    "w": 720,
+                    "h": 300
+                }
+            },
+            {
+                "item": "viz_top_errors",
+                "type": "block",
+                "position": {
+                    "x": 0,
+                    "y": 500,
+                    "w": 720,
+                    "h": 300
+                }
+            },
+            {
+                "item": "viz_last_collection",
+                "type": "block",
+                "position": {
+                    "x": 720,
+                    "y": 500,
+                    "w": 720,
+                    "h": 300
+                }
+            }
+        ]
+    },
+    "description": "Monitor URC stream collection health, throughput, and errors",
+    "title": "Collection Metrics"
+}
+    ]]></definition>
+</dashboard>

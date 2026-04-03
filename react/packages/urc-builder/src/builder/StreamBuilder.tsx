@@ -16,6 +16,8 @@ import Divider from '@splunk/react-ui/Divider';
 import ChevronLeft from '@splunk/react-icons/ChevronLeft';
 
 import { BuilderProvider, useBuilder } from '../context/BuilderContext';
+import { useDraftPersistence } from '../hooks/useDraftPersistence';
+import { useUnsavedGuard } from '../hooks/useUnsavedGuard';
 import { getInput, createInput, updateInput, toggleInput } from '../services/splunk-api';
 import { formStateToManifest } from '../services/manifest-serializer';
 import type { InputPayload } from '../types';
@@ -88,15 +90,21 @@ const CenteredSpinner = styled.div`
 
 // ── Inner component (needs BuilderProvider above it) ──
 
-function StreamBuilderInner({ inputName }: { inputName?: string }) {
+function StreamBuilderInner({ inputName, cloneName }: { inputName?: string; cloneName?: string }) {
     const { state, dispatch } = useBuilder();
     const [activeStep, setActiveStep] = useState(0);
-    const [loading, setLoading] = useState(!!inputName);
+    const [loading, setLoading] = useState(!!inputName || !!cloneName);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [stepError, setStepError] = useState<string | null>(null);
 
     const isEditing = state.mode === 'edit';
+
+    useUnsavedGuard(state.isDirty);
+
+    const { hasDraft, restoreDraft, discardDraft, clearDraft } = useDraftPersistence(
+        state, state.mode, state.inputName
+    );
 
     useEffect(() => {
         if (!inputName) return;
@@ -119,6 +127,31 @@ function StreamBuilderInner({ inputName }: { inputName?: string }) {
 
         return () => { cancelled = true; };
     }, [inputName, dispatch]);
+
+    useEffect(() => {
+        if (!cloneName) return;
+        let cancelled = false;
+
+        (async () => {
+            try {
+                const input = await getInput(cloneName);
+                if (cancelled) return;
+                dispatch({
+                    type: 'LOAD_INPUT',
+                    input: { ...input, parsedManifest: {} },
+                });
+                // Override to create mode with -copy suffix
+                dispatch({ type: 'SET_FIELD', path: 'mode', value: 'create' });
+                dispatch({ type: 'SET_FIELD', path: 'inputName', value: `${cloneName}-copy` });
+            } catch (err: any) {
+                if (!cancelled) setError(`Stream "${cloneName}" not found.`);
+            } finally {
+                if (!cancelled) setLoading(false);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [cloneName, dispatch]);
 
     const handleNext = useCallback(() => {
         setStepError(null);
@@ -161,17 +194,21 @@ function StreamBuilderInner({ inputName }: { inputName?: string }) {
                 }
             }
 
+            clearDraft();
             window.location.href = 'streams';
         } catch (err: any) {
             setError(err.message || 'Save failed');
         } finally {
             setSaving(false);
         }
-    }, [state, isEditing]);
+    }, [state, isEditing, clearDraft]);
 
     const handleCancel = useCallback(() => {
+        if (state.isDirty && !window.confirm('You have unsaved changes. Are you sure you want to leave?')) {
+            return;
+        }
         window.location.href = 'streams';
-    }, []);
+    }, [state.isDirty]);
 
     if (loading) {
         return (
@@ -188,7 +225,7 @@ function StreamBuilderInner({ inputName }: { inputName?: string }) {
             <BreadcrumbRow>
                 <Breadcrumbs>
                     <Breadcrumbs.Item label="Streams" to="streams" />
-                    <Breadcrumbs.Item label={isEditing ? `Edit: ${streamName}` : 'New Stream'} to="#" />
+                    <Breadcrumbs.Item label={cloneName ? `Clone: ${streamName}` : isEditing ? `Edit: ${streamName}` : 'New Stream'} to="#" />
                 </Breadcrumbs>
             </BreadcrumbRow>
 
@@ -215,6 +252,25 @@ function StreamBuilderInner({ inputName }: { inputName?: string }) {
             {stepError && (
                 <Message type="warning" onRequestRemove={() => setStepError(null)}>
                     {stepError}
+                </Message>
+            )}
+
+            {hasDraft && state.mode === 'create' && !state.isDirty && (
+                <Message type="info" onRequestRemove={discardDraft}>
+                    You have an unsaved draft.{' '}
+                    <Button
+                        appearance="pill"
+                        label="Restore"
+                        onClick={() => {
+                            const draft = restoreDraft();
+                            if (draft) {
+                                // Restore each field from draft
+                                Object.entries(draft).forEach(([path, value]) => {
+                                    dispatch({ type: 'SET_FIELD', path, value });
+                                });
+                            }
+                        }}
+                    />
                 </Message>
             )}
 
@@ -264,12 +320,13 @@ function StreamBuilderInner({ inputName }: { inputName?: string }) {
 
 export interface StreamBuilderProps {
     inputName?: string;
+    cloneName?: string;
 }
 
-export function StreamBuilder({ inputName }: StreamBuilderProps) {
+export function StreamBuilder({ inputName, cloneName }: StreamBuilderProps) {
     return (
         <BuilderProvider>
-            <StreamBuilderInner inputName={inputName} />
+            <StreamBuilderInner inputName={inputName} cloneName={cloneName} />
         </BuilderProvider>
     );
 }

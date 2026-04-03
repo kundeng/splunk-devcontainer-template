@@ -7,7 +7,7 @@
 
 import { createRESTURL } from '@splunk/splunk-utils/url';
 import { getDefaultFetchInit } from '@splunk/splunk-utils/fetch';
-import type { InputSummary, AccountSummary, InputPayload, TestResult, ValidationResult } from '../types';
+import type { InputSummary, AccountSummary, InputPayload, TestResult, ValidationResult, StreamHealth } from '../types';
 
 const JSON_PARAMS = 'output_mode=json&count=0';
 async function splunkFetch(path: string, init?: RequestInit): Promise<any> {
@@ -138,6 +138,33 @@ export async function listIndexes(): Promise<string[]> {
     return parseEntries(data, (name) => name);
 }
 
+// ── Stream Health (KV store) ──
+
+export async function getStreamHealth(): Promise<StreamHealth[]> {
+    try {
+        const url = createRESTURL('storage/collections/data/urc_stream_health');
+        const defaults = getDefaultFetchInit();
+        const resp = await fetch(`${url}?output_mode=json`, {
+            ...defaults,
+            headers: { ...defaults.headers },
+        });
+
+        if (!resp.ok) return []; // graceful degradation
+
+        const entries: any[] = await resp.json();
+        return entries.map((e: any) => ({
+            name: e._key || e.stream_name || '',
+            lastRun: e.last_run || null,
+            lastStatus: e.last_status || null,
+            lastError: e.last_error || null,
+            lastRecordCount: parseInt(e.last_record_count, 10) || 0,
+            errorCount24h: parseInt(e.error_count_24h, 10) || 0,
+        }));
+    } catch {
+        return []; // KV store may not exist yet
+    }
+}
+
 // ── Test Connection ──
 
 export async function testConnection(
@@ -160,7 +187,7 @@ export async function testConnection(
     const records = payload.records || [];
     const validation: ValidationResult[] = payload.validation || [];
 
-    return {
+    const result: TestResult = {
         status: payload.status || 'error',
         message: payload.message,
         records,
@@ -169,6 +196,41 @@ export async function testConnection(
         detectedFields: detectFields(records),
         timestampCandidates: detectTimestamps(records),
     };
+
+    updateAccountHealth(accountName, payload.status === 'success' ? 'success' : 'error');
+
+    return result;
+}
+
+// ── Account Health (session-level tracking) ──
+
+const ACCOUNT_HEALTH_KEY = 'urc-account-health';
+
+export interface AccountHealth {
+    lastTestStatus: 'success' | 'error';
+    lastTestTime: string; // ISO timestamp
+}
+
+export function getAccountHealthMap(): Record<string, AccountHealth> {
+    try {
+        const raw = sessionStorage.getItem(ACCOUNT_HEALTH_KEY);
+        return raw ? JSON.parse(raw) : {};
+    } catch {
+        return {};
+    }
+}
+
+export function updateAccountHealth(accountName: string, status: 'success' | 'error'): void {
+    try {
+        const map = getAccountHealthMap();
+        map[accountName] = {
+            lastTestStatus: status,
+            lastTestTime: new Date().toISOString(),
+        };
+        sessionStorage.setItem(ACCOUNT_HEALTH_KEY, JSON.stringify(map));
+    } catch {
+        // ignore
+    }
 }
 
 export async function validateManifest(manifest: string): Promise<ValidationResult[]> {

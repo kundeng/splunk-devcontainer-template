@@ -6,7 +6,10 @@ import React, { useCallback } from 'react';
 import styled from 'styled-components';
 import RadioBar from '@splunk/react-ui/RadioBar';
 import Chip from '@splunk/react-ui/Chip';
+import Text from '@splunk/react-ui/Text';
+import Select from '@splunk/react-ui/Select';
 import { variables } from '@splunk/themes';
+import Filter from '@splunk/react-icons/Filter';
 import { DASHBOARD } from '../content';
 import { useDashboard } from '../context/DashboardContext';
 
@@ -39,7 +42,7 @@ const Separator = styled.div`
 `;
 
 export default function TagFilter() {
-    const { allTags, state, setSelectedTags, setSelectedStatus } = useDashboard();
+    const { allTags, state, setSelectedTags, setSelectedStatus, searchQuery, setSearchQuery, groupBy, setGroupBy } = useDashboard();
     const { selectedTags, selectedStatus } = state;
 
     const handleTagClick = useCallback(
@@ -60,13 +63,34 @@ export default function TagFilter() {
         [setSelectedStatus]
     );
 
+    const handleGroupByChange = useCallback(
+        (_e: any, { value }: any) => {
+            setGroupBy(value === 'none' ? null : value);
+        },
+        [setGroupBy]
+    );
+
     return (
         <FilterRow>
+            <FilterGroup>
+                <Text
+                    value={searchQuery}
+                    onChange={(_e: any, { value }: any) => setSearchQuery(value)}
+                    placeholder="Search streams..."
+                    icon={<Filter />}
+                    style={{ width: 220 }}
+                    aria-label="Search streams"
+                />
+            </FilterGroup>
+
+            <Separator />
+
             <FilterGroup>
                 <FilterLabel>Status:</FilterLabel>
                 <RadioBar value={selectedStatus} onChange={handleStatusChange}>
                     <RadioBar.Option value="all" label={DASHBOARD.statusFilter.all} />
                     <RadioBar.Option value="active" label={DASHBOARD.statusFilter.active} />
+                    <RadioBar.Option value="error" label="Error" />
                     <RadioBar.Option value="disabled" label={DASHBOARD.statusFilter.disabled} />
                 </RadioBar>
             </FilterGroup>
@@ -94,6 +118,17 @@ export default function TagFilter() {
                     </FilterGroup>
                 </>
             )}
+
+            <Separator />
+
+            <FilterGroup>
+                <FilterLabel>Group by:</FilterLabel>
+                <Select value={groupBy || 'none'} onChange={handleGroupByChange} style={{ width: 130 }}>
+                    <Select.Option value="none" label="None" />
+                    <Select.Option value="account" label="Account" />
+                    <Select.Option value="tags" label="Tag" />
+                </Select>
+            </FilterGroup>
         </FilterRow>
     );
 }

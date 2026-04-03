@@ -11,8 +11,10 @@ import Button from '@splunk/react-ui/Button';
 import Plus from '@splunk/react-icons/Plus';
 import TrashCanCross from '@splunk/react-icons/TrashCanCross';
 
+import Message from '@splunk/react-ui/Message';
 import { useBuilder } from '../../context/BuilderContext';
 import { SECTIONS } from '../../content';
+import { getCrossFieldWarnings } from '../../utils/validators';
 import { SectionHeader } from '../SectionHeader';
 import { SchemaSection } from '../form/SchemaSection';
 import {
@@ -80,8 +82,17 @@ export function DataMappingTab() {
         [transformations, dispatch]
     );
 
+    const crossFieldWarnings = getCrossFieldWarnings(state).filter(
+        (w) => w.field !== 'httpMethod' // httpMethod warnings go on ConnectionTab
+    );
+
     return (
         <TabContent>
+            {crossFieldWarnings.length > 0 && crossFieldWarnings.map((w, i) => (
+                <Message key={i} type="warning" style={{ marginBottom: 8 }}>
+                    {w.message}
+                </Message>
+            ))}
             {/* Core extraction */}
             <SchemaSection
                 title="Record Selector"

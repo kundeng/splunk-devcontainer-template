@@ -5,15 +5,16 @@ import { StreamBuilder } from '@splunk/urc-builder';
 
 import { StyledContainer } from './Styles';
 
-// Read input name from URL query params for edit mode
+// Read input name from URL query params for edit mode or clone mode
 const params = new URLSearchParams(window.location.search);
 const inputName = params.get('input') || undefined;
+const cloneName = params.get('clone') || undefined;
 
 getUserTheme()
     .then((theme) => {
         layout(
             <StyledContainer>
-                <StreamBuilder inputName={inputName} />
+                <StreamBuilder inputName={inputName} cloneName={cloneName} />
             </StyledContainer>,
             {
                 theme,

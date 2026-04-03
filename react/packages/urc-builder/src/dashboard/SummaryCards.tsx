@@ -53,14 +53,16 @@ const CardLabel = styled.div`
 `;
 
 export default function SummaryCards() {
-    const { state } = useDashboard();
+    const { state, healthMap } = useDashboard();
     const total = state.inputs.length;
     const active = state.inputs.filter((i) => !i.disabled).length;
     const disabled = state.inputs.filter((i) => i.disabled).length;
+    const errored = state.inputs.filter((i) => !i.disabled && healthMap[i.name]?.lastStatus === 'error').length;
 
     const cards = [
         { ...DASHBOARD.cards.total, value: total, color: variables.infoColor },
         { ...DASHBOARD.cards.active, value: active, color: variables.accentColorPositive },
+        { label: 'Errors', icon: DASHBOARD.cards.total.icon, value: errored, color: '#d41f1c' },
         { ...DASHBOARD.cards.disabled, value: disabled, color: variables.contentColorMuted },
     ];
 
@@ -68,7 +70,7 @@ export default function SummaryCards() {
         <ColumnLayout gutter={12}>
             <ColumnLayout.Row>
                 {cards.map((card) => (
-                    <ColumnLayout.Column key={card.label} span={4}>
+                    <ColumnLayout.Column key={card.label} span={3}>
                         <CardAccent $color={card.color}>
                             <IconWrap $color={card.color}>{card.icon}</IconWrap>
                             <CardContent>

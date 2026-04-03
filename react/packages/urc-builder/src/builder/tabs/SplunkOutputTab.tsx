@@ -20,6 +20,8 @@ import { useBuilder } from '../../context/BuilderContext';
 import { listIndexes } from '../../services/splunk-api';
 import { SECTIONS, FIELDS } from '../../content';
 import { SectionHeader } from '../SectionHeader';
+import { TagInput } from '../components/TagInput';
+import { parseTags, formatTags } from '../../utils/tag-utils';
 
 const SectionCard = styled.div`
     background: ${variables.backgroundColorPage};
@@ -104,10 +106,12 @@ const SplunkOutputTab: React.FC = () => {
                         </ControlGroup>
 
                         <ControlGroup label={FIELDS.tags.label} help={FIELDS.tags.help}>
-                            <Text
-                                value={state.tags}
-                                onChange={setField('tags')}
-                                placeholder="e.g. devops, security"
+                            <TagInput
+                                tags={parseTags(state.tags)}
+                                allTags={[]}
+                                onChange={(newTags) =>
+                                    dispatch({ type: 'SET_FIELD', path: 'tags', value: formatTags(newTags) })
+                                }
                             />
                         </ControlGroup>
                     </SectionCard>

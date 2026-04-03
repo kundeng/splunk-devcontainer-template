@@ -8,6 +8,8 @@ import Button from '@splunk/react-ui/Button';
 import { variables } from '@splunk/themes';
 import { useDashboard } from '../context/DashboardContext';
 import { toggleInput, deleteInput, listInputs } from '../services/splunk-api';
+import { exportStreams } from '../utils/export-import';
+import { downloadFile } from '../utils/download';
 
 const ActionsBar = styled.div`
     display: flex;
@@ -27,7 +29,7 @@ const SelectionCount = styled.span`
 `;
 
 export default function BulkActions() {
-    const { state, setInputs, setSelectedRows, setLoading, setError } = useDashboard();
+    const { state, filteredInputs, setInputs, setSelectedRows, setLoading, setError } = useDashboard();
     const { selectedRows } = state;
 
     const refreshInputs = useCallback(async () => {
@@ -77,6 +79,13 @@ export default function BulkActions() {
         }
     }, [selectedRows, refreshInputs, setLoading, setError]);
 
+    const handleExport = useCallback(() => {
+        const selectedInputs = filteredInputs.filter((i) => selectedRows.includes(i.name));
+        if (selectedInputs.length === 0) return;
+        const yamlContent = exportStreams(selectedInputs);
+        downloadFile(yamlContent, 'urc-streams-export.yaml');
+    }, [selectedRows, filteredInputs]);
+
     if (selectedRows.length === 0) {
         return null;
     }
@@ -91,6 +100,9 @@ export default function BulkActions() {
             </Button>
             <Button appearance="secondary" onClick={handleDisable}>
                 Disable Selected
+            </Button>
+            <Button appearance="secondary" onClick={handleExport}>
+                Export Selected
             </Button>
             <Button appearance="destructive" onClick={handleDelete}>
                 Delete Selected

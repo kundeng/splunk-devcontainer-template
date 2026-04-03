@@ -146,6 +146,17 @@ export interface DashboardState {
     error: string | null;
 }
 
+// ── Stream health (from KV store) ──
+
+export interface StreamHealth {
+    name: string;
+    lastRun: string | null;
+    lastStatus: 'success' | 'error' | null;
+    lastError: string | null;
+    lastRecordCount: number;
+    errorCount24h: number;
+}
+
 // ── UCC input payload (for create/update) ──
 
 export interface InputPayload {
