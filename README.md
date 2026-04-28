@@ -30,7 +30,7 @@ A Docker-out-of-Docker development environment for building Splunk applications.
 ```
 ┌──────────────────┐     ┌──────────────────────────┐
 │  Dev Container   │     │  Docker Compose Stack     │
-│  Node 22         │────▶│  Splunk Enterprise 9.4    │
+│  Node 22         │────▶│  Splunk Enterprise 10.2   │
 │  Python 3.12     │     │  (custom image: skip-     │
 │  Docker CLI      │     │   provision on restart)   │
 │  Go Task         │     │  UF / Cribl / DB (opt)    │
@@ -58,6 +58,12 @@ splunk/
       splunk-config-dev/       # Dev-mode Splunk settings (js_no_cache, enableWebDebug)
     deps.yml                   # Declarative Splunkbase dependency list
   stage/                       # Built tarballs (.tgz) — gitignored
+ucc/                           # UCC add-on development
+  example_app/                 # Skeleton UCC app (globalConfig + handler + fragments)
+    globalConfig.json          # UCC schema → drives UI, REST handlers, conf files
+    package/bin/               # Modular input handlers
+    package/lib/               # Python libraries
+    package/default.d/         # Conf fragments merged into UCC output after build
 react/                         # React/JS source (monorepo via @splunk/create)
 Taskfile.yml                   # All automation
 tests/e2e/                     # E2E test scripts (devcontainer + lifecycle)
@@ -166,6 +172,21 @@ task react:start            # webpack watch — stage/ updates live via symlink
 task react:build            # production webpack build (always rebuilds stage/)
 task react:package          # build + package stage/ as splunk/stage/<APP_NAME>.tgz for staging
 ```
+
+### UCC Add-on Development
+
+```bash
+task ucc:build              # UCC build (generates UI, REST handlers, conf files)
+task ucc:dev                # build + link into dev Splunk + refresh (fast iteration)
+task ucc:appinspect         # Splunk AppInspect validation
+task ucc:package            # build + package to splunk/stage/
+```
+
+The UCC build pipeline:
+1. `ucc-gen build` → generates the full app from `globalConfig.json` + `package/`
+2. Fragment merging → appends `package/default.d/*.conf` to UCC-generated conf files
+3. `python.required` injection → adds `python.required = 3.9` for Splunk 10.2+ compatibility
+4. `local/` cleanup → removes dev-time state that fails AppInspect
 
 ### Python & Testing
 

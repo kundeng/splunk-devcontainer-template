@@ -10,36 +10,80 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Shellcheck
         run: |
           sudo apt-get install -y shellcheck
-          find splunk/ tests/ -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning || true
+          find splunk/ -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning || true
 
-  build-and-inspect:
+  ucc-build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Read APP_NAME from .env
-        id: env
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Find UCC app
+        id: find
         run: |
-          APP_NAME=$(grep -E '^APP_NAME=' .env 2>/dev/null | head -1 | cut -d= -f2- || echo "")
-          if [ -z "$APP_NAME" ]; then
-            echo "APP_NAME not set in .env — skipping app build"
+          # Find first directory under ucc/ that has a globalConfig.json
+          APP_DIR=$(find ucc/ -maxdepth 2 -name "globalConfig.json" -printf "%h\n" | head -1)
+          if [ -z "$APP_DIR" ]; then
+            echo "No UCC app found — skipping build"
             echo "skip=true" >> "$GITHUB_OUTPUT"
           else
+            APP_NAME=$(basename "$APP_DIR")
+            echo "app_dir=$APP_DIR" >> "$GITHUB_OUTPUT"
             echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
-            echo "app_dir=splunk/config/apps/$APP_NAME" >> "$GITHUB_OUTPUT"
             echo "skip=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Build and inspect app
-        if: steps.env.outputs.skip != 'true'
-        uses: VatsalJagani/splunk-app-action@v5
-        with:
-          app_dir: ${{ steps.env.outputs.app_dir }}
-          local_app_inspect: true
+      - name: Install UCC framework
+        if: steps.find.outputs.skip != 'true'
+        run: pip install splunk-add-on-ucc-framework
+
+      - name: UCC build
+        if: steps.find.outputs.skip != 'true'
+        working-directory: ${{ steps.find.outputs.app_dir }}
+        run: |
+          ucc-gen build --source package --config globalConfig.json --output-dir ../output
+
+      - name: Post-build fixups
+        if: steps.find.outputs.skip != 'true'
+        run: |
+          APP="ucc/output/${{ steps.find.outputs.app_name }}"
+          # Merge conf fragments
+          FRAG_DIR="${{ steps.find.outputs.app_dir }}/package/default.d"
+          if [ -d "${FRAG_DIR}" ]; then
+            for frag in "${FRAG_DIR}"/*.conf; do
+              [ -f "${frag}" ] || continue
+              target="${APP}/default/$(basename "${frag}")"
+              echo "" >> "${target}"
+              cat "${frag}" >> "${target}"
+            done
+          fi
+          # Add python.required for Splunk 10.2+
+          for conf in "${APP}/default/restmap.conf" "${APP}/default/inputs.conf"; do
+            if [ -f "${conf}" ]; then
+              sed -i '/^python\.version\s*=/a python.required = 3.9' "${conf}"
+            fi
+          done
+
+      - name: Install AppInspect
+        if: steps.find.outputs.skip != 'true'
+        run: pip install splunk-appinspect
+
+      - name: Run AppInspect
+        if: steps.find.outputs.skip != 'true'
+        run: |
+          splunk-appinspect inspect "ucc/output/${{ steps.find.outputs.app_name }}" \
+            --mode precert \
+            --included-tags cloud 2>&1 | tee appinspect.log
+          if grep -qE "^\s+error:\s+[1-9]|^\s+failure:\s+[1-9]" appinspect.log; then
+            echo "AppInspect found errors or failures"
+            exit 1
+          fi

@@ -1,9 +1,6 @@
-# Windsurf/AI workflow tooling — not part of the template
+# AI workflow tooling — not part of the template
 .windloop/
-AGENTS.md
-
-# Dev/test tooling — not part of the template
-tests/
+.ck/
 
 # Environment variables
 /.env
@@ -92,12 +89,11 @@ Desktop.ini
 logs/
 *.log
 
+# AI agent state
 project_rules/**
 memory/**
 /.windsurf/
-/.claude/*
-!/.claude/memory/
-!/.claude/settings.local.json
+/.claude/
 
 splunk/stage/*
 !splunk/stage/.gitkeep

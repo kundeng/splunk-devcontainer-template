@@ -5,21 +5,19 @@ Docker-out-of-Docker development environment for building Splunk applications.
 ## Repository Layout
 
 - **`Taskfile.yml`** — all automation (`task dev:up`, `task ucc:build`, `task ucc:appinspect`, etc.)
-- **`.devcontainer/`** — devcontainer config, compose files (Python 3.13)
-- **`splunk/`** — Dockerfile, entrypoint wrapper, Splunk container
-- **`ucc/`** — UCC add-on source (globalConfig.json + package/lib/)
+- **`.devcontainer/`** — devcontainer config, compose files
+- **`splunk/`** — Dockerfile, entrypoint wrapper, Splunk container config
+- **`ucc/`** — UCC add-on source (globalConfig.json + package/)
 - **`react/`** — React UI workspace (optional, for custom UCC pages)
-- **`docs/`** — detailed guides (tooling, UCC golden path, testing strategy)
 
 ## Key Workflows
 
 ### UCC Add-on Development
 ```bash
-task ucc:init APP_NAME=my_addon    # scaffold globalConfig.json + package/
 task ucc:build                      # ucc-gen build → ucc/output/
-task ucc:link                       # symlink into dev Splunk
 task ucc:dev                        # build + link + refresh (fast loop)
 task ucc:appinspect                 # run Splunk AppInspect
+task ucc:package                    # build + package to splunk/stage/
 ```
 
 ### Build Pipeline
@@ -29,17 +27,20 @@ ucc/<app>/                 →  ucc/output/<app>/              →  /opt/splunk/
  package/lib/)                 conf, UI, vendored deps)           bind-mounted from host)
 ```
 
+Post-build fixups:
+1. Fragment merging — `package/default.d/*.conf` appended to UCC output
+2. `python.required = 3.9` injection — for Splunk 10.2+ / AppInspect compliance
+3. `local/` cleanup — removes dev-time state that fails AppInspect
+
+### Splunk Lifecycle
+```bash
+task dev:up                         # start Splunk (skip-provision on restart)
+task dev:refresh                    # reload configs (~2s)
+task dev:restartd                   # restart splunkd (~10s)
+task dev:clean                      # full reset (removes volumes)
+```
+
 ### Testing Pattern
-- **pytest + responses** for mocked HTTP (no network, no credentials needed)
-- **unittest.mock** for time (rate limiters), Splunk SDK (passwords, KV Store)
-- See `docs/testing-pure-python-engine.md` for full tutorial
-
-## Docs
-
-- **`docs/TOOLING-LESSON.md`** — React tooling stack explained ground-up
-- **`docs/ucc-golden-path.md`** — UCC add-on handbook with lessons learned
-- **`docs/testing-pure-python-engine.md`** — pytest/mocking tutorial with real examples
-
-## Spec Workflow
-
-This project uses the `spec-workflow` MCP for spec-driven development. Specs live in `.spec-workflow/specs/`.
+- **pytest + responses** for mocked HTTP
+- **live API tests** with `@pytest.mark.live` (real HTTP, skippable in CI)
+- Integration conftest overrides mock for live-marked tests

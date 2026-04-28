@@ -8,40 +8,80 @@ on:
 jobs:
   build-and-release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Read APP_NAME from .env
-        id: env
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+
+      - name: Install tools
+        run: pip install splunk-add-on-ucc-framework splunk-appinspect
+
+      - name: Extract version from tag
+        id: meta
         run: |
-          APP_NAME=$(grep -E '^APP_NAME=' .env 2>/dev/null | head -1 | cut -d= -f2- || echo "")
-          if [ -z "$APP_NAME" ]; then
-            echo "::error::APP_NAME not set in .env — cannot build release"
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Find UCC app
+        id: find
+        run: |
+          APP_DIR=$(find ucc/ -maxdepth 2 -name "globalConfig.json" -printf "%h\n" | head -1)
+          if [ -z "$APP_DIR" ]; then
+            echo "::error::No UCC app found"
             exit 1
           fi
-          APP_DIR="splunk/config/apps/$APP_NAME"
-          if [ ! -d "$APP_DIR" ]; then
-            echo "::error::App directory not found: $APP_DIR"
-            exit 1
-          fi
-          # Read version from app.conf if available
-          APP_VERSION=$(grep -E '^\s*version\s*=' "$APP_DIR/default/app.conf" 2>/dev/null | head -1 | sed 's/.*=\s*//' || echo "0.0.0")
-          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
+          APP_NAME=$(basename "$APP_DIR")
           echo "app_dir=$APP_DIR" >> "$GITHUB_OUTPUT"
-          echo "app_version=$APP_VERSION" >> "$GITHUB_OUTPUT"
-          echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          echo "app_name=$APP_NAME" >> "$GITHUB_OUTPUT"
 
-      - name: Build and inspect app (Splunkbase API)
-        uses: VatsalJagani/splunk-app-action@v5
-        with:
-          app_dir: ${{ steps.env.outputs.app_dir }}
-          splunkbase_username: ${{ secrets.SPLUNKBASE_USERNAME }}
-          splunkbase_password: ${{ secrets.SPLUNKBASE_PASSWORD }}
+      - name: UCC build
+        working-directory: ${{ steps.find.outputs.app_dir }}
+        run: |
+          ucc-gen build --source package --config globalConfig.json --output-dir ../output
 
-      - name: Upload release artifact
-        uses: actions/upload-artifact@v4
+      - name: Post-build fixups
+        run: |
+          APP="ucc/output/${{ steps.find.outputs.app_name }}"
+          FRAG_DIR="${{ steps.find.outputs.app_dir }}/package/default.d"
+          if [ -d "${FRAG_DIR}" ]; then
+            for frag in "${FRAG_DIR}"/*.conf; do
+              [ -f "${frag}" ] || continue
+              target="${APP}/default/$(basename "${frag}")"
+              echo "" >> "${target}"
+              cat "${frag}" >> "${target}"
+            done
+          fi
+          for conf in "${APP}/default/restmap.conf" "${APP}/default/inputs.conf"; do
+            if [ -f "${conf}" ]; then
+              sed -i '/^python\.version\s*=/a python.required = 3.9' "${conf}"
+            fi
+          done
+          sed -i "s/^version\s*=.*/version = ${{ steps.meta.outputs.version }}/" "${APP}/default/app.conf"
+
+      - name: Run AppInspect
+        run: |
+          splunk-appinspect inspect "ucc/output/${{ steps.find.outputs.app_name }}" \
+            --mode precert \
+            --included-tags cloud 2>&1 | tee appinspect.log
+          if grep -qE "^\s+error:\s+[1-9]|^\s+failure:\s+[1-9]" appinspect.log; then
+            echo "AppInspect found errors or failures"
+            exit 1
+          fi
+
+      - name: Package tarball
+        run: |
+          cd ucc/output
+          tar czf "${{ steps.find.outputs.app_name }}-${{ steps.meta.outputs.version }}.tgz" "${{ steps.find.outputs.app_name }}/"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
         with:
-          name: ${{ steps.env.outputs.app_name }}-${{ steps.env.outputs.tag }}
-          path: "**/${{ steps.env.outputs.app_name }}*.tgz"
-          retention-days: 90
+          files: ucc/output/${{ steps.find.outputs.app_name }}-${{ steps.meta.outputs.version }}.tgz
+          generate_release_notes: true
