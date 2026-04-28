@@ -182,11 +182,19 @@ task ucc:appinspect         # Splunk AppInspect validation
 task ucc:package            # build + package to splunk/stage/
 ```
 
-The UCC build pipeline:
-1. `ucc-gen build` → generates the full app from `globalConfig.json` + `package/`
-2. Fragment merging → appends `package/default.d/*.conf` to UCC-generated conf files
-3. `python.required` injection → adds `python.required = 3.9` for Splunk 10.2+ compatibility
-4. `local/` cleanup → removes dev-time state that fails AppInspect
+**Why post-build fixups?** `ucc-gen build` generates conf files from `globalConfig.json`
+using its own internal templates. You cannot edit these directly — next build overwrites them.
+Three fixups run automatically after every UCC build:
+
+1. **Fragment merging** — `package/default.d/*.conf` gets appended to UCC output.
+   Use this for custom REST endpoints or conf stanzas that UCC's schema doesn't support.
+2. **`python.required` injection** — UCC 6.x only emits `python.version = python3` (old syntax).
+   AppInspect 4.2+ requires `python.required = 3.9` for Splunk 10.2 compatibility.
+   We can't change UCC's pip-installed templates, so we sed-inject after build.
+3. **`local/` cleanup** — Splunk writes runtime state (passwords, inputs) to `local/` during dev.
+   If this leaks into the package, AppInspect rejects it.
+
+None of this is related to React UI. It's purely about UCC owning the conf file generation.
 
 ### Python & Testing
 
