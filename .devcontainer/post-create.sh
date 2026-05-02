@@ -31,9 +31,10 @@ if [ ! -f /workspace/.env ] && [ -f /workspace/splunk.env.example ]; then
 fi
 
 # ── Ensure directory structure ───────────────────────────────────────
-mkdir -p /workspace/splunk/config/apps
-mkdir -p /workspace/splunk/stage
-mkdir -p /workspace/packages
+mkdir -p /workspace/infra/config
+mkdir -p /workspace/infra/deps
+mkdir -p /workspace/apps
+mkdir -p /workspace/output
 
 # ── Claude Code memory persistence ──────────────────────────────────
 # Symlink Claude memory into the project so it survives container rebuilds

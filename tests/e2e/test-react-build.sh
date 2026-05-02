@@ -133,7 +133,7 @@ fi
 
 log "Test react:package"
 
-TGZ="splunk/stage/${TEST_REACT_APP}.tgz"
+TGZ="infra/deps/${TEST_REACT_APP}.tgz"
 rm -f "${TGZ}"
 
 if task react:package APP_NAME="${TEST_REACT_APP}" 2>&1 | tail -3; then

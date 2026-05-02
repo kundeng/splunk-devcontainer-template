@@ -6,23 +6,23 @@ Docker-out-of-Docker development environment for building Splunk applications.
 
 - **`Taskfile.yml`** — all automation (`task dev:up`, `task ucc:build`, `task ucc:appinspect`, etc.)
 - **`.devcontainer/`** — devcontainer config, compose files
-- **`splunk/`** — Dockerfile, entrypoint wrapper, Splunk container config
-- **`ucc/`** — UCC add-on source (globalConfig.json + package/)
-- **`react/`** — React UI workspace (optional, for custom UCC pages)
+- **`infra/`** — Dockerfile, entrypoint wrapper, Splunk config, deps
+- **`apps/`** — App source (UCC add-ons, React apps)
+- **`output/`** — Build output (gitignored)
 
 ## Key Workflows
 
 ### UCC Add-on Development
 ```bash
-task ucc:build                      # ucc-gen build → ucc/output/
+task ucc:build                      # ucc-gen build → output/
 task ucc:dev                        # build + link + refresh (fast loop)
 task ucc:appinspect                 # run Splunk AppInspect
-task ucc:package                    # build + package to splunk/stage/
+task ucc:package                    # build + package to infra/deps/
 ```
 
 ### Build Pipeline
 ```
-ucc/<app>/                 →  ucc/output/<app>/              →  /opt/splunk/etc/apps/<app>
+apps/<app>/                →  output/<app>/                 →  /opt/splunk/etc/apps/<app>
 (source: globalConfig +       (ucc-gen output: REST handlers,     (symlink via ucc:link,
  package/lib/)                 conf, UI, vendored deps)           bind-mounted from host)
 ```

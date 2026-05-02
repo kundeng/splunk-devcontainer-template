@@ -23,19 +23,19 @@ else
 fi
 
 # Verify scaffolded structure
-if [ -f "ucc/${TEST_UCC_APP}/globalConfig.json" ]; then
+if [ -f "apps/${TEST_UCC_APP}/globalConfig.json" ]; then
     pass "globalConfig.json exists"
 else
     fail "globalConfig.json missing"
 fi
 
-if [ -f "ucc/${TEST_UCC_APP}/package/app.manifest" ]; then
+if [ -f "apps/${TEST_UCC_APP}/package/app.manifest" ]; then
     pass "package/app.manifest exists"
 else
     fail "package/app.manifest missing"
 fi
 
-if [ -f "ucc/${TEST_UCC_APP}/package/bin/${TEST_UCC_APP}_input_helper.py" ]; then
+if [ -f "apps/${TEST_UCC_APP}/package/bin/${TEST_UCC_APP}_input_helper.py" ]; then
     pass "input helper module exists"
 else
     fail "input helper module missing"
@@ -70,7 +70,7 @@ else
 fi
 
 # Verify build output structure
-BUILD_DIR="ucc/output/${TEST_UCC_APP}"
+BUILD_DIR="output/${TEST_UCC_APP}"
 
 if [ -d "${BUILD_DIR}/bin" ]; then
     pass "build output has bin/"
@@ -171,12 +171,12 @@ else
     echo "    Output (last 300 chars): ${OUTPUT: -300}"
 fi
 
-if ls splunk/stage/${TEST_UCC_APP}*.tar.gz >/dev/null 2>&1; then
-    TGZ=$(ls splunk/stage/${TEST_UCC_APP}*.tar.gz | head -1)
+if ls infra/deps/${TEST_UCC_APP}*.tar.gz >/dev/null 2>&1; then
+    TGZ=$(ls infra/deps/${TEST_UCC_APP}*.tar.gz | head -1)
     SIZE=$(stat -c%s "$TGZ" 2>/dev/null || stat -f%z "$TGZ" 2>/dev/null)
     pass "tarball exists: $(basename "$TGZ") (${SIZE} bytes)"
 else
-    fail "tarball not found in splunk/stage/"
+    fail "tarball not found in infra/deps/"
 fi
 
 # ── Phase 2: Online (link into running Splunk, verify via REST) ──────

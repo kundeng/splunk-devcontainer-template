@@ -37,7 +37,7 @@ A Docker-out-of-Docker development environment for building Splunk applications.
 │  AppInspect      │     └──────────────────────────┘
 └──────────────────┘               ▲
         │                          │
-        └── splunk/config/apps/ ───┘  (bind-mounted + symlinked)
+        └── infra/config/ ──────────┘  (bind-mounted + symlinked)
 ```
 
 A custom entrypoint wrapper detects whether Splunk has already been provisioned. On restart it skips Ansible and starts splunkd directly (~30s vs ~90s).
@@ -48,27 +48,26 @@ A custom entrypoint wrapper detects whether Splunk has already been provisioned.
 .devcontainer/
   devcontainer.json            # Tools-only dev container
   docker-compose.yml           # Dev Splunk (target: dev, bind mounts, port 8000)
-  docker-compose.staging.yml   # Staging Splunk (reuses dev image, mounts splunk/stage/, port 18000)
+  docker-compose.staging.yml   # Staging Splunk (reuses dev image, mounts infra/deps/, port 18000)
   post-create.sh               # Tool install + Splunk image build
-splunk/
+infra/
   Dockerfile                   # Multi-stage: base → dev
   entrypoint-wrapper.sh        # Skip-provision + auto-discover /tmp/apps/*.tgz for SPLUNK_APPS_URL
-  config/
-    apps/                      # Splunk app source directories (symlinked into Splunk)
-      splunk-config-dev/       # Dev-mode Splunk settings (js_no_cache, enableWebDebug)
+  config/                      # Splunk app source directories (symlinked into Splunk)
+    splunk-config-dev/         # Dev-mode Splunk settings (js_no_cache, enableWebDebug)
+  deps/
     deps.yml                   # Declarative Splunkbase dependency list
-  stage/                       # Built tarballs (.tgz) — gitignored
-ucc/                           # UCC add-on development
+  scripts/                     # Helper scripts (deps-install.py)
+apps/                          # App source (UCC add-ons, React apps)
   example_app/                 # Skeleton UCC app (globalConfig + handler + fragments)
     globalConfig.json          # UCC schema → drives UI, REST handlers, conf files
     package/bin/               # Modular input handlers
     package/lib/               # Python libraries
     package/default.d/         # Conf fragments merged into UCC output after build
-react/                         # React/JS source (monorepo via @splunk/create)
+output/                        # Build output (gitignored)
 Taskfile.yml                   # All automation
 tests/e2e/                     # E2E test scripts (devcontainer + lifecycle)
 .env                           # Secrets/config — gitignored
-splunk.env.example             # Template for .env
 ```
 
 ## Developer Workflow
@@ -78,7 +77,7 @@ splunk.env.example             # Template for .env
 1. Open repo in VS Code → "Reopen in Container"
 2. `post-create.sh` installs tools and builds the Splunk image
 3. `task dev:up` → starts Splunk, syncs app symlinks (full Ansible provisioning on first boot, ~50s)
-4. `task deps:install` → install Splunkbase dependencies declared in `splunk/config/deps.yml` (optional)
+4. `task deps:install` → install Splunkbase dependencies declared in `infra/deps/deps.yml` (optional)
 
 ### Creating a New App
 
@@ -108,11 +107,11 @@ splunk.env.example             # Template for .env
 
 1. `task stage:deploy` → packages all apps, starts staging, installs via CLI
    - Or manually: `task stage:package` → `task stage:up` → `task stage:install`
-2. For React apps: `task react:package` first (puts tgz in `splunk/stage/`), then `task stage:deploy`
+2. For React apps: `task react:package` first (puts tgz in `infra/deps/`), then `task stage:deploy`
 
 ### Installing Splunkbase Dependencies
 
-Declare dependencies in `splunk/config/deps.yml`:
+Declare dependencies in `infra/deps/deps.yml`:
 
 ```yaml
 dependencies:
@@ -147,7 +146,7 @@ task dev:status             # check container status
 
 ```bash
 task stage:deploy           # package + start + install (full pipeline)
-task stage:package          # package all apps to splunk/stage/
+task stage:package          # package all apps to infra/deps/
 task stage:up               # start staging container + health wait
 task stage:install          # install tgz into running staging
 task stage:down             # stop staging container
@@ -159,7 +158,7 @@ task stage:logs             # follow staging container logs
 
 ```bash
 task app:create APP_NAME=x  # scaffold + symlink + refresh Splunk (no recreate)
-task app:package APP_NAME=x # package to splunk/stage/x.tgz
+task app:package APP_NAME=x # package to infra/deps/x.tgz
 ```
 
 ### React UI
@@ -170,7 +169,7 @@ task react:add-page         # add a page/component via @splunk/create (interacti
 task react:link             # symlink stage/ into dev Splunk (auto-builds if stage/ missing)
 task react:start            # webpack watch — stage/ updates live via symlink
 task react:build            # production webpack build (always rebuilds stage/)
-task react:package          # build + package stage/ as splunk/stage/<APP_NAME>.tgz for staging
+task react:package          # build + package stage/ as infra/deps/<APP_NAME>.tgz for staging
 ```
 
 ### UCC Add-on Development
@@ -179,7 +178,7 @@ task react:package          # build + package stage/ as splunk/stage/<APP_NAME>.
 task ucc:build              # UCC build (generates UI, REST handlers, conf files)
 task ucc:dev                # build + link into dev Splunk + refresh (fast iteration)
 task ucc:appinspect         # Splunk AppInspect validation
-task ucc:package            # build + package to splunk/stage/
+task ucc:package            # build + package to infra/deps/
 ```
 
 **Why post-build fixups?** `ucc-gen build` generates conf files from `globalConfig.json`
@@ -234,7 +233,7 @@ The entire `splunk/config/apps/` directory is bind-mounted to `/opt/splunk/dev-a
 - **`splunk-var` volume** — indexed data, KV store, search artifacts, provisioning marker
 - **`splunk-etc` volume** — Splunk config, installed apps, and app symlinks; persists across container recreation
 - **`/opt/splunk/dev-apps/`** — bind mount of `splunk/config/apps/` (live source)
-- **`splunk/stage/`** — built tarballs mounted to `/tmp/apps` in the container
+- **`infra/deps/`** — built tarballs mounted to `/tmp/apps` in the container
 
 `task dev:clean` removes all volumes for a full reset.
 

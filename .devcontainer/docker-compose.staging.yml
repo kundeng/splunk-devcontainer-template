@@ -1,5 +1,5 @@
 # Staging Splunk — separate instance for testing packaged apps.
-# Mounts splunk/stage/ so tgz files are available at /tmp/apps/.
+# Mounts infra/deps/ so tgz files are available at /tmp/apps/.
 # The entrypoint auto-discovers and installs them on first start.
 # You can also install apps manually via Splunk Web or CLI.
 # Runs on different ports so dev and staging can coexist.
@@ -10,7 +10,7 @@ services:
   splunk-staging:
     platform: linux/amd64
     build:
-      context: ../splunk
+      context: ../infra
       dockerfile: Dockerfile
       target: dev
       args:
@@ -31,7 +31,7 @@ services:
       - "18088:8088"   # HTTP Event Collector (staging)
     volumes:
       # Packaged apps — entrypoint auto-discovers *.tgz and installs on first start
-      - ${LOCAL_WORKSPACE_FOLDER:-..}/splunk/stage:/tmp/apps
+      - ${LOCAL_WORKSPACE_FOLDER:-..}/infra/deps:/tmp/apps
       - splunk-staging-var:/opt/splunk/var
       - splunk-staging-etc:/opt/splunk/etc
     restart: unless-stopped

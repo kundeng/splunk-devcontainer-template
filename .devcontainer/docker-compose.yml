@@ -1,13 +1,13 @@
 # Runtime services — managed independently from the devcontainer.
 # Start with: task splunk:up
-# Apps in splunk/config/apps/ are bind-mounted to /opt/splunk/dev-apps/ and
+# Apps in infra/config/ are bind-mounted to /opt/splunk/dev-apps/ and
 # symlinked into /opt/splunk/etc/apps/ by: task app:sync-links
 
 services:
   splunk:
     platform: linux/amd64
     build:
-      context: ../splunk
+      context: ../infra
       dockerfile: Dockerfile
       target: dev
       args:
@@ -33,16 +33,16 @@ services:
       - "5678:5678"   # Python debugpy (SA-VSCode remote debugging)
     volumes:
       # Staging area for tarballs (app:provision installs from here)
-      - ${LOCAL_WORKSPACE_FOLDER:-..}/splunk/stage:/tmp/apps
+      - ${LOCAL_WORKSPACE_FOLDER:-..}/infra/deps:/tmp/apps
       # Persistence — survives container recreation so skip-provision works
       - splunk-var:/opt/splunk/var
       - splunk-etc:/opt/splunk/etc
       # App source directories — symlinked into /opt/splunk/etc/apps/ by app:sync-links
-      - ${LOCAL_WORKSPACE_FOLDER:-..}/splunk/config/apps:/opt/splunk/dev-apps
+      - ${LOCAL_WORKSPACE_FOLDER:-..}/infra/config:/opt/splunk/dev-apps
       # React source — mounted so stage/ symlinks resolve inside container (react:link)
-      - ${LOCAL_WORKSPACE_FOLDER:-..}/react:/opt/splunk/react
+      - ${LOCAL_WORKSPACE_FOLDER:-..}/apps:/opt/splunk/react
       # UCC build output — symlinked into etc/apps/ by ucc:link (same pattern as dev-apps, react)
-      - ${LOCAL_WORKSPACE_FOLDER:-..}/ucc/output:/opt/splunk/ucc-apps
+      - ${LOCAL_WORKSPACE_FOLDER:-..}/output:/opt/splunk/ucc-apps
     restart: unless-stopped
 
   ## ── Optional sidecars (uncomment as needed) ──────────────────────

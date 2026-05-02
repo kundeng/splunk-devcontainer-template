@@ -16,15 +16,15 @@ else
 fi
 
 # Verify structure
-if [ -f "splunk/config/apps/${TEST_CMD_APP}/default/app.conf" ] && \
-   [ -d "splunk/config/apps/${TEST_CMD_APP}/bin" ]; then
+if [ -f "infra/config/${TEST_CMD_APP}/default/app.conf" ] && \
+   [ -d "infra/config/${TEST_CMD_APP}/bin" ]; then
     pass "app scaffold has correct structure (default/app.conf, bin/)"
 else
     fail "app scaffold missing expected structure"
 fi
 
 # Add a Python custom search command
-cat > "splunk/config/apps/${TEST_CMD_APP}/bin/test_command.py" << 'PYEOF'
+cat > "infra/config/${TEST_CMD_APP}/bin/test_command.py" << 'PYEOF'
 #!/usr/bin/env python3
 """Test custom search command — echoes input events with a test field."""
 import sys
@@ -44,14 +44,14 @@ if __name__ == '__main__':
     main()
 PYEOF
 
-mkdir -p "splunk/config/apps/${TEST_CMD_APP}/default"
-cat > "splunk/config/apps/${TEST_CMD_APP}/default/commands.conf" << 'CMDEOF'
+mkdir -p "infra/config/${TEST_CMD_APP}/default"
+cat > "infra/config/${TEST_CMD_APP}/default/commands.conf" << 'CMDEOF'
 [testcommand]
 filename = test_command.py
 chunked = false
 CMDEOF
 
-if [ -f "splunk/config/apps/${TEST_CMD_APP}/bin/test_command.py" ]; then
+if [ -f "infra/config/${TEST_CMD_APP}/bin/test_command.py" ]; then
     pass "Python custom search command added"
 else
     fail "Python custom search command not created"
@@ -94,7 +94,7 @@ fi
 log "Package test app"
 
 if task app:package APP_NAME="${TEST_CMD_APP}" 2>&1 | tail -3; then
-    if [ -f "splunk/stage/${TEST_CMD_APP}.tgz" ]; then
+    if [ -f "infra/deps/${TEST_CMD_APP}.tgz" ]; then
         pass "task app:package created tarball"
     else
         fail "tarball not found after app:package"

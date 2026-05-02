@@ -7,7 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=helpers.sh
 source "${SCRIPT_DIR}/helpers.sh"
 
-log "Test deps:install with splunk/config/deps.yml"
+log "Test deps:install with infra/deps/deps.yml"
 
 # First run: downloads and installs all deps listed in deps.yml.
 DEPS_OUTPUT=$(task deps:install 2>&1) || true

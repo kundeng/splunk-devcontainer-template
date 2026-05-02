@@ -7,17 +7,17 @@ vars:
   ENV_FILE: '.env'
   COMPOSE_FILE: '.devcontainer/docker-compose.yml'
   SPLUNK_SERVICE: 'splunk'
-  CONFIG_APPS_DIR: 'splunk/config/apps'
-  DEPS_FILE: 'splunk/config/deps.yml'
+  CONFIG_APPS_DIR: 'infra/config'
+  DEPS_FILE: 'infra/deps/deps.yml'
   COMPOSE_STAGING_FILE: '.devcontainer/docker-compose.staging.yml'
-  STAGE_DIR: 'splunk/stage'
+  STAGE_DIR: 'infra/deps'
   SPLUNK_BIN: '/opt/splunk/bin/splunk'
   SPLUNK_CONTAINER: 'splunk-dev'
   STAGING_CONTAINER: 'splunk-staging'
   STAGING_SERVICE: 'splunk-staging'
-  REACT_PACKAGES_DIR: 'react'
-  UCC_SRC_DIR: 'ucc'
-  UCC_OUTPUT_DIR: 'ucc/output'
+  REACT_PACKAGES_DIR: 'apps'
+  UCC_SRC_DIR: 'apps'
+  UCC_OUTPUT_DIR: 'output'
 
 tasks:
   default:
@@ -45,7 +45,7 @@ tasks:
         echo ""
         echo "App development:"
         echo "  task app:create APP_NAME=x  # scaffold a new Splunk app"
-        echo "  task app:package APP_NAME=x # package app dir into splunk/stage/<APP>.tgz"
+        echo "  task app:package APP_NAME=x # package app dir into infra/deps/<APP>.tgz"
         echo "  task deps:install           # install Splunkbase dependencies into dev container"
         echo ""
         echo "React development:"
@@ -55,7 +55,7 @@ tasks:
         echo "  task react:link             # symlink stage/ into dev Splunk (run once)"
         echo "  task react:start            # webpack watch (stage/ updates live via symlink)"
         echo "  task react:build            # production webpack build (rebuilds stage/)"
-        echo "  task react:package          # build + package React app into splunk/stage/<APP>.tgz"
+        echo "  task react:package          # build + package React app into infra/deps/<APP>.tgz"
         echo ""
         echo "UCC add-on development:"
         echo "  task ucc:init APP_NAME=x    # scaffold UCC add-on (globalConfig.json + package/)"
@@ -63,12 +63,12 @@ tasks:
         echo "  task ucc:build              # run ucc-gen build (generates UI, REST, conf)"
         echo "  task ucc:link               # symlink build output into dev Splunk"
         echo "  task ucc:dev                # build + link + refresh (fast iteration loop)"
-        echo "  task ucc:package            # build + package to splunk/stage/"
+        echo "  task ucc:package            # build + package to infra/deps/"
         echo "  task ucc:appinspect         # run Splunk AppInspect (precert mode)"
         echo ""
         echo "Staging environment (port 18000):"
         echo "  task stage:deploy           # package + start + install (full pipeline)"
-        echo "  task stage:package          # package all apps to splunk/stage/"
+        echo "  task stage:package          # package all apps to infra/deps/"
         echo "  task stage:up               # start staging container"
         echo "  task stage:install          # install tgz into running staging"
         echo "  task stage:down             # stop staging container"
@@ -240,7 +240,7 @@ tasks:
           tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "$APP"
         done
         echo "All apps packaged to {{.STAGE_DIR}}/"
-    desc: Package all apps from splunk/config/apps/ into splunk/stage/
+    desc: Package all apps from infra/config/ into infra/deps/
 
   stage:up:
     deps: [__ensure-image]
@@ -266,7 +266,7 @@ tasks:
             2>&1 && INSTALLED=$((INSTALLED + 1)) || SKIPPED=$((SKIPPED + 1))
         done
         echo "Install complete: $INSTALLED installed, $SKIPPED failed"
-    desc: Install all tgz from splunk/stage/ into running staging (deps auto-package + start)
+    desc: Install all tgz from infra/deps/ into running staging (deps auto-package + start)
 
   stage:deploy:
     cmds:
@@ -380,15 +380,15 @@ tasks:
         echo "Packaging $SRC_DIR → $TAR_PATH"
         tar -czf "$TAR_PATH" -C "{{.CONFIG_APPS_DIR}}" "{{.APP_NAME}}"
         echo "Created $TAR_PATH"
-    desc: Package splunk/config/apps/<APP_NAME> into splunk/stage/<APP_NAME>.tgz
+    desc: Package infra/config/<APP_NAME> into infra/deps/<APP_NAME>.tgz
 
   # ── Dependency Management ────────────────────────────────────────────
 
   deps:install:
     deps: [__dev:ensure-running]
     cmds:
-      - python3 splunk/scripts/deps-install.py --env-file "{{.ENV_FILE}}" --deps-file "{{.DEPS_FILE}}" --stage-dir "{{.STAGE_DIR}}" --compose-file "{{.COMPOSE_FILE}}" --service "{{.SPLUNK_SERVICE}}"
-    desc: Install Splunkbase dependencies from splunk/config/deps.yml (idempotent)
+      - python3 infra/scripts/deps-install.py --env-file "{{.ENV_FILE}}" --deps-file "{{.DEPS_FILE}}" --stage-dir "{{.STAGE_DIR}}" --compose-file "{{.COMPOSE_FILE}}" --service "{{.SPLUNK_SERVICE}}"
+    desc: Install Splunkbase dependencies from infra/deps/deps.yml (idempotent)
 
   # ── React Development ─────────────────────────────────────────────────
   #
@@ -399,7 +399,7 @@ tasks:
   #
   # Dev loop: react:create → react:link → react:start (webpack watch)
   #           Splunk reads stage/ directly via symlink — no copying needed.
-  # Staging:  react:package → stage:up (tgz auto-installed from splunk/stage/)
+  # Staging:  react:package → stage:up (tgz auto-installed from infra/deps/)
 
   # ── Internal: resolve REACT_APP_PATH ───────────────────────────────
   # Uses {{.APP_NAME}} (from dotenv or CLI) to find the React package dir.
@@ -565,18 +565,18 @@ tasks:
         tar -chzf "${TGZ}" -C "${TMPDIR}" "${REACT_APP_NAME}"
         rm -rf "${TMPDIR}"
         echo "Packaged → ${TGZ}"
-        echo "Deploy: task stage:up (auto-installs from splunk/stage/)"
-    desc: Build + package stage/ as splunk/stage/<APP_NAME>.tgz for staging
+        echo "Deploy: task stage:up (auto-installs from infra/deps/)"
+    desc: Build + package stage/ as infra/deps/<APP_NAME>.tgz for staging
 
   # ── UCC Add-on Development ────────────────────────────────────────────
   #
   # UCC (Universal Configuration Console) convention:
-  #   ucc/<addon>/globalConfig.json  ← single source of truth for UI/config/inputs
-  #   ucc/<addon>/package/           ← source: bin/, lib/, default/, app.manifest
-  #   ucc/output/<addon>/            ← ucc-gen build output (generated, gitignored)
+  #   apps/<addon>/globalConfig.json  ← single source of truth for UI/config/inputs
+  #   apps/<addon>/package/           ← source: bin/, lib/, default/, app.manifest
+  #   output/<addon>/                 ← ucc-gen build output (generated, gitignored)
   #
   # Dev loop: ucc:init → ucc:build → ucc:link → ucc:dev (build+link+refresh)
-  # Staging:  ucc:package → stage:deploy (tgz auto-installed from splunk/stage/)
+  # Staging:  ucc:package → stage:deploy (tgz auto-installed from infra/deps/)
 
   # ── Internal: resolve UCC addon path ────────────────────────────────
   __ucc:resolve:
@@ -876,7 +876,7 @@ tasks:
         ls -la "{{.STAGE_DIR}}"/${UCC_ADDON}*.tar.gz 2>/dev/null || ls -la "{{.STAGE_DIR}}"/${UCC_ADDON}*.tgz 2>/dev/null
         echo ""
         echo "Deploy: task stage:deploy"
-    desc: Build + package UCC add-on to splunk/stage/ for staging
+    desc: Build + package UCC add-on to infra/deps/ for staging
 
   ucc:appinspect:
     deps: [__ucc:resolve]
@@ -911,12 +911,12 @@ tasks:
   python:lint:
     cmds:
       - ruff check {{.CONFIG_APPS_DIR}} || true
-    desc: Lint Python code in splunk/config/apps/ with ruff
+    desc: Lint Python code in infra/config/ with ruff
 
   python:format:
     cmds:
       - ruff format {{.CONFIG_APPS_DIR}} || true
-    desc: Format Python code in splunk/config/apps/ with ruff
+    desc: Format Python code in infra/config/ with ruff
 
   python:test:
     cmds:

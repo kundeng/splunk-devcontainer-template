@@ -11,7 +11,7 @@
             },
             "pathMappings": [
                 {
-                    "localRoot": "${workspaceFolder}/splunk/config/apps",
+                    "localRoot": "${workspaceFolder}/infra/config",
                     "remoteRoot": "/opt/splunk/etc/apps"
                 }
             ],
@@ -22,7 +22,7 @@
             "type": "chrome",
             "request": "launch",
             "url": "http://localhost:8000/en-US/app/${input:appName}/",
-            "webRoot": "${workspaceFolder}/splunk/config/apps/${input:appName}"
+            "webRoot": "${workspaceFolder}/infra/config/${input:appName}"
         },
         {
             "name": "Chrome: React Dev Server",
@@ -36,7 +36,7 @@
             "type": "chrome",
             "request": "launch",
             "url": "http://localhost:18000/en-US/app/${input:appName}/",
-            "webRoot": "${workspaceFolder}/splunk/config/apps/${input:appName}"
+            "webRoot": "${workspaceFolder}/infra/config/${input:appName}"
         }
     ],
     "inputs": [

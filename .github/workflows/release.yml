@@ -32,7 +32,7 @@ jobs:
       - name: Find UCC app
         id: find
         run: |
-          APP_DIR=$(find ucc/ -maxdepth 2 -name "globalConfig.json" -printf "%h\n" | head -1)
+          APP_DIR=$(find apps/ -maxdepth 2 -name "globalConfig.json" -printf "%h\n" | head -1)
           if [ -z "$APP_DIR" ]; then
             echo "::error::No UCC app found"
             exit 1
@@ -48,7 +48,7 @@ jobs:
 
       - name: Post-build fixups
         run: |
-          APP="ucc/output/${{ steps.find.outputs.app_name }}"
+          APP="output/${{ steps.find.outputs.app_name }}"
           FRAG_DIR="${{ steps.find.outputs.app_dir }}/package/default.d"
           if [ -d "${FRAG_DIR}" ]; then
             for frag in "${FRAG_DIR}"/*.conf; do
@@ -67,7 +67,7 @@ jobs:
 
       - name: Run AppInspect
         run: |
-          splunk-appinspect inspect "ucc/output/${{ steps.find.outputs.app_name }}" \
+          splunk-appinspect inspect "output/${{ steps.find.outputs.app_name }}" \
             --mode precert \
             --included-tags cloud 2>&1 | tee appinspect.log
           if grep -qE "^\s+error:\s+[1-9]|^\s+failure:\s+[1-9]" appinspect.log; then
@@ -77,11 +77,11 @@ jobs:
 
       - name: Package tarball
         run: |
-          cd ucc/output
+          cd output
           tar czf "${{ steps.find.outputs.app_name }}-${{ steps.meta.outputs.version }}.tgz" "${{ steps.find.outputs.app_name }}/"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: ucc/output/${{ steps.find.outputs.app_name }}-${{ steps.meta.outputs.version }}.tgz
+          files: output/${{ steps.find.outputs.app_name }}-${{ steps.meta.outputs.version }}.tgz
           generate_release_notes: true

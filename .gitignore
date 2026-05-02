@@ -41,15 +41,15 @@ yarn-debug.log
 yarn-error.log
 
 # React monorepo — track source, ignore build artifacts + deps
-react/node_modules/
-react/packages/*/node_modules/
-react/packages/*/stage/
-react/packages/*/*.js
-react/packages/*/*.js.map
-react/packages/*/types/
-react/packages/*/demo/splunk-app/appserver/static/
-react/packages/*/coverage_report/
-react/packages/*/test-reports/
+apps/*/react/node_modules/
+apps/*/react/packages/*/node_modules/
+apps/*/react/packages/*/stage/
+apps/*/react/packages/*/*.js
+apps/*/react/packages/*/*.js.map
+apps/*/react/packages/*/types/
+apps/*/react/packages/*/demo/splunk-app/appserver/static/
+apps/*/react/packages/*/coverage_report/
+apps/*/react/packages/*/test-reports/
 
 # Splunk
 local/
@@ -59,9 +59,9 @@ default.old*/
 *.tar.gz
 
 # User apps — template ships only splunk-config-dev
-splunk/config/apps/*
-!splunk/config/apps/splunk-config-dev/
-!splunk/config/apps/.gitkeep
+infra/config/*
+!infra/config/splunk-config-dev/
+!infra/config/.gitkeep
 
 # Docker
 .docker/
@@ -95,11 +95,11 @@ memory/**
 /.windsurf/
 /.claude/
 
-splunk/stage/*
-!splunk/stage/.gitkeep
+infra/deps/stage/*
+!infra/deps/stage/.gitkeep
 
-# UCC build output (generated, rebuild from source)
-ucc/output/
+# Build output (generated, rebuild from source)
+output/
 
 # Playwright test artifacts
 test-results/

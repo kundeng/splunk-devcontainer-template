@@ -15,7 +15,7 @@ jobs:
       - name: Shellcheck
         run: |
           sudo apt-get install -y shellcheck
-          find splunk/ -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning || true
+          find infra/ -name '*.sh' -print0 | xargs -0 shellcheck --severity=warning || true
 
   ucc-build:
     runs-on: ubuntu-latest
@@ -30,8 +30,8 @@ jobs:
       - name: Find UCC app
         id: find
         run: |
-          # Find first directory under ucc/ that has a globalConfig.json
-          APP_DIR=$(find ucc/ -maxdepth 2 -name "globalConfig.json" -printf "%h\n" | head -1)
+          # Find first directory under apps/ that has a globalConfig.json
+          APP_DIR=$(find apps/ -maxdepth 2 -name "globalConfig.json" -printf "%h\n" | head -1)
           if [ -z "$APP_DIR" ]; then
             echo "No UCC app found — skipping build"
             echo "skip=true" >> "$GITHUB_OUTPUT"
@@ -55,7 +55,7 @@ jobs:
       - name: Post-build fixups
         if: steps.find.outputs.skip != 'true'
         run: |
-          APP="ucc/output/${{ steps.find.outputs.app_name }}"
+          APP="output/${{ steps.find.outputs.app_name }}"
           # Merge conf fragments
           FRAG_DIR="${{ steps.find.outputs.app_dir }}/package/default.d"
           if [ -d "${FRAG_DIR}" ]; then
@@ -80,7 +80,7 @@ jobs:
       - name: Run AppInspect
         if: steps.find.outputs.skip != 'true'
         run: |
-          splunk-appinspect inspect "ucc/output/${{ steps.find.outputs.app_name }}" \
+          splunk-appinspect inspect "output/${{ steps.find.outputs.app_name }}" \
             --mode precert \
             --included-tags cloud 2>&1 | tee appinspect.log
           if grep -qE "^\s+error:\s+[1-9]|^\s+failure:\s+[1-9]" appinspect.log; then
